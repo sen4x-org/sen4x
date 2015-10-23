@@ -1,8 +1,8 @@
 #! /bin/bash
 
-if [ $# -lt 3 ]
+if [ $# -lt 7 ]
 then
-  echo "Usage: $0 <include file> <resolution> <out folder name> [models folder name]"
+  echo "Usage: $0 <list of input XMLs> <resolution> <out folder name> <RSR filename> <solar zenith angle> <sensor_zenith_angle> <relative azimuth angle>"
   echo "The file with input xmls should be given. The resolution should be given. The output directory should also be given" 1>&2  
   exit
 fi
@@ -24,10 +24,15 @@ IFS=' ' read -a inputXML <<< "$1"
 RESOLUTION=$2
 
 OUT_FOLDER=$3
+
+RSR_FILENAME="$4"
+SOLAR_ZENITH_ANGLE=57.472591328
+SENSOR_ZENITH_ANGLE=18.141025097
+RELATIVE_AZIMUTH_ANGLE=-39.248727096
 MODELS_FOLDER=${OUT_FOLDER}
-if [ $# -gt 3 ] ; then
-    MODELS_FOLDER=$4
-fi
+
+./lai_model.sh "$RSR_FILENAME" $SOLAR_ZENITH_ANGLE $SENSOR_ZENITH_ANGLE $RELATIVE_AZIMUTH_ANGLE "$MODELS_FOLDER"
+
 
 RESOLUTION_OPTION="-outres $RESOLUTION"
 if [[ $RESOLUTION != 10 && $RESOLUTION != 20 ]]
