@@ -111,14 +111,27 @@ def build_item(row):
             "title": "Product manifest",
             "type": "application/xml",
             "roles": ["metadata"],
+            "alternate": {
+                "s3": {
+                    "href": f"http://s3.waw4-1.cloudferro.com{str(metadata).replace('SEN4CAP', 'Sen4CAP')}"
+                }
+            },
         }
     if product_assets:
         for kind, image in product_assets.items():
-            assets[kind] = {
+            asset = {
                 "href": str(image),
                 "type": "image/tiff",
                 "roles": ["data"],
             }
+
+            # TODO
+            asset["alternate"] = {
+                "s3": {
+                    "href": f"http://s3.waw4-1.cloudferro.com{image.replace('SEN4CAP', 'Sen4CAP')}"
+                }
+            }
+            assets[kind] = asset
 
     quicklook_image = row.get("quicklook_image") or ""
     if preview:
