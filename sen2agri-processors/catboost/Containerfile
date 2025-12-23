@@ -1,0 +1,11 @@
+# syntax=docker/dockerfile:1.4
+
+FROM docker.io/debian:13
+
+RUN --mount=type=bind,source=requirements.txt,target=/tmp/requirements.txt \
+    apt-get update && \
+    apt-get install -y --no-install-recommends python3-pip && \
+    rm -rf /var/lib/apt/lists/* && \
+    pip3 install --break-system-packages -r /tmp/requirements.txt
+
+COPY catboost-train.py /usr/local/bin

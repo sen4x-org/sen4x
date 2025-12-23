@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from enum import IntEnum
 from multiprocessing.dummy import Pool
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import psycopg2
@@ -33,8 +34,9 @@ import docker
 OTB_NEW_IMAGE_NAME = "docker.io/orfeotoolbox/otb:8.1.1"
 OTB_OLD_IMAGE_NAME = "docker.io/sen4x/otb:6.6.1"
 PROCESSORS_NEW_IMAGE_NAME = "sen4x/processors-new:0.2.0"
-MISC_IMAGE_NAME = "sen4x/s4s-interim-ct:latest"
-ERDY_IMAGE_NAME = "docker.io/lnicola/erdy:0.2.4"
+MISC_IMAGE_NAME = "docker.io/sen4x/s4s-interim-ct:0.2.0"
+ERDY_IMAGE_NAME = "docker.io/lnicola/erdy:0.2.5"
+CATBOOST_IMAGE_NAME = "docker.io/sen4x/catboost:0.1.0"
 
 
 def parse_date(str):
@@ -384,11 +386,29 @@ class L2AProduct(object):
 
 
 class ProcessorConfig:
-    def __init__(self, additional_mounts, max_depth, min_samples, num_trees):
+    def __init__(
+        self,
+        additional_mounts: List[Tuple[str, str]],
+        classifier: str,
+        rf_max_depth: int,
+        rf_min_samples: int,
+        rf_num_trees: int,
+        catboost_iterations: int,
+        catboost_depth: int,
+        catboost_early_stopping_rounds: int,
+        catboost_test_split: float,
+        catboost_random_state: int,
+    ):
         self.additional_mounts = additional_mounts
-        self.max_depth = max_depth
-        self.min_samples = min_samples
-        self.num_trees = num_trees
+        self.classifier = classifier
+        self.rf_max_depth = rf_max_depth
+        self.rf_min_samples = rf_min_samples
+        self.rf_num_trees = rf_num_trees
+        self.catboost_iterations = catboost_iterations
+        self.catboost_depth = catboost_depth
+        self.catboost_early_stopping_rounds = catboost_early_stopping_rounds
+        self.catboost_test_split = catboost_test_split
+        self.catboost_random_state = catboost_random_state
 
 
 def load_processor_config(conn, site_id):
@@ -407,6 +427,11 @@ with site_config as (
                     where key = 'general.orchestrator.docker_add_mounts'
                 ),
                 (
+                    select value as classifier
+                    from site_config
+                    where key = 'processor.s4s_crop_mapping.classifier'
+                ),
+                (
                     select value :: int as rf_max_depth
                     from site_config
                     where key = 'processor.s4s_crop_mapping.rf.max-depth'
@@ -420,6 +445,31 @@ with site_config as (
                     select value :: int as rf_num_trees
                     from site_config
                     where key = 'processor.s4s_crop_mapping.rf.num-trees'
+                ),
+                (
+                    select value :: int as catboost_iterations
+                    from site_config
+                    where key = 'processor.s4s_crop_mapping.catboost.iterations'
+                ),
+                (
+                    select value :: int as catboost_depth
+                    from site_config
+                    where key = 'processor.s4s_crop_mapping.catboost.depth'
+                ),
+                (
+                    select value :: int as catboost_early_stopping_rounds
+                    from site_config
+                    where key = 'processor.s4s_crop_mapping.catboost.early-stopping-rounds'
+                ),
+                (
+                    select value :: real as catboost_test_split
+                    from site_config
+                    where key = 'processor.s4s_crop_mapping.catboost.test-split'
+                ),
+                (
+                    select value :: int as catboost_random_state
+                    from site_config
+                    where key = 'processor.s4s_crop_mapping.catboost.random-state'
                 )
      )
 select *
@@ -429,7 +479,18 @@ from config;
     logging.debug(query.as_string(conn))
     with conn.cursor() as cursor:
         cursor.execute(query, (site_id,))
-        (additional_mounts, max_depth, min_samples, num_trees) = cursor.fetchone()
+        (
+            additional_mounts,
+            classifier,
+            rf_max_depth,
+            rf_min_samples,
+            rf_num_trees,
+            catboost_iterations,
+            catboost_depth,
+            catboost_early_stopping_rounds,
+            catboost_test_split,
+            catboost_random_state,
+        ) = cursor.fetchone()
         if additional_mounts:
             additional_mounts = list(
                 map(
@@ -440,7 +501,18 @@ from config;
         else:
             additional_mounts = []
 
-        return ProcessorConfig(additional_mounts, max_depth, min_samples, num_trees)
+        return ProcessorConfig(
+            additional_mounts,
+            classifier,
+            rf_max_depth,
+            rf_min_samples,
+            rf_num_trees,
+            catboost_iterations,
+            catboost_depth,
+            catboost_early_stopping_rounds,
+            catboost_test_split,
+            catboost_random_state,
+        )
 
 
 def geotransform_for_tile(geom, epsg_code, pixel_size=10):
@@ -1027,6 +1099,7 @@ def run_sample_extraction(
     output_dir: str,
     volumes: Dict[str, Dict[str, str]],
     env: Dict[str, str],
+    processor_config: ProcessorConfig,
     tiles: List[Tile],
     strata: List[Stratum],
     stratum_band_names: List[str],
@@ -1035,6 +1108,11 @@ def run_sample_extraction(
     for stratum, band_names in zip(strata, stratum_band_names):
         band_names_lower = list(map(lambda x: x.lower(), band_names))
         print(f"Stratum {stratum.stratum_id}, fields: {band_names_lower}")
+
+        if processor_config.classifier == "rf":
+            samples_extension = "sqlite"
+        else:
+            samples_extension = "parquet"
 
         for tile in tiles:
             tile_id = tile.tile_id
@@ -1056,8 +1134,8 @@ def run_sample_extraction(
                 training_points = f"training_points_{tile_id}.gpkg"
                 validation_points = f"validation_points_{tile_id}.gpkg"
 
-                training_samples = f"training_samples_{tile_id}.sqlite"
-                validation_samples = f"validation_samples_{tile_id}.sqlite"
+                training_samples = f"training_samples_{tile_id}.{samples_extension}"
+                validation_samples = f"validation_samples_{tile_id}.{samples_extension}"
 
             points = []
             outputs = []
@@ -1113,15 +1191,11 @@ def run_sample_extraction(
         for tile in tiles:
             tile_id = tile.tile_id
             if stratum.stratum_id:
-                training_samples = (
-                    f"training_samples_{stratum.stratum_id}_{tile_id}.sqlite"
-                )
-                validation_samples = (
-                    f"validation_samples_{stratum.stratum_id}_{tile_id}.sqlite"
-                )
+                training_samples = f"training_samples_{stratum.stratum_id}_{tile_id}.{samples_extension}"
+                validation_samples = f"validation_samples_{stratum.stratum_id}_{tile_id}.{samples_extension}"
             else:
-                training_samples = f"training_samples_{tile_id}.sqlite"
-                validation_samples = f"validation_samples_{tile_id}.sqlite"
+                training_samples = f"training_samples_{tile_id}.{samples_extension}"
+                validation_samples = f"validation_samples_{tile_id}.{samples_extension}"
 
             if os.path.exists(training_samples):
                 training_files.append(training_samples)
@@ -1226,11 +1300,28 @@ def run_training(
         remapping_table = None
 
     confusion_matrices = []
+
+    if use_old_otb:
+        otb_image = OTB_OLD_IMAGE_NAME
+    else:
+        otb_image = OTB_NEW_IMAGE_NAME
+
+    if processor_config.classifier == "rf":
+        train_image = otb_image
+        classify_image = otb_image
+        model_extension = "yaml"
+    elif processor_config.classifier == "catboost":
+        train_image = CATBOOST_IMAGE_NAME
+        classify_image = ERDY_IMAGE_NAME
+        model_extension = "cbm"
+    else:
+        raise ValueError(f"Unsupported classifier: {processor_config.classifier}")
+
     for stratum, band_names in zip(strata, stratum_band_names):
         band_names_lower = list(map(lambda x: x.lower(), band_names))
 
         if stratum.stratum_id:
-            model = f"model_{stratum.stratum_id}.yaml"
+            model = f"model_{stratum.stratum_id}.{model_extension}"
 
             if remapping_table:
                 confusion_matrix_pre_json = (
@@ -1243,7 +1334,7 @@ def run_training(
                 )
                 confusion_matrix_json = None
         else:
-            model = "model.yaml"
+            model = f"model.{model_extension}"
 
             if remapping_table:
                 confusion_matrix_pre_json = "confusion_matrix_pre.json"
@@ -1256,8 +1347,8 @@ def run_training(
 
         training_samples_augmented = training_map_augmented[stratum.stratum_id]
         validation_samples = validation_map[stratum.stratum_id]
-        command = (
-            [
+        if processor_config.classifier == "rf":
+            command = [
                 "otbcli_TrainVectorClassifier",
                 "-io.out",
                 model,
@@ -1266,11 +1357,11 @@ def run_training(
                 "-classifier",
                 "rf",
                 "-classifier.rf.max",
-                str(processor_config.max_depth),
+                str(processor_config.rf_max_depth),
                 "-classifier.rf.min",
-                str(processor_config.min_samples),
+                str(processor_config.rf_min_samples),
                 "-classifier.rf.nbtrees",
-                str(processor_config.num_trees),
+                str(processor_config.rf_num_trees),
                 # "-classifier.rf.ra",
                 # "0",
                 # "-classifier.rf.cat",
@@ -1281,9 +1372,30 @@ def run_training(
                 # "0.01",
                 "-feat",
             ]
-            + band_names_lower
-            + ["-io.vd"]
-        )
+        else:
+            command = [
+                "catboost-train.py",
+                "--label-column",
+                "crop_code",
+                "--iterations",
+                str(processor_config.catboost_iterations),
+                "--depth",
+                str(processor_config.catboost_depth),
+                "--early-stopping-rounds",
+                str(processor_config.catboost_early_stopping_rounds),
+                "--test-split",
+                str(processor_config.catboost_test_split),
+                "--random-state",
+                str(processor_config.catboost_random_state),
+                "--model",
+                model,
+                "--feature-columns",
+            ]
+        command += band_names_lower
+        if processor_config.classifier == "rf":
+            command.append("-io.vd")
+        else:
+            command.append("--inputs")
         for file in training_samples_augmented:
             if os.path.exists(file):
                 command.append(file)
@@ -1291,7 +1403,7 @@ def run_training(
         if not os.path.exists(model):
             print(" ".join(command))
             container = ContainerInfo(
-                image=OTB_OLD_IMAGE_NAME if use_old_otb else OTB_NEW_IMAGE_NAME,
+                image=train_image,
                 command=command,
                 working_dir=output_dir,
                 volumes=volumes,
@@ -1302,28 +1414,56 @@ def run_training(
                 print(res)
 
         commands = []
+        validation_inputs = []
+        prediction_outputs = []
         for validation_file in validation_samples:
             predictions = validation_file.replace("validation_samples_", "predictions_")
-
+            if processor_config.classifier == "catboost":
+                predictions = Path(predictions).with_suffix(".parquet").as_posix()
             if os.path.exists(predictions):
                 continue
 
-            command = [
-                "otbcli_VectorClassifier",
-                "-model",
-                model,
-                "-out",
-                predictions,
-                "-in",
-                validation_file,
-                "-feat",
-            ] + band_names_lower
+            if processor_config.classifier == "rf":
+                command = [
+                    "otbcli_VectorClassifier",
+                    "-model",
+                    model,
+                    "-out",
+                    predictions,
+                    "-in",
+                    validation_file,
+                    "-feat",
+                ] + band_names_lower
+                commands.append(command)
+            else:
+                validation_inputs.append(validation_file)
+                prediction_outputs.append(predictions)
+
+        if processor_config.classifier == "catboost" and validation_inputs:
+            command = (
+                [
+                    "erdy",
+                    "vector-predict",
+                    "--model",
+                    model,
+                    "--reference-column",
+                    "crop_code",
+                    "--layer-creation-options",
+                    "COMPRESSION=ZSTD",
+                    "--inputs",
+                ]
+                + validation_inputs
+                + ["--outputs"]
+                + prediction_outputs
+                + ["--features"]
+                + band_names_lower
+            )
             commands.append(command)
 
         containers = []
         for command in commands:
             container = ContainerInfo(
-                image=OTB_OLD_IMAGE_NAME if use_old_otb else OTB_NEW_IMAGE_NAME,
+                image=classify_image,
                 command=command,
                 working_dir=output_dir,
                 volumes=volumes,
@@ -1345,6 +1485,8 @@ def run_training(
         ]
         for validation_file in validation_samples:
             predictions = validation_file.replace("validation_samples_", "predictions_")
+            if processor_config.classifier == "catboost":
+                predictions = Path(predictions).with_suffix(".parquet").as_posix()
             if os.path.exists(predictions):
                 command.append(predictions)
 
@@ -1392,17 +1534,37 @@ def run_classification(
     output_dir: str,
     volumes: Dict[str, Dict[str, str]],
     env: Dict[str, str],
+    processor_config: ProcessorConfig,
     strata: List[Stratum],
     use_old_otb: bool,
 ):
+    if use_old_otb:
+        otb_image = OTB_OLD_IMAGE_NAME
+    else:
+        otb_image = OTB_NEW_IMAGE_NAME
+
+    if processor_config.classifier == "rf":
+        image = otb_image
+        model_extension = "yaml"
+    elif processor_config.classifier == "catboost":
+        image = ERDY_IMAGE_NAME
+        model_extension = "cbm"
+    else:
+        raise ValueError(f"Unsupported classifier: {processor_config.classifier}")
+
+    if processor_config.classifier == "rf":
+        model_extension = "yaml"
+    else:
+        model_extension = "cbm"
+
     tiling_suffix = "?&gdal:co:TILED=YES&gdal:co:COMPRESS=DEFLATE&streaming:type=tiled&streaming:sizemode=height&streaming:sizevalue=256"
 
     commands = []
     for stratum in strata:
         if stratum.stratum_id:
-            model = f"model_{stratum.stratum_id}.yaml"
+            model = f"model_{stratum.stratum_id}.{model_extension}"
         else:
-            model = "model.yaml"
+            model = f"model.{model_extension}"
 
         if not os.path.exists(model):
             continue
@@ -1447,24 +1609,40 @@ def run_classification(
                     and not os.path.exists(probability_map_tif)
                 )
             ):
-                command = [
-                    "otbcli_ImageClassifier",
-                    "-in",
-                    bands_vrt,
-                    "-out",
-                    classified_pre_tif + tiling_suffix,
-                    "int16",
-                    "-model",
-                    model,
-                    "-confmap",
-                    confidence_map_tif + tiling_suffix,
-                ]
+                if processor_config.classifier == "rf":
+                    command = [
+                        "otbcli_ImageClassifier",
+                        "-in",
+                        bands_vrt,
+                        "-out",
+                        classified_pre_tif + tiling_suffix,
+                        "int16",
+                        "-model",
+                        model,
+                        "-confmap",
+                        confidence_map_tif + tiling_suffix,
+                    ]
+                else:
+                    command = [
+                        "erdy",
+                        "raster-predict",
+                        "--model",
+                        model,
+                        "--output",
+                        classified_pre_tif,
+                        "--creation-options",
+                        "TILED=YES",
+                        "COMPRESS=DEFLATE",
+                        "PREDICTOR=2",
+                        "--inputs",
+                        bands_vrt,
+                    ]
                 commands.append(command)
 
     containers = []
     for command in commands:
         container = ContainerInfo(
-            image=OTB_OLD_IMAGE_NAME if use_old_otb else OTB_NEW_IMAGE_NAME,
+            image=image,
             command=command,
             working_dir=output_dir,
             volumes=volumes,
@@ -2924,6 +3102,7 @@ def main():
             output_dir,
             volumes,
             env,
+            processor_config,
             tiles,
             strata,
             stratum_band_names,
@@ -2960,7 +3139,14 @@ def main():
             remapping_enabled = False
 
         run_classification(
-            client, pool_med_conc, output_dir, volumes, env, strata, args.use_old_otb
+            client,
+            pool_med_conc,
+            output_dir,
+            volumes,
+            env,
+            processor_config,
+            strata,
+            args.use_old_otb,
         )
 
         if strata[0].stratum_id:

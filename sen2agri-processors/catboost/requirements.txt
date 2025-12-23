@@ -1,0 +1,5 @@
+catboost ~= 1.2.8
+geopandas ~= 1.1.2
+pandas ~= 2.3.3
+pyarrow ~= 22.0.0
+scikit-learn ~= 1.8.0

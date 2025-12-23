@@ -744,9 +744,15 @@ insert into config(key, site_id, value, last_updated) values ('processor.s4s_cro
 insert into config(key, site_id, value, last_updated) values ('processor.s4s_crop_mapping.smote-ratio', null, '0.0075', '2021-08-30 13:56:07.537023+03');
 insert into config(key, site_id, value, last_updated) values ('processor.s4s_crop_mapping.sample-ratio-hi', null, '0.25', '2021-08-30 13:56:07.537023+03');
 insert into config(key, site_id, value, last_updated) values ('processor.s4s_crop_mapping.sample-ratio-lo', null, '0.75', '2021-08-30 13:56:07.537023+03');
+insert into config(key, site_id, value, last_updated) values ('processor.s4s_crop_mapping.classifier', null, 'rf', '2025-12-22 20:21:06.986639+02');
 insert into config(key, site_id, value, last_updated) values ('processor.s4s_crop_mapping.rf.max-depth', null, '25', '2021-08-30 13:56:07.537023+03');
 insert into config(key, site_id, value, last_updated) values ('processor.s4s_crop_mapping.rf.min-samples', null, '25', '2021-08-30 13:56:07.537023+03');
 insert into config(key, site_id, value, last_updated) values ('processor.s4s_crop_mapping.rf.num-trees', null, '100', '2021-08-30 13:56:07.537023+03');
+insert into config(key, site_id, value, last_updated) values ('processor.s4s_crop_mapping.catboost.iterations', null, '1000', '2025-12-22 20:21:06.986639+02');
+insert into config(key, site_id, value, last_updated) values ('processor.s4s_crop_mapping.catboost.depth', null, '7', '2025-12-22 20:21:06.986639+02');
+insert into config(key, site_id, value, last_updated) values ('processor.s4s_crop_mapping.catboost.early-stopping-rounds', null, '20', '2025-12-22 20:21:06.986639+02');
+insert into config(key, site_id, value, last_updated) values ('processor.s4s_crop_mapping.catboost.test-split', null, '0.1', '2025-12-22 20:21:06.986639+02');
+insert into config(key, site_id, value, last_updated) values ('processor.s4s_crop_mapping.catboost.random-state', null, '42', '2025-12-22 20:21:06.986639+02');
 insert into config(key, site_id, value, last_updated) values ('processor.s4s_crop_mapping.crop_remapping_set_id', null, '-1', '2021-08-30 13:56:07.537023+03');
 
 insert into config(key, site_id, value, last_updated) values ('processor.s4s_crop_mapping.features-filter', null, '', '2021-08-30 13:56:07.537023+03');

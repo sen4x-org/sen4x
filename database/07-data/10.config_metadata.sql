@@ -704,10 +704,15 @@ insert into config_metadata values ('processor.s4s_crop_mapping.excluded-crops-r
 insert into config_metadata values ('processor.s4s_crop_mapping.smote-ratio', 'Synthetic sample ratio', 'float', true, 30, true, 'Synthetic sample ratio', null);
 insert into config_metadata values ('processor.s4s_crop_mapping.sample-ratio-hi', 'Training pixel ratio for strategy 1', 'float', true, 30, true, 'Training pixel ratio for strategy 1', null);
 insert into config_metadata values ('processor.s4s_crop_mapping.sample-ratio-lo', 'Training pixel ratio for strategies 2 and 3', 'float', true, 30, true, 'Training pixel ratio for strategies 2 and 3', null);
+insert into config_metadata values ('processor.s4s_crop_mapping.classifier', 'Classifier type', 'string', true, 30, true, 'Classifier to use for crop mapping', '{ "allowed_values": [{ "value": "rf", "display": "Random Forest" }, { "value": "catboost", "display": "CatBoost"}] }');
 insert into config_metadata values ('processor.s4s_crop_mapping.rf.max-depth', 'Maximum depth of RF trees', 'int', true, 30, true, 'Maximum depth of RF trees', null);
 insert into config_metadata values ('processor.s4s_crop_mapping.rf.min-samples', 'Minimum samples in RF tree nodes', 'int', true, 30, true, 'Minimum samples in RF tree nodes', null);
 insert into config_metadata values ('processor.s4s_crop_mapping.rf.num-trees', 'Number of RF trees', 'int', true, 30, true, 'Number of RF trees', null);
-
+insert into config_metadata values ('processor.s4s_crop_mapping.catboost.iterations', 'Maximum number of trees', 'int', true, 30, true, 'Maximum number of trees', null);
+insert into config_metadata values ('processor.s4s_crop_mapping.catboost.depth', 'Tree depth', 'int', true, 30, true, 'Depth of the trees', null);
+insert into config_metadata values ('processor.s4s_crop_mapping.catboost.early-stopping-rounds', 'Early stopping rounds', 'int', true, 30, true, 'Early stopping rounds', null);
+insert into config_metadata values ('processor.s4s_crop_mapping.catboost.test-split', 'Test split fraction', 'float', true, 30, true, 'Test split for early stopping', null);
+insert into config_metadata values ('processor.s4s_crop_mapping.catboost.random-state', 'Random state', 'int', true, 30, true, 'Random state for test split', null);
 insert into config_metadata values ('processor.s4s_crop_mapping.crop_remapping_set_id', 'Crop Remapping Set', 'string', true, 30, true, 'Crop Remapping Set', '{ "allowed_values_source": { "database_object": "crop_remapping_set", "value_column": "crop_remapping_set_id", "label_column": "name" } }', true);
 
 insert into config_metadata values ('processor.s4s_crop_mapping.features-filter', 'Features filter. If provided, the features are given as comma separated values. Possible values are sr10 (S2 Reflectance 10m), sr20 (S2 reflectance 20m), vi (Vegetation indices), vis (Vegetation indices Statistics), sar (S1 features), re (Red edge features)', 'string', true, 30, true, 'Features filter', null);
