@@ -30,7 +30,7 @@ class Config(object):
 
 
 def save_to_csv(rows, path, headers):
-    with open(path, "wb") as csvfile:
+    with open(path, "w") as csvfile:
         writer = csv.writer(csvfile, quoting=csv.QUOTE_MINIMAL)
         writer.writerow(headers)
         for row in rows:
@@ -45,10 +45,10 @@ def extract_tile_footprints(conn, site_id, file):
 from shape_tiles_s2
 where shape_tiles_s2.tile_id in (
     select tile_id
-    from sp_get_site_tiles(%s(site_id)s :: smallint, 1 :: smallint)
+    from sp_get_site_tiles(%(site_id)s :: smallint, 1 :: smallint)
 );
 """
-        print(query.as_string(conn))
+        print(query)
         cursor.execute(query, {"site_id": site_id})
 
         save_to_csv(cursor, file, ["tile_id", "epsg_code", "geog"])
@@ -62,7 +62,7 @@ def extract_radar_products(conn, site_id, season_start, season_end, file):
     site_tiles.tile_id,
     product.orbit_type_id,
     case
-        when product.name like '%_VH_%' then 'VH'
+        when product.name like '%%_VH_%%' then 'VH'
         else 'VV'
     end as polarization,
     product.product_type_id,
@@ -75,7 +75,7 @@ and site_tiles.tile_id = any(product.tiles)
 and product.created_timestamp between %(start_date)s and %(end_date)s + interval '1 day'
 order by date;
 """
-        print(query.as_string(conn))
+        print(query)
         cursor.execute(
             query,
             {
