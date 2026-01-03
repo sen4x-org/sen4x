@@ -28,18 +28,23 @@ def split_input_file(input_file, output_dir_path):
 
     filename = Path(input_file).stem
 
-    HistoricalRecord = pd.read_csv(input_file)
-    columns = HistoricalRecord.columns
-    columns = columns.drop('crop_code')
-    for i, g in HistoricalRecord.groupby(['crop_code']):
-        # print (i)
-        g = g.sort_values('SUid')
-        # print (g)    
-        out_file_name = os.path.join(output_dir_path, filename + "_" + str(i) + ".csv")
-        g.to_csv(out_file_name, columns = columns, index=False)
-        input_files[i] = out_file_name
+    with open(input_file, "r", encoding="utf-8-sig", newline="") as f:
+        sample = f.read(4096)
+        f.seek(0)
+        dialect = csv.Sniffer().sniff(sample, delimiters=";,")
+        HistoricalRecord = pd.read_csv(f, delimiter=dialect.delimiter)
+#         HistoricalRecord = pd.read_csv(input_file, encoding="utf-8-sig")
+        columns = HistoricalRecord.columns
+        columns = columns.drop('crop_code')
+        for i, g in HistoricalRecord.groupby(['crop_code']):
+            # print (i)
+            g = g.sort_values('SUid')
+            # print (g)    
+            out_file_name = os.path.join(output_dir_path, filename + "_" + str(i) + ".csv")
+            g.to_csv(out_file_name, columns = columns, index=False)
+            input_files[i] = out_file_name
 
-    return input_files
+        return input_files
 
 def compute_trend_feature(input_file, year_to_process, output_file) :
 

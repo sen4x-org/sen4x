@@ -13,7 +13,7 @@ import subprocess
 from shutil import copyfile
 
 DEFAULT_SU_YIELD_HIST_DATA_FILE = "/mnt/archive/s4s_yield/{site}/yield_su/HistoricalData/SU_yield_historical_data.csv"
-SU_YIELD_HIST_DATA_CFG_KEY = "processor.s4s_yield_su.historical_data_path"
+SU_YIELD_HIST_DATA_CFG_KEY = "processor.s4s_yield.historical_data_path"
 
 class Config(object):
     def __init__(self, args):

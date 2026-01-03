@@ -75,6 +75,12 @@ def get_crop_type_rasters(crop_type_path, tile):
     ct_rasters = glob.glob(filtering_path)
     if len(ct_rasters) > 0:
         return ct_rasters[0]
+
+    filtering_path = "{}/TILES/classified_{}.tif".format(crop_type_path, tile)
+    print("Trying to use filter {}".format(filtering_path))
+    ct_rasters = glob.glob(filtering_path)
+    if len(ct_rasters) > 0:
+        return ct_rasters[0]
     
     return ""
 
