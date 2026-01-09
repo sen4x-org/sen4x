@@ -1752,17 +1752,14 @@ def merge_strata(
     run_containers_concurrently(client, pool, containers)
 
 
-def get_season(conn, site_id, start_date, end_date):
+def get_season_id(conn, site_id, start_date, end_date):
     with conn.cursor() as cursor:
-        query = SQL(
-            "select * from sp_get_season_for_interval(%s::smallint, %s::date, %s::date)"
-        )
+        query = SQL("select id from sp_get_season_for_interval(%s :: smallint, %s, %s)")
         cursor.execute(query, (site_id, start_date, end_date))
         row = cursor.fetchone()
         if row is None:
             return None
-        columns = [desc[0] for desc in cursor.description]
-        return dict(zip(columns, row))
+        return row[0]
 
 
 @dataclass
@@ -1993,9 +1990,9 @@ def main():
 
     with get_connection(config) as conn:
         processor_config = load_processor_config(conn, config.site_id, config.job_id)
-        season = get_season(conn, config.site_id, season_start, season_end)
-        if not season:
-            print("ERROR: No season found for given parameters.")
+        season_id = get_season_id(conn, config.site_id, season_start, season_end)
+        if not season_id:
+            logging.error("No season found for the given dates")
             sys.exit(1)
 
     volumes = {
@@ -2024,7 +2021,7 @@ def main():
             "-s",
             str(args.site_id),
             "--season-id",
-            season["id"],
+            str(season_id),
             "--pix-min",
             str(args.pix_min),
             "--pix-best",
