@@ -61,6 +61,7 @@ class Config(object):
         self.password = parser.get("Database", "Password")
 
         self.site_id = args.site_id
+        self.job_id = args.job_id
 
         if args.date_filter:
             self.date_filter = list(map(parse_date, args.date_filter))
@@ -412,108 +413,57 @@ class ProcessorConfig:
         self.catboost_random_state = catboost_random_state
 
 
-def load_processor_config(conn, site_id):
-    query = SQL(
+def load_processor_config(conn, site_id: int, job_id: Optional[int]):
+    if job_id is None:
+        query = """
+            select key, value
+            from v_site_config
+            where site_id = %s
+              and key like 'processor.s4s_crop_mapping.%%'
+               or key = 'general.orchestrator.docker_add_mounts'
         """
-with site_config as (
-    select key,
-           value
-    from v_site_config
-    where site_id = %s
-),
-     config as (
-         select (
-                    select value as additional_mounts
-                    from site_config
-                    where key = 'general.orchestrator.docker_add_mounts'
-                ),
-                (
-                    select value as classifier
-                    from site_config
-                    where key = 'processor.s4s_crop_mapping.classifier'
-                ),
-                (
-                    select value :: int as rf_max_depth
-                    from site_config
-                    where key = 'processor.s4s_crop_mapping.rf.max-depth'
-                ),
-                (
-                    select value :: int as rf_min_samples
-                    from site_config
-                    where key = 'processor.s4s_crop_mapping.rf.min-samples'
-                ),
-                (
-                    select value :: int as rf_num_trees
-                    from site_config
-                    where key = 'processor.s4s_crop_mapping.rf.num-trees'
-                ),
-                (
-                    select value :: int as catboost_iterations
-                    from site_config
-                    where key = 'processor.s4s_crop_mapping.catboost.iterations'
-                ),
-                (
-                    select value :: int as catboost_depth
-                    from site_config
-                    where key = 'processor.s4s_crop_mapping.catboost.depth'
-                ),
-                (
-                    select value :: int as catboost_early_stopping_rounds
-                    from site_config
-                    where key = 'processor.s4s_crop_mapping.catboost.early-stopping-rounds'
-                ),
-                (
-                    select value :: real as catboost_test_split
-                    from site_config
-                    where key = 'processor.s4s_crop_mapping.catboost.test-split'
-                ),
-                (
-                    select value :: int as catboost_random_state
-                    from site_config
-                    where key = 'processor.s4s_crop_mapping.catboost.random-state'
-                )
-     )
-select *
-from config;
-"""
-    )
-    logging.debug(query.as_string(conn))
-    with conn.cursor() as cursor:
-        cursor.execute(query, (site_id,))
-        (
-            additional_mounts,
-            classifier,
-            rf_max_depth,
-            rf_min_samples,
-            rf_num_trees,
-            catboost_iterations,
-            catboost_depth,
-            catboost_early_stopping_rounds,
-            catboost_test_split,
-            catboost_random_state,
-        ) = cursor.fetchone()
-        if additional_mounts:
-            additional_mounts = list(
-                map(
-                    lambda p: (p[0], p[1]),
-                    map(lambda x: x.split(":"), additional_mounts.split(",")),
-                )
-            )
-        else:
-            additional_mounts = []
+        params = (site_id,)
+    else:
+        query = """
+            select key, value
+            from sp_get_job_parameters(%s, %s)
+        """
+        params = (job_id, None)
 
-        return ProcessorConfig(
-            additional_mounts,
-            classifier,
-            rf_max_depth,
-            rf_min_samples,
-            rf_num_trees,
-            catboost_iterations,
-            catboost_depth,
-            catboost_early_stopping_rounds,
-            catboost_test_split,
-            catboost_random_state,
-        )
+    with conn.cursor() as cursor:
+        cursor.execute(query, params)
+        cfg = {key: value for key, value in cursor}
+
+    def get(key, conv=lambda x: x, default=None):
+        v = cfg.get(key)
+        return default if v is None else conv(v)
+
+    additional_mounts_raw = get("general.orchestrator.docker_add_mounts", default="")
+    if additional_mounts_raw:
+        additional_mounts = [
+            tuple(p.split(":", 1)) for p in additional_mounts_raw.split(",")
+        ]
+    else:
+        additional_mounts = []
+
+    return ProcessorConfig(
+        additional_mounts=additional_mounts,
+        classifier=get("processor.s4s_crop_mapping.classifier"),
+        rf_max_depth=get("processor.s4s_crop_mapping.rf.max-depth", int),
+        rf_min_samples=get("processor.s4s_crop_mapping.rf.min-samples", int),
+        rf_num_trees=get("processor.s4s_crop_mapping.rf.num-trees", int),
+        catboost_iterations=get("processor.s4s_crop_mapping.catboost.iterations", int),
+        catboost_depth=get("processor.s4s_crop_mapping.catboost.depth", int),
+        catboost_early_stopping_rounds=get(
+            "processor.s4s_crop_mapping.catboost.early-stopping-rounds", int
+        ),
+        catboost_test_split=get(
+            "processor.s4s_crop_mapping.catboost.test-split", float
+        ),
+        catboost_random_state=get(
+            "processor.s4s_crop_mapping.catboost.random-state", int
+        ),
+    )
 
 
 def geotransform_for_tile(geom, epsg_code, pixel_size=10):
@@ -2003,7 +1953,11 @@ def main():
         default=False,
         action="store_true",
     )
-
+    parser.add_argument(
+        "--job-id",
+        type=int,
+        help="job ID",
+    )
     args = parser.parse_args()
 
     if args.debug:
@@ -2038,7 +1992,7 @@ def main():
         assert len(config.stratum_start_dates) == len(config.stratum_end_dates)
 
     with get_connection(config) as conn:
-        processor_config = load_processor_config(conn, config.site_id)
+        processor_config = load_processor_config(conn, config.site_id, config.job_id)
         season = get_season(conn, config.site_id, season_start, season_end)
         if not season:
             print("ERROR: No season found for given parameters.")
