@@ -11,8 +11,8 @@ import os.path
 import pickle
 import shlex
 import shutil
-import sys
 import subprocess
+import sys
 from collections import defaultdict
 from configparser import ConfigParser
 from dataclasses import dataclass
@@ -1801,15 +1801,19 @@ def merge_strata(
         containers.append(container)
     run_containers_concurrently(client, pool, containers)
 
-def get_season(conn, site_id, start_date, end_date) :
+
+def get_season(conn, site_id, start_date, end_date):
     with conn.cursor() as cursor:
-        query = SQL("select * from sp_get_season_for_interval(%s::smallint, %s::date, %s::date)")
+        query = SQL(
+            "select * from sp_get_season_for_interval(%s::smallint, %s::date, %s::date)"
+        )
         cursor.execute(query, (site_id, start_date, end_date))
         row = cursor.fetchone()
         if row is None:
-            return None  
+            return None
         columns = [desc[0] for desc in cursor.description]
         return dict(zip(columns, row))
+
 
 @dataclass
 class TileInfo:
@@ -3207,9 +3211,12 @@ def main():
                 classified_tif = f"classified_{tile_id}.tif"
                 confidence_map_tif = f"confidence_map_{tile_id}.tif"
                 probability_map_tif = f"probability_map_{tile_id}.tif"
-                shutil.copy2(classified_tif, args.output_path)
-                shutil.copy2(confidence_map_tif, args.output_path)
-                # shutil.copy2(probability_map_tif, args.output_path)
+                if os.path.exists(classified_tif):
+                    shutil.copy2(classified_tif, args.output_path)
+                if os.path.exists(confidence_map_tif):
+                    shutil.copy2(confidence_map_tif, args.output_path)
+                if os.path.exists(probability_map_tif):
+                    shutil.copy2(probability_map_tif, args.output_path)
 
                 if remapping_table:
                     classified_pre_tif = f"classified_pre_{tile_id}.tif"
