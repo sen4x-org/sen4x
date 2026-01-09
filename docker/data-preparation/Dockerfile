@@ -13,3 +13,5 @@ COPY t-rex-genconfig.py /usr/bin
 COPY sen2agri_import_uploaded_insitu.py /usr/bin
 COPY s4s-yield-safy-params-import.py /usr/bin
 COPY s4s-yield-su-historical-data-import.py /usr/bin
+COPY s4s-admin-units-import.py /usr/bin
+
