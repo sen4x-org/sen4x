@@ -87,6 +87,13 @@ def get_site_name(conn, site_id):
         conn.commit()
         return row[0]
 
+def get_season_name(conn, season_id):
+    with conn.cursor() as cursor:
+        query = SQL("select name from season where id = %s")
+        cursor.execute(query, (season_id,))
+        rows = cursor.fetchall()
+        conn.commit()
+        return rows[0][0]
 
 def get_connection(config):
     return psycopg2.connect(
@@ -223,7 +230,7 @@ def main():
         default="/etc/sen2agri/sen2agri.conf",
         help="configuration file location",
     )
-    parser.add_argument("--year", help="year", type=int, default=date.today().year)
+    parser.add_argument("--season-id", help="season", type=int)
     parser.add_argument("--mounts", help="paths to mount in containers", nargs="*")
 
     required_args = parser.add_argument_group("required named arguments")
@@ -356,10 +363,11 @@ def main():
 
     with get_connection(config) as conn:
         site_name = get_site_name(conn, config.site_id)
+        season_name = get_season_name(conn, args.season_id)
 
-        parcels_table = "in_situ_polygons_{}_{}".format(site_name, args.year)
-        attributes_table = "polygon_attributes_{}_{}".format(site_name, args.year)
-        statistical_data_table = "in_situ_data_{}_{}".format(site_name, args.year)
+        parcels_table = "in_situ_polygons_{}_{}".format(site_name, season_name)
+        attributes_table = "polygon_attributes_{}_{}".format(site_name, season_name)
+        statistical_data_table = "in_situ_data_{}_{}".format(site_name, season_name)
 
         parcels_table_id = Identifier(parcels_table)
         attributes_table_id = Identifier(attributes_table)
@@ -393,7 +401,7 @@ order by site_id;"""
             site_short_name = cursor.fetchone()[0]
 
             insitu_path = insitu_path.replace("{site}", site_short_name)
-            insitu_path = insitu_path.replace("{year}", str(args.year))
+            insitu_path = insitu_path.replace("{season}", season_name)
 
         tile_rasters = glob.glob(os.path.join(insitu_path, "*_10m.tif"))
         tiles: Dict[str, Tile] = {}

@@ -332,6 +332,14 @@ def get_site_name(conn, site_id):
         conn.commit()
         return rows[0][0]
 
+def get_season_infos(conn, season_id):
+    with conn.cursor() as cursor:
+        query = SQL("select name, start_date from season where id = %s")
+        cursor.execute(query, (season_id,))
+        rows = cursor.fetchall()
+        conn.commit()
+        return rows[0]
+
 
 def get_site_srid(conn, parcels_table):
     with conn.cursor() as cursor:
@@ -389,35 +397,38 @@ inner join shape_tiles_s2 on shape_tiles_s2.tile_id = site_tiles.tile_id;"""
 class DataPreparation(object):
     DB_UPDATE_BATCH_SIZE = 1000
 
-    def __init__(self, config, year, working_path):
+    def __init__(self, config, season_id, working_path):
         self.config = config
-        self.year = year
+        self.season_id = season_id
         self.pool = multiprocessing.dummy.Pool()
 
         with self.get_connection() as conn:
             print("Retrieving site tiles")
             site_name = get_site_name(conn, config.site_id)
+            season_name, season_start_date = get_season_infos(conn, self.season_id)
             self.tiles = get_site_tiles(conn, config.site_id)
 
-        self.parcels_table = "in_situ_polygons_{}_{}".format(site_name, year)
+        self.parcels_table = "in_situ_polygons_{}_{}".format(site_name, season_name)
         self.parcels_table_staging = "in_situ_polygons_{}_{}_staging".format(
-            site_name, year
+            site_name, season_name
         )
         self.parcel_attributes_table = "polygon_attributes_{}_{}".format(
-            site_name, year
+            site_name, season_name
         )
-        self.statistical_data_table = "in_situ_data_{}_{}".format(site_name, year)
+        self.statistical_data_table = "in_situ_data_{}_{}".format(site_name, season_name)
         self.statistical_data_table_staging = "in_situ_data_{}_{}_staging".format(
-            site_name, year
+            site_name, season_name
         )
 
         insitu_path = get_insitu_path(conn, config.site_id)
-        insitu_path = insitu_path.replace("{year}", str(year))
+        insitu_path = insitu_path.replace("{season}", season_name)
         insitu_path = insitu_path.replace("{site}", site_name)
 
         if not working_path:
             working_path = insitu_path
         self.site_name = site_name
+        self.season_name = season_name
+        self.season_start_date = season_start_date
         self.insitu_path = insitu_path
         self.working_path = working_path
 
@@ -507,7 +518,7 @@ class DataPreparation(object):
 
         print("Importing {} strata".format(stratum_type))
         strata_table_staging = "strata_classification_{}_{}_staging".format(
-            self.site_name, self.year
+            self.site_name, self.season_name
         )
 
         options = gdal.VectorTranslateOptions(
@@ -531,11 +542,11 @@ class DataPreparation(object):
                     """
 delete
 from stratum
-where (site_id, year, stratum_type_id) = ({}, {}, {})
+where (site_id, season_id, stratum_type_id) = ({}, {}, {})
 """
                 ).format(
                     Literal(self.config.site_id),
-                    Literal(self.year),
+                    Literal(self.season_id),
                     Literal(stratum_type_id),
                 )
                 logging.debug(query.as_string(conn))
@@ -544,7 +555,7 @@ where (site_id, year, stratum_type_id) = ({}, {}, {})
                 print("Copying data")
                 query = SQL(
                     """
-insert into stratum(site_id, year, stratum_type_id, stratum_id, wkb_geometry)
+insert into stratum(site_id, season_id, stratum_type_id, stratum_id, wkb_geometry)
 select {},
        {},
        {},
@@ -554,7 +565,7 @@ from {}
 """
                 ).format(
                     Literal(self.config.site_id),
-                    Literal(self.year),
+                    Literal(self.season_id),
                     Literal(stratum_type_id),
                     strata_table_staging_id,
                 )
@@ -738,12 +749,12 @@ select
     stratum_id,
     ST_Transform(wkb_geometry, srid) as wkb_geometry
 from stratum, polygons_srid
-where (stratum.site_id, stratum.year) = ({}, {})
+where (stratum.site_id, stratum.season_id) = ({}, {})
 """
                 ).format(
                     Literal(self.parcels_table_staging),
                     Literal(self.config.site_id),
-                    Literal(self.year),
+                    Literal(self.season_id),
                 )
                 logging.debug(query.as_string(conn))
                 cursor.execute(query)
@@ -1228,8 +1239,8 @@ where upd.id = parcel_attributes.parcel_id;"""
                 conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_DEFAULT)
 
                 tiles = [t.tile_id for t in self.tiles]
-                name = "SEN4STAT_PARCELS_S{}_{}".format(self.config.site_id, self.year)
-                dt = date(self.year, 1, 1)
+                name = "SEN4STAT_PARCELS_S{}_{}".format(self.config.site_id, self.season_id)
+                dt = self.season_start_date
                 sql = SQL(
                     """delete
 from product
@@ -1547,7 +1558,7 @@ def main():
         default="/etc/sen2agri/sen2agri.conf",
         help="configuration file location",
     )
-    parser.add_argument("--year", help="year", type=int, default=date.today().year)
+    parser.add_argument("--season-id", help="season", type=int)
     parser.add_argument("--parcels-geom", help="parcel dataset")
     parser.add_argument("--statistical-data", help="statistical dataset")
     parser.add_argument("--classification-strata", help="classification strata dataset")
@@ -1571,7 +1582,7 @@ def main():
     logging.basicConfig(level=level)
 
     config = Config(args)
-    data_preparation = DataPreparation(config, args.year, args.working_path)
+    data_preparation = DataPreparation(config, args.season_id, args.working_path)
 
     os.makedirs(data_preparation.insitu_path, exist_ok=True)
     os.makedirs(data_preparation.working_path, exist_ok=True)

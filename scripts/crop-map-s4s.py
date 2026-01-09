@@ -11,6 +11,7 @@ import os.path
 import pickle
 import shlex
 import shutil
+import sys
 import subprocess
 from collections import defaultdict
 from configparser import ConfigParser
@@ -1800,11 +1801,15 @@ def merge_strata(
         containers.append(container)
     run_containers_concurrently(client, pool, containers)
 
-
-def dominant_year(start: date, end: date) -> int:
-    midpoint = start + (end - start) / 2
-    return midpoint.year
-
+def get_season(conn, site_id, start_date, end_date) :
+    with conn.cursor() as cursor:
+        query = SQL("select * from sp_get_season_for_interval(%s::smallint, %s::date, %s::date)")
+        cursor.execute(query, (site_id, start_date, end_date))
+        row = cursor.fetchone()
+        if row is None:
+            return None  
+        columns = [desc[0] for desc in cursor.description]
+        return dict(zip(columns, row))
 
 @dataclass
 class TileInfo:
@@ -1900,7 +1905,6 @@ def main():
     )
     parser.add_argument("--season-start", help="season start date")
     parser.add_argument("--season-end", help="season end date")
-    parser.add_argument("--year", help="in-situ data or classification year", type=int)
     parser.add_argument(
         "--pix-min", type=int, default=1, help="Minimum number of pixels of polygons"
     )
@@ -2007,7 +2011,6 @@ def main():
 
     season_start = parse_date(args.season_start)
     season_end = parse_date(args.season_end)
-    classification_year = dominant_year(season_start, season_end)
 
     if args.working_path:
         os.chdir(args.working_path)
@@ -2032,6 +2035,10 @@ def main():
 
     with get_connection(config) as conn:
         processor_config = load_processor_config(conn, config.site_id)
+        season = get_season(conn, config.site_id, season_start, season_end)
+        if not season:
+            print("ERROR: No season found for given parameters.")
+            sys.exit(1)
 
     volumes = {
         "/mnt/archive": {"bind": "/mnt/archive", "mode": "rw"},
@@ -2058,8 +2065,8 @@ def main():
             "sample-selection.py",
             "-s",
             str(args.site_id),
-            "--year",
-            str(classification_year),
+            "--season-id",
+            season["id"],
             "--pix-min",
             str(args.pix_min),
             "--pix-best",
