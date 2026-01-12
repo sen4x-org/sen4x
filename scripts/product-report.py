@@ -1,9 +1,43 @@
 #!/usr/bin/env python3
 
-import json
 import csv
+import json
 import os
+
 import xlsxwriter
+
+
+def create_f1_chart(workbook, worksheet, confusion_data):
+    chart = workbook.add_chart({"type": "column"})
+    if chart:
+        chart.add_series(
+            {
+                "name": "F1-Score",
+                "categories": [
+                    worksheet.name,
+                    1,
+                    0,
+                    len(confusion_data["labels"]),
+                    0,
+                ],
+                "values": [
+                    worksheet.name,
+                    1,
+                    3,
+                    len(confusion_data["labels"]),
+                    3,
+                ],
+                "data_labels": {"value": True, "num_format": "0.00%"},
+            }
+        )
+
+        chart.set_title({"name": "Class F1-Scores"})
+        chart.set_x_axis({"name": "Class"})
+        chart.set_y_axis({"name": "F1-Score", "min": 0, "max": 1})
+        chart.set_style(11)
+
+        worksheet.insert_chart("F2", chart, {"x_scale": 1.5, "y_scale": 1.5})
+
 
 with open("polygon-statistics.json", "r") as f:
     polygon_stats = json.load(f)
@@ -143,6 +177,8 @@ for stratum in strata:
                 i + 1, 3, confusion_pre["class_f1_score"][i], percent_format
             )
 
+        create_f1_chart(workbook, ws_pre_metrics, confusion_pre)
+
         sheet_name = (
             f"Pre-Remapping Matrix {stratum}"
             if multi_strata
@@ -220,35 +256,7 @@ for stratum in strata:
 
     summary_data.append(summary_entry)
 
-    chart = workbook.add_chart({"type": "column"})
-    if chart:
-        chart.add_series(
-            {
-                "name": "F1-Score",
-                "categories": [
-                    ws_post_metrics.name,
-                    1,
-                    0,
-                    len(confusion_post["labels"]),
-                    0,
-                ],
-                "values": [
-                    ws_post_metrics.name,
-                    1,
-                    3,
-                    len(confusion_post["labels"]),
-                    3,
-                ],
-                "data_labels": {"value": True, "num_format": "0.00%"},
-            }
-        )
-
-        chart.set_title({"name": "Class F1-Scores"})
-        chart.set_x_axis({"name": "Class"})
-        chart.set_y_axis({"name": "F1-Score", "min": 0, "max": 1})
-        chart.set_style(11)
-
-        ws_post_metrics.insert_chart("F2", chart, {"x_scale": 1.5, "y_scale": 1.5})
+    create_f1_chart(workbook, ws_post_metrics, confusion_post)
 
 if remapping_exists:
     ws_remapping = workbook.add_worksheet("Remapping Table")
