@@ -715,7 +715,7 @@ insert into config_metadata values ('processor.s4s_crop_mapping.catboost.test-sp
 insert into config_metadata values ('processor.s4s_crop_mapping.catboost.random-state', 'Random state', 'int', true, 30, true, 'Random state for test split', null);
 insert into config_metadata values ('processor.s4s_crop_mapping.crop_remapping_set_id', 'Crop Remapping Set', 'string', true, 30, true, 'Crop Remapping Set', '{ "allowed_values_source": { "database_object": "crop_remapping_set", "value_column": "crop_remapping_set_id", "label_column": "name" } }', true);
 
-insert into config_metadata values ('processor.s4s_crop_mapping.features-filter', 'Features filter. If provided, the features are given as comma separated values. Possible values are sr10 (S2 Reflectance 10m), sr20 (S2 reflectance 20m), vi (Vegetation indices), vis (Vegetation indices Statistics), sar (S1 features), re (Red edge features)', 'string', true, 30, true, 'Features filter', null);
+insert into config_metadata values ('processor.s4s_crop_mapping.features-filter', 'Features filter. If provided, the features are given as comma separated values. Possible values are sr10 (S2 Reflectance 10m), sr20 (S2 reflectance 20m), vi (Vegetation indices), vis (Vegetation indices Statistics), sar (S1 features), re (Red edge features), lai (Leaf Area Index)', 'string', true, 30, true, 'Features filter', null);
 
 -- -----------------------------------------------------------
 -- ERA5
