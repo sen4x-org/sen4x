@@ -34,10 +34,18 @@ import docker
 
 OTB_NEW_IMAGE_NAME = "docker.io/orfeotoolbox/otb:8.1.1"
 OTB_OLD_IMAGE_NAME = "docker.io/sen4x/otb:6.6.1"
-PROCESSORS_NEW_IMAGE_NAME = "sen4x/processors-new:0.2.0"
+PROCESSORS_NEW_IMAGE_NAME = "sen4x/processors-new:0.4.1"
 MISC_IMAGE_NAME = "docker.io/sen4x/s4s-interim-ct:0.2.0"
 ERDY_IMAGE_NAME = "docker.io/lnicola/erdy:0.2.5"
 CATBOOST_IMAGE_NAME = "docker.io/sen4x/catboost:0.1.0"
+
+
+class ProductType(IntEnum):
+    L2A = 1
+    L2A_MASK = 26
+    L3B_LAI = 37
+    L3B_FAPAR = 38
+    L3B_FCOVER = 39
 
 
 def parse_date(str):
@@ -129,6 +137,9 @@ class FeatureSet(object):
         self.vegetation_indices = True
         self.vegetation_indices_statistics = True
         self.red_edge_features = False
+        self.lai = False
+        self.fapar = False
+        self.fcover = False
 
         self.s1_features = True
 
@@ -203,6 +214,15 @@ class FeatureSet(object):
     def want_red_edge_features(self):
         return self.red_edge_features
 
+    def want_lai(self):
+        return self.lai
+
+    def want_fapar(self):
+        return self.fapar
+
+    def want_fcover(self):
+        return self.fcover
+
     def want_s1_features(self):
         return self.s1_features
 
@@ -214,6 +234,15 @@ class FeatureSet(object):
 
     def need_red_edge_features(self):
         return self.red_edge_features
+
+    def need_lai(self):
+        return self.lai
+
+    def need_fapar(self):
+        return self.fapar
+
+    def need_fcover(self):
+        return self.fcover
 
     def need_s1_features(self):
         return self.s1_features
@@ -234,6 +263,9 @@ class FeatureSet(object):
         feature_set.vegetation_indices = False
         feature_set.vegetation_indices_statistics = False
         feature_set.red_edge_features = False
+        feature_set.lai = False
+        feature_set.fapar = False
+        feature_set.fcover = False
 
         feature_set.s1_features = False
 
@@ -288,6 +320,12 @@ class FeatureSet(object):
                 feature_set.vegetation_indices_statistics = value
             elif feature == "re":
                 feature_set.red_edge_features = value
+            elif feature == "lai":
+                feature_set.lai = value
+            elif feature == "fapar":
+                feature_set.fapar = value
+            elif feature == "fcover":
+                feature_set.fcover = value
             elif feature == "sar":
                 feature_set.s1_features = value
 
@@ -353,6 +391,12 @@ def run_containers_concurrently(client, pool, containers):
                 print(res)
 
 
+class L3BProduct(object):
+    def __init__(self, date, path):
+        self.date = date
+        self.path = path
+
+
 class L2AProduct(object):
     def __init__(
         self,
@@ -385,6 +429,14 @@ class L2AProduct(object):
         self.mask_10m = mask_10m
         self.mask_20m = mask_20m
         self.band_offsets = band_offsets
+
+
+@dataclass
+class Products:
+    l2a: List[L2AProduct]
+    lai: List[L3BProduct]
+    fapar: List[L3BProduct]
+    fcover: List[L3BProduct]
 
 
 class ProcessorConfig:
@@ -589,7 +641,7 @@ def get_band_files(l2a_path):
     return None
 
 
-def get_product(name, l2a_path, created_timestamp, mask_path):
+def get_l2a_product(name, l2a_path, created_timestamp, mask_path):
     mask_name = os.path.basename(mask_path)
     mask_name_10m = mask_name.replace(".SAFE", "_10M_BIN.tif")
     mask_name_20m = mask_name.replace(".SAFE", "_20M_BIN.tif")
@@ -641,10 +693,56 @@ def get_product(name, l2a_path, created_timestamp, mask_path):
     return product
 
 
+def _get_l3b_product(name, full_path, created_timestamp, sub_prefix):
+    # 0      1         2   3  4               5                6
+    # S2AGRI_L3BLAI   _PRD_S8_20251228T132450_A20200107T111431_T30TVM
+    # S2AGRI_L3BFAPAR _PRD_S8_20251228T094733_A20200605T110631_T30TVM
+    # S2AGRI_L3BFCOVER_PRD_S8_20251228T132459_A20200630T110619_T30TVM
+    parts = name.split("_")
+
+    project = parts[0]
+    product_type = parts[1]
+    discriminator = parts[5]
+    tile_id = parts[6]
+
+    # TILES/S2AGRI_L3BLAI_A20200107T111431_T30TVM/IMG_DATA/S2AGRI_L3BLAI_SLAIMONO_A20200107T111431_T30TVM.TIF
+    # TILES/S2AGRI_L3BFCOVER_A20200630T110619_T30TVM/IMG_DATA/S2AGRI_L3BFCOVER_SFCOVERMONO_A20200630T110619_T30TVM.TIF
+    # TILES/S2AGRI_L3BFAPAR_A20200605T110631_T30TVM/IMG_DATA/S2AGRI_L3BFAPAR_SFAPARMONO_A20200605T110631_T30TVM.TIF
+    prefix = f"{project}_{product_type}"
+    tile_dir_name = f"{prefix}_{discriminator}_{tile_id}"
+    filename = f"{prefix}_{sub_prefix}_{discriminator}_{tile_id}.TIF"
+
+    path = os.path.join(full_path, "TILES", tile_dir_name, "IMG_DATA", filename)
+
+    return L3BProduct(created_timestamp, path)
+
+
+def get_lai_product(name, full_path, created_timestamp):
+    return _get_l3b_product(name, full_path, created_timestamp, "SLAIMONO")
+
+
+def get_fapar_product(name, full_path, created_timestamp):
+    return _get_l3b_product(
+        name,
+        full_path,
+        created_timestamp,
+        "SFAPARMONO",
+    )
+
+
+def get_fcover_product(name, full_path, created_timestamp):
+    return _get_l3b_product(
+        name,
+        full_path,
+        created_timestamp,
+        "SFCOVERMONO",
+    )
+
+
 def load_products(
     conn: connection, pool, site_id: int, season_start, season_end, tiles: List[Tile]
 ):
-    products_by_tile: dict[str, List[L2AProduct]] = {}
+    products_by_tile: dict[str, Products] = {}
     for tile in tiles:
         query = SQL(
             """
@@ -655,12 +753,12 @@ select product_l2a.name,
 from product product_validity_mask
          inner join product_provenance on product_provenance.product_id = product_validity_mask.id
          inner join product product_l2a
-                    on product_l2a.id = product_provenance.parent_product_id and product_l2a.product_type_id = 1
-where product_validity_mask.site_id = %s
-  and product_validity_mask.product_type_id = 26
-  and product_validity_mask.created_timestamp >= %s
-  and product_validity_mask.created_timestamp < %s + interval '1 day'
-  and %s :: character varying = any(product_l2a.tiles)
+                    on product_l2a.id = product_provenance.parent_product_id and product_l2a.product_type_id = %(l2a)s
+where product_validity_mask.site_id = %(site_id)s
+  and product_validity_mask.product_type_id = %(l2a_mask)s
+  and product_validity_mask.created_timestamp >= %(season_start)s
+  and product_validity_mask.created_timestamp < %(season_end)s + interval '1 day'
+  and %(tile_id)s :: character varying = any(product_l2a.tiles)
 order by product_l2a.created_timestamp, name;
 """
         )
@@ -669,20 +767,72 @@ order by product_l2a.created_timestamp, name;
         with conn.cursor() as cursor:
             cursor.execute(
                 query,
-                (
-                    site_id,
-                    season_start,
-                    season_end,
-                    tile.tile_id,
-                ),
+                {
+                    "site_id": site_id,
+                    "season_start": season_start,
+                    "season_end": season_end,
+                    "tile_id": tile.tile_id,
+                    "l2a": int(ProductType.L2A),
+                    "l2a_mask": int(ProductType.L2A_MASK),
+                },
             )
             result = cursor.fetchall()
 
-            products: List[L2AProduct] = [
-                p for p in pool.map(lambda r: get_product(*r), result, chunksize=1) if p
+            products_l2a: List[L2AProduct] = [
+                p
+                for p in pool.map(lambda r: get_l2a_product(*r), result, chunksize=1)
+                if p
             ]
-            products = sorted(products, key=lambda p: p.date)
-            products_by_tile[tile.tile_id] = products
+
+            query = SQL(
+                """
+select product_type_id, name, full_path, created_timestamp :: date
+from product
+where site_id = %(site_id)s
+  and product_type_id in (%(l3b_lai)s, %(l3b_fapar)s, %(l3b_fcover)s)
+  and created_timestamp >= %(season_start)s
+  and created_timestamp < %(season_end)s + interval '1 day'
+  and (%(tile_id)s :: character varying = any(tiles) or name like '%%_T' || %(tile_id)s)
+order by created_timestamp, name
+"""
+            )
+            logging.debug(query.as_string(conn))
+
+            cursor.execute(
+                query,
+                {
+                    "site_id": site_id,
+                    "season_start": season_start,
+                    "season_end": season_end,
+                    "tile_id": tile.tile_id,
+                    "l3b_lai": int(ProductType.L3B_LAI),
+                    "l3b_fapar": int(ProductType.L3B_FAPAR),
+                    "l3b_fcover": int(ProductType.L3B_FCOVER),
+                },
+            )
+            result = cursor.fetchall()
+
+            products_lai: List[L3BProduct] = []
+            products_fapar: List[L3BProduct] = []
+            products_fcover: List[L3BProduct] = []
+
+            for product_type_id, name, full_path, created_timestamp in result:
+                if product_type_id == ProductType.L3B_LAI:
+                    p = get_lai_product(name, full_path, created_timestamp)
+                    products_lai.append(p)
+                elif product_type_id == ProductType.L3B_FAPAR:
+                    p = get_fapar_product(name, full_path, created_timestamp)
+                    products_fapar.append(p)
+                elif product_type_id == ProductType.L3B_FCOVER:
+                    p = get_fcover_product(name, full_path, created_timestamp)
+                    products_fcover.append(p)
+
+        products_by_tile[tile.tile_id] = Products(
+            l2a=products_l2a,
+            lai=products_lai,
+            fapar=products_fapar,
+            fcover=products_fcover,
+        )
 
     return products_by_tile
 
@@ -782,6 +932,15 @@ def write_tile_vrts(
         band_types.append("PSRI")
         band_types.append("CIRE")
 
+    if feature_set.want_lai():
+        band_types.append("LAI")
+
+    if feature_set.want_fapar():
+        band_types.append("FAPAR")
+
+    if feature_set.want_fcover():
+        band_types.append("FCOVER")
+
     if output_dates:
         season_start = output_dates[0]
         season_end = output_dates[-1]
@@ -863,6 +1022,10 @@ def write_tile_vrts(
             psri = f"S2_PSRI_{tile_id}.tif"
             cire = f"S2_CIRE_{tile_id}.tif"
 
+            lai = f"S2_LAI_{tile_id}.tif"
+            fapar = f"S2_FAPAR_{tile_id}.tif"
+            fcover = f"S2_FCOVER_{tile_id}.tif"
+
             if tile.epsg_code not in wkt_cache:
                 spatial_ref = osr.SpatialReference()
                 spatial_ref.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
@@ -918,6 +1081,13 @@ def write_tile_vrts(
                 band_files.append(repi)
                 band_files.append(psri)
                 band_files.append(cire)
+
+            if feature_set.want_lai():
+                band_files.append(lai)
+            if feature_set.want_fapar():
+                band_files.append(fapar)
+            if feature_set.want_fcover():
+                band_files.append(fcover)
 
             for p, name in zip(
                 band_files,
@@ -2125,7 +2295,7 @@ def main():
         tile_ids = set([t.tile_id for t in tiles])
         if os.path.exists("s2-products.pickle"):
             with open("s2-products.pickle", "rb") as file:
-                products_by_tile: dict[str, List[L2AProduct]] = pickle.load(file)
+                products_by_tile: dict[str, Products] = pickle.load(file)
                 products_by_tile = dict(
                     [(t, p) for (t, p) in products_by_tile.items() if t in tile_ids]
                 )
@@ -2144,7 +2314,7 @@ def main():
     first_date = season_end
     last_date = season_start
     for tile, products in products_by_tile.items():
-        for p in products:
+        for p in products.l2a:
             if p.date < first_date:
                 first_date = p.date
             if p.date > last_date:
@@ -2195,35 +2365,52 @@ def main():
         output_dates_param.append(str((d - season_start).days))
         d += timedelta(days=step)
 
-    input_dates = {}
+    input_dates_l2a = {}
+    input_dates_lai = {}
+    input_dates_fapar = {}
+    input_dates_fcover = {}
     for tile, products in products_by_tile.items():
-        days = [(p.date - season_start).days for p in products]
-        input_dates[tile] = list(map(str, days))
+        input_dates_l2a[tile] = [
+            str((p.date - season_start).days) for p in products.l2a
+        ]
+        input_dates_lai[tile] = [
+            str((p.date - season_start).days) for p in products.lai
+        ]
+        input_dates_fapar[tile] = [
+            str((p.date - season_start).days) for p in products.fapar
+        ]
+        input_dates_fcover[tile] = [
+            str((p.date - season_start).days) for p in products.fcover
+        ]
 
     l2a_block_size_10m = None
     l2a_block_size_20m = None
     l2a_data_type = None
     commands = []
     for tile, products in products_by_tile.items():
-        if len(products) == 0:
+        products_lai = products.lai
+        products_fapar = products.fapar
+        products_fcover = products.fcover
+        products_l2a = products.l2a
+        if len(products_l2a) == 0:
             print("No S2 products for tile", tile)
             continue
 
-        b2s = [p.b2 for p in products]
-        b3s = [p.b3 for p in products]
-        b4s = [p.b4 for p in products]
-        b8s = [p.b8 for p in products]
-        b5s = [p.b5 for p in products]
-        b6s = [p.b6 for p in products]
-        b7s = [p.b7 for p in products]
-        b11s = [p.b11 for p in products]
-        b12s = [p.b12 for p in products]
+        b2s = [p.b2 for p in products_l2a]
+        b3s = [p.b3 for p in products_l2a]
+        b4s = [p.b4 for p in products_l2a]
+        b8s = [p.b8 for p in products_l2a]
+        b5s = [p.b5 for p in products_l2a]
+        b6s = [p.b6 for p in products_l2a]
+        b7s = [p.b7 for p in products_l2a]
+        b11s = [p.b11 for p in products_l2a]
+        b12s = [p.b12 for p in products_l2a]
 
         mask_10m_vrt = f"mask_10m_{tile}.vrt"
         mask_20m_vrt = f"mask_20m_{tile}.vrt"
 
-        masks_10m = [p.mask_10m for p in products]
-        masks_20m = [p.mask_20m for p in products]
+        masks_10m = [p.mask_10m for p in products_l2a]
+        masks_20m = [p.mask_20m for p in products_l2a]
 
         tile_info_masks_10m = None
         if (
@@ -2341,6 +2528,22 @@ def main():
                 tile_info_20m = TileInfo.from_dataset(b12s[0])
             write_stack_vrt_fast(tile_info_20m, b12s, b12_vrt)
 
+        if feature_set.need_lai():
+            paths = [p.path for p in products_lai]
+            tile_info_lai = TileInfo.from_dataset(paths[0])
+            lai_vrt = f"S2_LAI_{tile}.vrt"
+            write_stack_vrt_fast(tile_info_lai, paths, lai_vrt)
+        if feature_set.need_fapar():
+            paths = [p.path for p in products_fapar]
+            tile_info_fapar = TileInfo.from_dataset(paths[0])
+            fapar_vrt = f"S2_FAPAR_{tile}.vrt"
+            write_stack_vrt_fast(tile_info_fapar, paths, fapar_vrt)
+        if feature_set.need_fcover():
+            paths = [p.path for p in products_fcover]
+            tile_info_fcover = TileInfo.from_dataset(paths[0])
+            fcover_vrt = f"S2_FCOVER_{tile}.vrt"
+            write_stack_vrt_fast(tile_info_fcover, paths, fcover_vrt)
+
     containers = []
     tiling_suffix = "?&gdal:co:TILED=YES&streaming:type=tiled&streaming:sizemode=height&streaming:sizevalue=256"
     for tile, products in products_by_tile.items():
@@ -2353,6 +2556,9 @@ def main():
         b7_vrt = f"S2_B07_{tile}.vrt"
         b11_vrt = f"S2_B11_{tile}.vrt"
         b12_vrt = f"S2_B12_{tile}.vrt"
+        lai_vrt = f"S2_LAI_{tile}.vrt"
+        fapar_vrt = f"S2_FAPAR_{tile}.vrt"
+        fcover_vrt = f"S2_FCOVER_{tile}.vrt"
 
         b2_tif = f"S2_B02_{tile}.tif"
         b3_tif = f"S2_B03_{tile}.tif"
@@ -2363,12 +2569,16 @@ def main():
         b7_tif = f"S2_B07_{tile}.tif"
         b11_tif = f"S2_B11_{tile}.tif"
         b12_tif = f"S2_B12_{tile}.tif"
+        lai_tif = f"S2_LAI_{tile}.tif"
+        fapar_tif = f"S2_FAPAR_{tile}.tif"
+        fcover_tif = f"S2_FCOVER_{tile}.tif"
 
         mask_10m_vrt = f"mask_10m_{tile}.vrt"
         mask_20m_vrt = f"mask_20m_{tile}.vrt"
 
         band_offsets = [
-            (b, [-(p.band_offsets.get(b) or 0) for p in products]) for b in range(13)
+            (b, [-(p.band_offsets.get(b) or 0) for p in products.l2a])
+            for b in range(13)
         ]
         band_offsets_str = dict(
             [(b, [str(o) for o in offsets]) for (b, offsets) in band_offsets]
@@ -2381,11 +2591,7 @@ def main():
         interpolation_window_radius = 0
 
         common_temporal_resampling_args = (
-            ["-indates"]
-            + input_dates[tile]
-            + [
-                "-outdates",
-            ]
+            ["-outdates"]
             + output_dates_param
             + [
                 "-bv",
@@ -2405,6 +2611,19 @@ def main():
                 str(interpolation_window_radius),
             ]
 
+        common_temporal_resampling_args_l2a = (
+            ["-indates"] + input_dates_l2a[tile] + common_temporal_resampling_args
+        )
+        common_temporal_resampling_args_lai = (
+            ["-indates"] + input_dates_lai[tile] + common_temporal_resampling_args
+        )
+        common_temporal_resampling_args_fapar = (
+            ["-indates"] + input_dates_fapar[tile] + common_temporal_resampling_args
+        )
+        common_temporal_resampling_args_fcover = (
+            ["-indates"] + input_dates_fcover[tile] + common_temporal_resampling_args
+        )
+
         if feature_set.need_s2_b2() and not os.path.exists(b2_tif):
             command = (
                 [
@@ -2418,7 +2637,7 @@ def main():
                     "-inoffsets",
                 ]
                 + band_offsets_str[Sentinel2Band.B2]
-                + common_temporal_resampling_args
+                + common_temporal_resampling_args_l2a
             )
             container = ContainerInfo(
                 image=PROCESSORS_NEW_IMAGE_NAME,
@@ -2442,7 +2661,7 @@ def main():
                     "-inoffsets",
                 ]
                 + band_offsets_str[Sentinel2Band.B3]
-                + common_temporal_resampling_args
+                + common_temporal_resampling_args_l2a
             )
             container = ContainerInfo(
                 image=PROCESSORS_NEW_IMAGE_NAME,
@@ -2466,7 +2685,7 @@ def main():
                     "-inoffsets",
                 ]
                 + band_offsets_str[Sentinel2Band.B4]
-                + common_temporal_resampling_args
+                + common_temporal_resampling_args_l2a
             )
             container = ContainerInfo(
                 image=PROCESSORS_NEW_IMAGE_NAME,
@@ -2490,7 +2709,7 @@ def main():
                     "-inoffsets",
                 ]
                 + band_offsets_str[Sentinel2Band.B8]
-                + common_temporal_resampling_args
+                + common_temporal_resampling_args_l2a
             )
             container = ContainerInfo(
                 image=PROCESSORS_NEW_IMAGE_NAME,
@@ -2501,6 +2720,7 @@ def main():
                 environment=env,
             )
             containers.append(container)
+
         if feature_set.need_s2_b5() and not os.path.exists(b5_tif):
             command = (
                 [
@@ -2514,7 +2734,7 @@ def main():
                     "-inoffsets",
                 ]
                 + band_offsets_str[Sentinel2Band.B5]
-                + common_temporal_resampling_args
+                + common_temporal_resampling_args_l2a
             )
             container = ContainerInfo(
                 image=PROCESSORS_NEW_IMAGE_NAME,
@@ -2538,7 +2758,7 @@ def main():
                     "-inoffsets",
                 ]
                 + band_offsets_str[Sentinel2Band.B6]
-                + common_temporal_resampling_args
+                + common_temporal_resampling_args_l2a
             )
             container = ContainerInfo(
                 image=PROCESSORS_NEW_IMAGE_NAME,
@@ -2562,7 +2782,7 @@ def main():
                     "-inoffsets",
                 ]
                 + band_offsets_str[Sentinel2Band.B7]
-                + common_temporal_resampling_args
+                + common_temporal_resampling_args_l2a
             )
             container = ContainerInfo(
                 image=PROCESSORS_NEW_IMAGE_NAME,
@@ -2586,7 +2806,7 @@ def main():
                     "-inoffsets",
                 ]
                 + band_offsets_str[Sentinel2Band.B11]
-                + common_temporal_resampling_args
+                + common_temporal_resampling_args_l2a
             )
             container = ContainerInfo(
                 image=PROCESSORS_NEW_IMAGE_NAME,
@@ -2610,7 +2830,7 @@ def main():
                     "-inoffsets",
                 ]
                 + band_offsets_str[Sentinel2Band.B12]
-                + common_temporal_resampling_args
+                + common_temporal_resampling_args_l2a
             )
             container = ContainerInfo(
                 image=PROCESSORS_NEW_IMAGE_NAME,
@@ -2618,6 +2838,60 @@ def main():
                 working_dir=output_dir,
                 volumes=volumes,
                 outputs=[b12_tif],
+                environment=env,
+            )
+            containers.append(container)
+
+        if feature_set.need_lai() and not os.path.exists(lai_tif):
+            lai_vrt = f"S2_LAI_{tile}.vrt"
+            command = [
+                "otbcli_TemporalResampling",
+                "-in",
+                lai_vrt,
+                "-out",
+                lai_tif + tiling_suffix,
+            ] + common_temporal_resampling_args_lai
+            container = ContainerInfo(
+                image=PROCESSORS_NEW_IMAGE_NAME,
+                command=command,
+                working_dir=output_dir,
+                volumes=volumes,
+                outputs=[lai_tif],
+                environment=env,
+            )
+            containers.append(container)
+        if feature_set.need_fapar() and not os.path.exists(fapar_tif):
+            command = [
+                "otbcli_TemporalResampling",
+                "-in",
+                fapar_vrt,
+                "-out",
+                fapar_tif + tiling_suffix,
+            ] + common_temporal_resampling_args_fapar
+            container = ContainerInfo(
+                image=PROCESSORS_NEW_IMAGE_NAME,
+                command=command,
+                working_dir=output_dir,
+                volumes=volumes,
+                outputs=[fapar_tif],
+                environment=env,
+            )
+            containers.append(container)
+
+        if feature_set.need_fcover() and not os.path.exists(fcover_tif):
+            command = [
+                "otbcli_TemporalResampling",
+                "-in",
+                fcover_vrt,
+                "-out",
+                fcover_tif + tiling_suffix,
+            ] + common_temporal_resampling_args_fcover
+            container = ContainerInfo(
+                image=PROCESSORS_NEW_IMAGE_NAME,
+                command=command,
+                working_dir=output_dir,
+                volumes=volumes,
+                outputs=[fcover_tif],
                 environment=env,
             )
             containers.append(container)
