@@ -7,6 +7,22 @@ import os
 import xlsxwriter
 
 
+def sort_confusion_matrix(confusion_matrix):
+    labels = confusion_matrix["labels"]
+    sorted_indices = sorted(range(len(labels)), key=lambda k: str(labels[k]))
+
+    confusion_matrix["labels"] = [labels[i] for i in sorted_indices]
+
+    for key in ["class_recall", "class_precision", "class_f1_score"]:
+        if key in confusion_matrix:
+            confusion_matrix[key] = [confusion_matrix[key][i] for i in sorted_indices]
+
+    matrix = confusion_matrix["confusion_matrix"]
+    matrix = [matrix[i] for i in sorted_indices]
+    matrix = [[row[i] for i in sorted_indices] for row in matrix]
+    confusion_matrix["confusion_matrix"] = matrix
+
+
 def create_f1_chart(workbook, worksheet, confusion_data):
     chart = workbook.add_chart({"type": "column"})
     if chart:
@@ -91,7 +107,7 @@ for col, header in enumerate(headers):
 row_idx = 1
 for stratum, classes in polygon_stats.items():
     stratum = int(stratum)
-    for class_id, stats in classes.items():
+    for class_id, stats in sorted(classes.items(), key=lambda x: str(x[0])):
         col_idx = 0
         if multi_strata:
             ws_poly_stats.write(row_idx, col_idx, stratum, standard_format)
@@ -148,10 +164,12 @@ for stratum in strata:
 
     with open(post_metrics_file, "r") as f:
         confusion_post = json.load(f)
+    sort_confusion_matrix(confusion_post)
 
     if pre_metrics_exists and remapping_exists:
         with open(pre_metrics_file, "r") as f:
             confusion_pre = json.load(f)
+        sort_confusion_matrix(confusion_pre)
 
         sheet_name = (
             f"Pre-Remapping Metrics {stratum}"
@@ -264,7 +282,7 @@ if remapping_exists:
     ws_remapping.write(0, 1, "Remapped Class", header_format)
 
     row_idx = 1
-    for original, remapped in remapping_dict.items():
+    for original, remapped in sorted(remapping_dict.items(), key=lambda x: str(x[0])):
         ws_remapping.write(row_idx, 0, original, standard_format)
         ws_remapping.write(row_idx, 1, remapped, standard_format)
         row_idx += 1
