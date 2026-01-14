@@ -25,34 +25,42 @@ def sort_confusion_matrix(confusion_matrix):
 
 def create_f1_chart(workbook, worksheet, confusion_data):
     chart = workbook.add_chart({"type": "column"})
-    if chart:
-        chart.add_series(
-            {
-                "name": "F1-Score",
-                "categories": [
-                    worksheet.name,
-                    1,
-                    0,
-                    len(confusion_data["labels"]),
-                    0,
-                ],
-                "values": [
-                    worksheet.name,
-                    1,
-                    3,
-                    len(confusion_data["labels"]),
-                    3,
-                ],
-                "data_labels": {"value": True, "num_format": "0.00%"},
-            }
-        )
+    chart.add_series(
+        {
+            "name": "F1-Score",
+            "categories": [
+                worksheet.name,
+                1,
+                0,
+                len(confusion_data["labels"]),
+                0,
+            ],
+            "values": [
+                worksheet.name,
+                1,
+                3,
+                len(confusion_data["labels"]),
+                3,
+            ],
+            "data_labels": {"value": True, "num_format": "0.00%"},
+        }
+    )
 
-        chart.set_title({"name": "Class F1-Scores"})
-        chart.set_x_axis({"name": "Class"})
-        chart.set_y_axis({"name": "F1-Score", "min": 0, "max": 1})
-        chart.set_style(11)
+    chart.set_title({"name": "Class F1-Scores"})
+    chart.set_x_axis({"name": "Class"})
+    chart.set_y_axis({"name": "F1-Score", "min": 0, "max": 1})
+    chart.set_style(11)
 
-        worksheet.insert_chart("F2", chart, {"x_scale": 1.5, "y_scale": 1.5})
+    worksheet.insert_chart("F2", chart, {"x_scale": 1.5, "y_scale": 1.5})
+
+
+def get_validation_samples_map(polygon_stats_data, stratum):
+    samples_map = {}
+    stratum_stats = polygon_stats_data.get(str(stratum), None)
+    if stratum_stats:
+        for class_id, stats in stratum_stats.items():
+            samples_map[int(class_id)] = stats.get("validation_samples", 0)
+    return samples_map
 
 
 with open("polygon-statistics.json", "r") as f:
@@ -166,6 +174,8 @@ for stratum in strata:
         confusion_post = json.load(f)
     sort_confusion_matrix(confusion_post)
 
+    validation_samples_map = get_validation_samples_map(polygon_stats, stratum)
+
     if pre_metrics_exists and remapping_exists:
         with open(pre_metrics_file, "r") as f:
             confusion_pre = json.load(f)
@@ -182,6 +192,7 @@ for stratum in strata:
         ws_pre_metrics.write(0, 1, "Recall", header_format)
         ws_pre_metrics.write(0, 2, "Precision", header_format)
         ws_pre_metrics.write(0, 3, "F1-Score", header_format)
+        ws_pre_metrics.write(0, 4, "Validation Samples", header_format)
 
         for i, label in enumerate(confusion_pre["labels"]):
             ws_pre_metrics.write(i + 1, 0, label, header_format)
@@ -194,6 +205,8 @@ for stratum in strata:
             ws_pre_metrics.write(
                 i + 1, 3, confusion_pre["class_f1_score"][i], percent_format
             )
+            validation_samples = validation_samples_map.get(label, 0)
+            ws_pre_metrics.write(i + 1, 4, validation_samples, standard_format)
 
         create_f1_chart(workbook, ws_pre_metrics, confusion_pre)
 
@@ -227,6 +240,15 @@ for stratum in strata:
     ws_post_metrics.write(0, 1, "Recall", header_format)
     ws_post_metrics.write(0, 2, "Precision", header_format)
     ws_post_metrics.write(0, 3, "F1-Score", header_format)
+    ws_post_metrics.write(0, 4, "Validation Samples", header_format)
+
+    remapped_validation_samples = {}
+    if remapping_exists:
+        for original_class, count in validation_samples_map.items():
+            target_class = remapping_dict.get(original_class, original_class)
+            remapped_validation_samples[target_class] = remapped_validation_samples.get(target_class, 0) + count
+    else:
+        remapped_validation_samples = validation_samples_map
 
     for i, label in enumerate(confusion_post["labels"]):
         ws_post_metrics.write(i + 1, 0, label, header_format)
@@ -239,6 +261,8 @@ for stratum in strata:
         ws_post_metrics.write(
             i + 1, 3, confusion_post["class_f1_score"][i], percent_format
         )
+        validation_samples = remapped_validation_samples.get(label, 0)
+        ws_post_metrics.write(i + 1, 4, validation_samples, standard_format)
 
     sheet_prefix = "Post-Remapping" if remapping_exists else "Confusion"
     sheet_name = (
@@ -324,7 +348,7 @@ for i, data in enumerate(summary_data):
         col_idx += 1
 
 for worksheet in workbook.worksheets():
-    worksheet.set_column("A:Z", 15)
+    worksheet.set_column("A:Z", 17)
 
 ws_poly_stats.set_column(first_col=0, last_col=7, width=20)
 if multi_strata:
@@ -337,5 +361,4 @@ if multi_strata:
     last_col += 1
 
 ws_summary.set_column(first_col=first_col, last_col=last_col, width=30)
-
 workbook.close()
