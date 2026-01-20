@@ -87,9 +87,7 @@ private:
         SetDocExampleParameterValue("out", "out.tif");
     }
 
-    void DoUpdateParameters() override
-    {
-    }
+    void DoUpdateParameters() override {}
 
     void DoExecute() override
     {
@@ -137,11 +135,14 @@ private:
 
         auto interpolationFilter =
             engeStepInterpolationFilter<Int16VectorImageType, Int16VectorImageType>::New();
+        engeMaskSerieFilter<Int16VectorImageType, Int16VectorImageType,
+                            Int16VectorImageType>::Pointer maskFilter;
 
         if (HasValue("mask")) {
+            maskFilter = engeMaskSerieFilter<Int16VectorImageType, Int16VectorImageType,
+                                             Int16VectorImageType>::New();
+
             const auto maskImage = GetParameterInt16VectorImage("mask");
-            auto maskFilter = engeMaskSerieFilter<Int16VectorImageType, Int16VectorImageType,
-                                                  Int16VectorImageType>::New();
             maskFilter->SetInput(0, inImage);
             maskFilter->SetInput(1, maskImage);
             maskFilter->setMasks({ maskedValue }, replacingValues);
