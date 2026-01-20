@@ -1,8 +1,8 @@
 create table stratum(
     site_id smallint not null,
-    year smallint not null,
+    season_id smallint not null,
     stratum_type_id smallint not null,
     stratum_id int not null,
     wkb_geometry geometry not null,
-    primary key (site_id, year, stratum_type_id, stratum_id)
+    primary key (site_id, season_id, stratum_type_id, stratum_id)
 );
