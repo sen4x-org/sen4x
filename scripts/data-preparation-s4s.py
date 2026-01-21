@@ -378,7 +378,7 @@ def get_site_tiles(conn, site_id):
             """
 select shape_tiles_s2.tile_id,
        shape_tiles_s2.epsg_code,
-       ST_AsBinary(ST_SnapToGrid(ST_Transform(shape_tiles_s2.geom, shape_tiles_s2.epsg_code), 1)) as tile_extent
+       ST_AsBinary(ST_SnapToGrid(ST_Transform(shape_tiles_s2.geog :: geometry, shape_tiles_s2.epsg_code), 1)) as tile_extent
 from sp_get_site_tiles(%s :: smallint, 1 :: smallint) site_tiles
 inner join shape_tiles_s2 on shape_tiles_s2.tile_id = site_tiles.tile_id;"""
         )

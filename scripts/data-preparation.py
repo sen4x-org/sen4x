@@ -3,27 +3,26 @@ from __future__ import print_function
 
 import argparse
 import csv
-from collections import defaultdict
-from datetime import date
-import docker
 import json
 import logging
 import multiprocessing.dummy
 import os
 import os.path
-from osgeo import osr
-from osgeo import ogr
 import pipes
-import psycopg2
-from psycopg2.sql import SQL, Literal, Identifier
-import psycopg2.extras
-import psycopg2.extensions
 import shutil
 import subprocess
 import sys
-
+from collections import defaultdict
 from configparser import ConfigParser
+from datetime import date
 
+import psycopg2
+import psycopg2.extensions
+import psycopg2.extras
+from osgeo import ogr, osr
+from psycopg2.sql import SQL, Identifier, Literal
+
+import docker
 
 OTB_IMAGE_NAME = "sen4cap/processors:2.0.0"
 
@@ -432,7 +431,7 @@ def get_site_tiles(conn, site_id):
             """
 select shape_tiles_s2.tile_id,
        shape_tiles_s2.epsg_code,
-       ST_AsBinary(ST_SnapToGrid(ST_Transform(shape_tiles_s2.geom, shape_tiles_s2.epsg_code), 1)) as tile_extent
+       ST_AsBinary(ST_SnapToGrid(ST_Transform(shape_tiles_s2.geog :: geometry, shape_tiles_s2.epsg_code), 1)) as tile_extent
 from sp_get_site_tiles(%s :: smallint, 1 :: smallint) site_tiles
 inner join shape_tiles_s2 on shape_tiles_s2.tile_id = site_tiles.tile_id;"""
         )
@@ -1070,7 +1069,7 @@ where is_new;"""
                     sql = SQL(
                         """
 with transformed as (
-    select epsg_code, ST_Transform(shape_tiles_s2.geom, Find_SRID('public', {}, 'wkb_geometry')) as geom
+    select epsg_code, ST_Transform(shape_tiles_s2.geog :: geoemtry, Find_SRID('public', {}, 'wkb_geometry')) as geom
     from shape_tiles_s2
     where tile_id = {}
 )
