@@ -63,6 +63,8 @@ QStringList S4SCropTypeMappingHandler::GetCropTypeTaskArgs(const CropTypeJobConf
                                  cfg.endDate.toString("yyyy-MM-dd"),
                                  "--working-path",
                                  workingPath,
+                                 "--job-id",
+                                 QString::number(cfg.event.jobId),
                                  "--output-path",
                                  prdTargetDir };
 
