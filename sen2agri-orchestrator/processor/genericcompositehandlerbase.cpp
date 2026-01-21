@@ -278,7 +278,7 @@ QStringList GenericCompositeHandler::GetProductFormatterArgs(const GenericCompos
 
     QString strTimePeriod = jobPayload.minDate.toString("yyyyMMddTHHmmss").append("_").append(jobPayload.maxDate.toString("yyyyMMddTHHmmss"));
 
-    QStringList additionalArgs = {"-prdnamesuffix", prdNameSuffix};
+    QStringList additionalArgs = {"-prdnamesuffix", prdNameSuffix, "-rastersnamesuffix", prdNameSuffix};
     additionalArgs += "-processor.l3genericcomposite.files";
     for(const QString &key: tileResults.keys()) {
         additionalArgs += GetProductFormatterTile(key);

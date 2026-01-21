@@ -316,15 +316,6 @@ ProductList S4CMarkersDB1Handler::GetLpisProduct(ExecutionContextBase *pCtx, int
     return pCtx->GetProducts(siteId, (int)ProductType::S4CLPISProductTypeId, startDateTime, endDateTime);
 }
 
-QString S4CMarkersDB1Handler::GetShortNameForProductType(const ProductType &prdType) {
-    switch(prdType) {
-        case ProductType::L3BProductTypeId:         return "L3B";
-        case ProductType::S4CS1L2AmpProductTypeId:  return "AMP";
-        case ProductType::S4CS1L2CoheProductTypeId: return "COHE";
-        default:                                    return "";
-    }
-}
-
 QString S4CMarkersDB1Handler::CreateStepsForFilesMerge(const QStringList &dataExtrDirs, NewStepList &steps,
                               QList<TaskToSubmit> &allTasksList, int &curTaskIdx) {
     TaskToSubmit &mergeTask = allTasksList[curTaskIdx++];

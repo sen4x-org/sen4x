@@ -94,6 +94,12 @@ otb_create_application(
   SOURCES        otbCreateAnglesRaster.cpp
   LINK_LIBRARIES Sen2AgriProductReaders ${OTB_LIBRARIES})
 
+
+otb_create_application(
+  NAME           ApplyMaskToRaster
+  SOURCES        otbApplyMaskToRaster.cpp
+  LINK_LIBRARIES Sen2AgriProductReaders ${OTB_LIBRARIES})
+
 otb_create_application(
   NAME           GenerateDomainQualityFlags
   SOURCES        otbGenerateDomainQualityFlags.cxx
@@ -124,5 +130,6 @@ install(TARGETS otbapp_ReprocessedProfileSplitter2 DESTINATION usr/lib/otb/appli
 install(TARGETS otbapp_GenerateLaiMonoDateMaskFlags DESTINATION usr/lib/otb/applications/)
 install(TARGETS otbapp_BVLaiNewProcessor DESTINATION usr/lib/otb/applications/)
 install(TARGETS otbapp_CreateAnglesRaster DESTINATION usr/lib/otb/applications/)
+install(TARGETS otbapp_ApplyMaskToRaster DESTINATION usr/lib/otb/applications/)
 install(TARGETS otbapp_GenerateDomainQualityFlags DESTINATION usr/lib/otb/applications/)
 install(TARGETS otbapp_ImageAsImageResampler DESTINATION usr/lib/otb/applications/)

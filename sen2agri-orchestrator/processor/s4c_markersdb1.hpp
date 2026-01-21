@@ -69,7 +69,6 @@ private:
                                     NewStepList &steps, QList<TaskToSubmit> &allTasksList, int &curTaskIdx, const QString &prdType);
     ProductList GetLpisProduct(ExecutionContextBase *pCtx, int siteId);
 
-    QString GetShortNameForProductType(const ProductType &prdType);
     QString GetDataExtractionDir(const MDB1JobPayload &jobCfg, int year, const QString &markerName);
     QString CreateMdb3Steps(const MDB1JobPayload &jobCfg, const Season &season, const QString &mergedFile,
                                 NewStepList &steps, QList<TaskToSubmit> &allTasksList, int &curTaskIdx);

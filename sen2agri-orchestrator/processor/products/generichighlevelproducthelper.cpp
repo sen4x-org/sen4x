@@ -11,6 +11,12 @@ using namespace orchestrator::products;
 QMap<QString, ProductType> GenericHighLevelProductHelper::m_mapHighLevelProductTypeInfos = {
     {"_L3A_", ProductType::L3AProductTypeId},
     {"_L3B_", ProductType::L3BProductTypeId},
+    {"_L3B_NDVI_", ProductType::L3BNdviProductTypeId},
+    {"_L3B_LAI_", ProductType::L3BLaiProductTypeId},
+    {"_L3B_FAPAR_", ProductType::L3BFaparProductTypeId},
+    {"_L3B_FCOVER_", ProductType::L3BFcoverProductTypeId},
+    {"_L3B_NDWI_", ProductType::L3BNdwiProductTypeId},
+    {"_L3B_BRIGH_", ProductType::L3BBrightnessProductTypeId},
     {"_L3C_", ProductType::L3CProductTypeId},
     {"_L3D_", ProductType::L3DProductTypeId},
     {"_L3E_", ProductType::L3EProductTypeId},
@@ -113,6 +119,12 @@ bool GenericHighLevelProductHelper::HasMasks()
     switch (m_prdDetails.GetProduct().productTypeId) {
         case ProductType::L3AProductTypeId:
         case ProductType::L3BProductTypeId:
+        case ProductType::L3BNdviProductTypeId:
+        case ProductType::L3BLaiProductTypeId:
+        case ProductType::L3BFaparProductTypeId:
+        case ProductType::L3BFcoverProductTypeId:
+        case ProductType::L3BNdwiProductTypeId:
+        case ProductType::L3BBrightnessProductTypeId:
         case ProductType::L3CProductTypeId:
         case ProductType::L3DProductTypeId:
         case ProductType::L3EProductTypeId:
@@ -129,6 +141,12 @@ bool GenericHighLevelProductHelper::IsRaster()
     switch (m_prdDetails.GetProduct().productTypeId) {
         case ProductType::L3AProductTypeId:
         case ProductType::L3BProductTypeId:
+        case ProductType::L3BNdviProductTypeId:
+        case ProductType::L3BLaiProductTypeId:
+        case ProductType::L3BFaparProductTypeId:
+        case ProductType::L3BFcoverProductTypeId:
+        case ProductType::L3BNdwiProductTypeId:
+        case ProductType::L3BBrightnessProductTypeId:
         case ProductType::L3CProductTypeId:
         case ProductType::L3DProductTypeId:
         case ProductType::L3EProductTypeId:
@@ -145,6 +163,12 @@ bool GenericHighLevelProductHelper::HasTiles()
     switch (m_prdDetails.GetProduct().productTypeId) {
         case ProductType::L3AProductTypeId:
         case ProductType::L3BProductTypeId:
+        case ProductType::L3BNdviProductTypeId:
+        case ProductType::L3BLaiProductTypeId:
+        case ProductType::L3BFaparProductTypeId:
+        case ProductType::L3BFcoverProductTypeId:
+        case ProductType::L3BNdwiProductTypeId:
+        case ProductType::L3BBrightnessProductTypeId:
         case ProductType::L3CProductTypeId:
         case ProductType::L3DProductTypeId:
         case ProductType::L3EProductTypeId:

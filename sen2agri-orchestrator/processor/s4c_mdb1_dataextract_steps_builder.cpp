@@ -51,12 +51,19 @@ QList<MarkerType> S4CMarkersDB1DataExtractStepsBuilder::allMarkerFileTypes =
     {"L2AB12", ProductType::L2AProductTypeId, "B12", "B12", 20},
 
     // L3B markers
-    {"NDVI", ProductType::L3BProductTypeId, "SNDVI", "", -1},
-    {"LAI", ProductType::L3BProductTypeId, "SLAIMONO", "", -1},
-    {"FAPAR", ProductType::L3BProductTypeId, "SFAPARMONO", "", -1},
-    {"FCOVER", ProductType::L3BProductTypeId, "SFCOVERMONO", "", -1},
-    {"NDWI", ProductType::L3BProductTypeId, "SNDWI", "", -1},
-    {"BRIGHTNESS", ProductType::L3BProductTypeId, "SBRIGHT", "", -1},
+//    {"NDVI", ProductType::L3BProductTypeId, "SNDVI", "", -1},
+//    {"LAI", ProductType::L3BProductTypeId, "SLAIMONO", "", -1},
+//    {"FAPAR", ProductType::L3BProductTypeId, "SFAPARMONO", "", -1},
+//    {"FCOVER", ProductType::L3BProductTypeId, "SFCOVERMONO", "", -1},
+//    {"NDWI", ProductType::L3BProductTypeId, "SNDWI", "", -1},
+//    {"BRIGHT", ProductType::L3BProductTypeId, "SBRIGHT", "", -1},
+
+    {"NDVI", ProductType::L3BNdviProductTypeId, "SNDVI", "", -1},
+    {"LAI", ProductType::L3BLaiProductTypeId, "SLAIMONO", "", -1},
+    {"FAPAR", ProductType::L3BFaparProductTypeId, "SFAPARMONO", "", -1},
+    {"FCOVER", ProductType::L3BFcoverProductTypeId, "SFCOVERMONO", "", -1},
+    {"NDWI", ProductType::L3BNdwiProductTypeId, "SNDWI", "", -1},
+    {"BRIGHTNESS", ProductType::L3BBrightnessProductTypeId, "SBRIGHT", "", -1},
 
     // S1 markers
     {"AMP", ProductType::S4CS1L2AmpProductTypeId, "AMP", "", -1},
@@ -465,6 +472,12 @@ QStringList S4CMarkersDB1DataExtractStepsBuilder::GetDataExtractionFromShpArgs(c
 
     switch(inputFileInfo.markerInfo.prdType) {
         case ProductType::L3BProductTypeId:
+        case ProductType::L3BNdviProductTypeId:
+        case ProductType::L3BLaiProductTypeId:
+        case ProductType::L3BFaparProductTypeId:
+        case ProductType::L3BFcoverProductTypeId:
+        case ProductType::L3BNdwiProductTypeId:
+        case ProductType::L3BBrightnessProductTypeId:
         case ProductType::L2AProductTypeId:
         case ProductType::MaskedL2AProductTypeId:
             idsGeomShapePath = i.value().opticalIdsGeomShapePath;   // we can do that as we previously removed the products that do not have LPIS

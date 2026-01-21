@@ -219,6 +219,7 @@ private:
 
         anglesRaster->SetRegions(region);
         anglesRaster->SetNumberOfComponentsPerPixel(3);
+        anglesRaster->SetOrigin(m_img->GetOrigin());
 
         AnglesImageType::SpacingType anglesRasterSpacing;
         anglesRasterSpacing[0] = (((float)width) * spacing[0]) / ANGLES_GRID_SIZE; // spacing along X

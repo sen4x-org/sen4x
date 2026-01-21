@@ -38,6 +38,7 @@
 #include "TileMetadataWriter.hpp"
 
 #include "MetadataHelperFactory.h"
+#include <boost/regex.hpp>
 
 #define PROJECT_ID                      "S2AGRI"
 #define GIPP_VERSION                    "0001"
@@ -427,7 +428,7 @@ private:
         AddParameter(ParameterType_Int, "aggregatetiles", "Specifies, in the in case of rasters product, if the aggregate of tiles should be"
                                                   " performed or not. This implies also the creation or not of the preview image. By default is created");
         MandatoryOff("aggregatetiles");
-        SetDefaultParameterInt("aggregatetiles", 1);
+        SetDefaultParameterInt("aggregatetiles", 0);
 
         AddParameter(ParameterType_Int, "aggregatescale", "The aggregate rescale resolution");
         MandatoryOff("aggregatescale");
@@ -440,9 +441,20 @@ private:
         AddParameter(ParameterType_String, "prdnamesuffix", "Specifies a suffix to be added to the product name");
         MandatoryOff("prdnamesuffix");
 
+        AddParameter(ParameterType_String, "rastersnamesuffix", "Specifies a suffix to be added to the name of the rasters inside the product");
+        MandatoryOff("rastersnamesuffix");
+
         AddParameter(ParameterType_Int, "zarr", "Specifies if the product should be exported to zarr");
         MandatoryOff("zarr");
         SetDefaultParameterInt("zarr", 0);
+
+        AddParameter(ParameterType_Int, "checkconsistency", "Check product consistency and validity");
+        MandatoryOff("checkconsistency");
+        SetDefaultParameterInt("checkconsistency", 0);
+
+        AddParameter(ParameterType_Int, "createpreviews", "Create preview files");
+        MandatoryOff("createpreviews");
+        SetDefaultParameterInt("createpreviews", 0);
 
         SetDocExampleParameterValue("destroot", "/home/ata/sen2agri/sen2agri-processors-build/Testing/Temporary/Dest");
         SetDocExampleParameterValue("fileclass", "SVT1");
@@ -506,14 +518,15 @@ private:
 
       // Get the product name suffix
       m_strProductNameSuffix = this->GetParameterString("prdnamesuffix");
+      m_strRastersNameSuffix = this->GetParameterString("rastersnamesuffix");
 
       m_procInputDescr = GetProcessorInputDescriptor(m_strProcessor, m_strProductLevel);
 
       //read .xml or .HDR files to fill the metadata structures
       // Get the list of input files
       if (HasValue("il")) {
-          const std::vector<std::string> &descriptors = this->GetParameterStringList("il");
-          LoadAllDescriptors(descriptors);
+          m_descriptors = this->GetParameterStringList("il");
+          LoadAllDescriptors(m_descriptors);
       }
       if(m_strTimePeriod.empty() && m_acquisitionDatesList.size() > 0) {
           const std::string &strMinAcquisitionDate = *std::min_element(std::begin(m_acquisitionDatesList), std::end(m_acquisitionDatesList));
@@ -591,7 +604,10 @@ private:
               CreateAndFillTile(tileEl, strMainFolderFullPath);
           }
 
-          TransferPreviewFiles();
+          if (this->GetParameterInt("createpreviews")) {
+            TransferPreviewFiles();
+          }
+
           if (HasValue("lutqgis")) {
               TransferAndRenameLUTFile(GetParameterString("lutqgis"));
           }
@@ -613,10 +629,11 @@ private:
           }
       }
 
-      // Perform the consistency check of the product. If the main folder is renamed, then
-      // the new path is returned
-      strMainFolderFullPath = CheckProductConsistency(strMainFolderFullPath);
-
+      if (this->GetParameterInt("checkconsistency")) {
+          // Perform the consistency check of the product. If the main folder is renamed, then
+          // the new path is returned
+          strMainFolderFullPath = CheckProductConsistency(strMainFolderFullPath);
+      }
       if(HasValue("outprops")) {
             std::string outPropsFileName = this->GetParameterString("outprops");
             std::ofstream outPropsFile;
@@ -641,7 +658,8 @@ private:
       for(const ProcessorInputDescriptor &prdDescr: ProcessorDescriptors) {
           // check first the processor
           if (processor == prdDescr.processor) {
-              if (processor == "generic" || prdDescr.productLevel.size() == 0 || prdLevel == prdDescr.productLevel) {
+              if (processor == "generic" || prdDescr.productLevel.size() == 0 || prdLevel == prdDescr.productLevel ||
+                      prdLevel.rfind(prdDescr.productLevel, 0) == 0) {
                   // set the product level to the one received
                   ProcessorInputDescriptor descr = prdDescr;
                   descr.productLevel = prdLevel;
@@ -697,20 +715,45 @@ private:
 
   void UnpackRastersList(const std::vector<std::string> &rastersList, const ProcessorParamInputDescriptor &descr)
   {
+      if (rastersList.size() == 0) {
+          return;   // nothing to do
+      }
       std::string strTileID;
       rasterInfo rasterInfoEl;
-//      rasterInfoEl.bIsQiData = bIsQiData;
-//      rasterInfoEl.bQiDataIsDiscrete = bQiDataIsDiscrete;
-//      rasterInfoEl.bNeedsPreview = false;
       rasterInfoEl.paramDescr = descr;
 
       // get the number of tiles elements in the rasters list (including duplicates)
-      //std::string strTileID = UnpackTiles(rastersList, allTilesCnt);
       int allTilesCnt = CountTiles(rastersList);
+      bool interleavedTiles = (allTilesCnt > 0);
+      std::vector<std::string> descriptorsTilesIds;
+      if (!interleavedTiles) {
+          // No tiles provided in the rasters list, try to extract them from the input L2A list
+          for (auto mtdFile: m_descriptors) {
+            auto strTileID = ExtractTile(mtdFile);
+            if (strTileID.length() > 0) {
+                if(!IsTilePresent(strTileID))
+                {
+                  tileInfo tileInfoEl;
+                  tileInfoEl.strTileID = strTileID;
+                  m_tileIDList.emplace_back(tileInfoEl);
+                }
+                descriptorsTilesIds.emplace_back(strTileID);
+            }
+            allTilesCnt = descriptorsTilesIds.size();
+          }
+          if (allTilesCnt != rastersList.size()) {
+            itkExceptionMacro("The number of input metadata files are not equal with "
+                              "the rasters number (or tiles cannot be extracted from metadata files) for "
+                              " descriptor " << descr.name);
+          }
+      }
       // second extract the rasters
       int curRaster = 0;
-      bool bAllRastersHaveDate = ((rastersList.size()-allTilesCnt) == m_acquisitionDatesList.size());
+      bool bAllRastersHaveDate = (interleavedTiles ? ((rastersList.size()-allTilesCnt) == m_acquisitionDatesList.size()) :
+                                                    rastersList.size() ==  m_acquisitionDatesList.size());
+      int i = -1;
       for (const auto &rasterFileEl : rastersList) {
+          i++;
           if(rasterFileEl.compare(0, 5, "TILE_") == 0)
           {
               //if is TILE separator, read tileID
@@ -724,8 +767,10 @@ private:
           } else  {
               //rasterInfoEl.iRasterType = rasterType;
               rasterInfoEl.strRasterFileName = rasterFileEl;
+              if (!interleavedTiles) {
+                  strTileID = descriptorsTilesIds[i];
+              }
               rasterInfoEl.strTileID = strTileID;
-              // rasterInfoEl.bNeedsPreview = IsRasterNeedsPreview(rasterType);
               // update the date
               if(bAllRastersHaveDate) {
                   if(LevelHasAcquisitionTime()) {
@@ -1509,8 +1554,8 @@ private:
           if(rasterFileEl.paramDescr.bAddResolutionToSuffix) {
               suffix = "_" + std::to_string(rasterFileEl.nResolution) + "M";
           }
-          if (m_strProductNameSuffix.size() > 0) {
-              suffix += ("_" + m_strProductNameSuffix);
+          if (m_strRastersNameSuffix.size() > 0) {
+              suffix += ("_" + m_strRastersNameSuffix);
           }
           suffix += TIF_EXTENSION;
           rasterFileEl.strNewRasterFileName = BuildFileName(rasterFileEl.paramDescr.outSuffix,
@@ -1793,9 +1838,7 @@ private:
 
 
   void AddAcquisitionDate(const std::string &acquisitionDate) {
-      if(std::find(m_acquisitionDatesList.begin(), m_acquisitionDatesList.end(), acquisitionDate) == m_acquisitionDatesList.end()) {
-          m_acquisitionDatesList.push_back(acquisitionDate);
-      }
+      m_acquisitionDatesList.push_back(acquisitionDate);
   }
 
   std::string getDateFromAquisitionDateTime(const std::string &acqDateTime) {
@@ -2047,6 +2090,21 @@ private:
       return false;
   }
 
+  std::string ExtractTile(const std::string& path)
+  {
+      static const boost::regex rx(R"(_T([0-9]{2}[A-Z]{3})_)");
+      boost::smatch match;
+      std::string lastMatch;
+      std::string::const_iterator start = path.begin();
+      std::string::const_iterator end = path.end();
+      while (boost::regex_search(start, end, match, rx)) {
+          lastMatch = match[1];          // save latest
+          start = match[0].second;      // continue search after this match
+      }
+
+      return lastMatch;   // empty if no match
+  }
+
   std::string CheckProductConsistency(const std::string &strProductMainFolder) {
         std::string retPath = strProductMainFolder;
 
@@ -2100,6 +2158,7 @@ private:
   std::string m_strBaseline;
   std::string m_strSiteId;
   std::string m_strProductNameSuffix;
+  std::string m_strRastersNameSuffix;
   std::vector<previewInfo> m_previewList;
   std::vector<std::string> m_GIPPList;
   std::vector<std::string> m_ISDList;
@@ -2115,6 +2174,7 @@ private:
   //std::string m_strProductFileName;
   std::vector<geoProductInfo> m_geoProductInfo;
 
+    std::vector<std::string> m_descriptors;
     std::vector<std::string> m_acquisitionDatesList;
     bool m_bDynamicallyTimePeriod;
 
