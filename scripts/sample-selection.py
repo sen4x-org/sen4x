@@ -2,24 +2,25 @@
 from __future__ import print_function
 
 import argparse
-from collections import defaultdict
 import csv
-from datetime import date
-from multiprocessing.dummy import Pool
-from typing import Dict, List, Optional
-import docker
 import glob
 import json
 import logging
 import math
 import os
 import os.path
-from osgeo import gdal, ogr, osr
-import psycopg2
-from psycopg2.sql import SQL, Literal, Identifier
-from psycopg2.extensions import connection
+from collections import defaultdict
 from configparser import ConfigParser
+from datetime import date
+from multiprocessing.dummy import Pool
+from typing import Dict, List, Optional
 
+import psycopg2
+from osgeo import gdal, ogr, osr
+from psycopg2.extensions import connection
+from psycopg2.sql import SQL, Identifier, Literal
+
+import docker
 
 OTB_IMAGE_NAME = "docker.io/orfeotoolbox/otb:8.1.1"
 
@@ -87,13 +88,15 @@ def get_site_name(conn, site_id):
         conn.commit()
         return row[0]
 
+
 def get_season_name(conn, season_id):
     with conn.cursor() as cursor:
         query = SQL("select name from season where id = %s")
         cursor.execute(query, (season_id,))
-        rows = cursor.fetchall()
+        row = cursor.fetchone()
         conn.commit()
-        return rows[0][0]
+        return row[0]
+
 
 def get_connection(config):
     return psycopg2.connect(
@@ -230,7 +233,7 @@ def main():
         default="/etc/sen2agri/sen2agri.conf",
         help="configuration file location",
     )
-    parser.add_argument("--season-id", help="season", type=int)
+    parser.add_argument("--season-id", help="season ID", type=int)
     parser.add_argument("--mounts", help="paths to mount in containers", nargs="*")
 
     required_args = parser.add_argument_group("required named arguments")

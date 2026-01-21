@@ -2,21 +2,22 @@
 from __future__ import print_function
 
 import argparse
-from configparser import ConfigParser
 import csv
-from datetime import date
-import docker
 import logging
 import multiprocessing.dummy
 import os
 import os.path
-from osgeo import gdal, ogr, osr
-import psycopg2
-from psycopg2.sql import SQL, Literal, Identifier
-import psycopg2.extras
-import psycopg2.extensions
 import sys
+from configparser import ConfigParser
+from datetime import date
 
+import psycopg2
+import psycopg2.extensions
+import psycopg2.extras
+from osgeo import gdal, ogr, osr
+from psycopg2.sql import SQL, Identifier, Literal
+
+import docker
 
 PRODUCT_TYPE_S4S_PARCELS = 14
 PROCESSOR_LPIS = 8
@@ -332,13 +333,14 @@ def get_site_name(conn, site_id):
         conn.commit()
         return rows[0][0]
 
-def get_season_infos(conn, season_id):
+
+def get_season_info(conn, season_id):
     with conn.cursor() as cursor:
         query = SQL("select name, start_date from season where id = %s")
         cursor.execute(query, (season_id,))
-        rows = cursor.fetchall()
+        row = cursor.fetchone()
         conn.commit()
-        return rows[0]
+        return row
 
 
 def get_site_srid(conn, parcels_table):
@@ -405,7 +407,7 @@ class DataPreparation(object):
         with self.get_connection() as conn:
             print("Retrieving site tiles")
             site_name = get_site_name(conn, config.site_id)
-            season_name, season_start_date = get_season_infos(conn, self.season_id)
+            season_name, season_start_date = get_season_info(conn, self.season_id)
             self.tiles = get_site_tiles(conn, config.site_id)
 
         self.parcels_table = "in_situ_polygons_{}_{}".format(site_name, season_name)
@@ -415,7 +417,9 @@ class DataPreparation(object):
         self.parcel_attributes_table = "polygon_attributes_{}_{}".format(
             site_name, season_name
         )
-        self.statistical_data_table = "in_situ_data_{}_{}".format(site_name, season_name)
+        self.statistical_data_table = "in_situ_data_{}_{}".format(
+            site_name, season_name
+        )
         self.statistical_data_table_staging = "in_situ_data_{}_{}_staging".format(
             site_name, season_name
         )
@@ -1239,7 +1243,9 @@ where upd.id = parcel_attributes.parcel_id;"""
                 conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_DEFAULT)
 
                 tiles = [t.tile_id for t in self.tiles]
-                name = "SEN4STAT_PARCELS_S{}_{}".format(self.config.site_id, self.season_id)
+                name = "SEN4STAT_PARCELS_S{}_{}".format(
+                    self.config.site_id, self.season_id
+                )
                 dt = self.season_start_date
                 sql = SQL(
                     """delete
@@ -1558,7 +1564,7 @@ def main():
         default="/etc/sen2agri/sen2agri.conf",
         help="configuration file location",
     )
-    parser.add_argument("--season-id", help="season", type=int)
+    parser.add_argument("--season-id", help="season ID", type=int)
     parser.add_argument("--parcels-geom", help="parcel dataset")
     parser.add_argument("--statistical-data", help="statistical dataset")
     parser.add_argument("--classification-strata", help="classification strata dataset")

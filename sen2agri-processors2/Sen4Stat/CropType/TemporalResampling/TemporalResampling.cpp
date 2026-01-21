@@ -50,6 +50,7 @@ private:
 
         AddParameter(ParameterType_InputImage, "mask", "Input validity mask");
         SetParameterDescription("mask", "Input validity mask.");
+        MandatoryOff("mask");
 
         AddParameter(ParameterType_StringList, "indates", "Input dates");
         SetParameterDescription("indates", "Input dates.");
@@ -86,9 +87,7 @@ private:
         SetDocExampleParameterValue("out", "out.tif");
     }
 
-    void DoUpdateParameters() override
-    {
-    }
+    void DoUpdateParameters() override {}
 
     void DoExecute() override
     {
@@ -121,7 +120,6 @@ private:
         }
 
         const auto inImage = GetParameterInt16VectorImage("in");
-        const auto maskImage = GetParameterInt16VectorImage("mask");
 
         std::vector<int16_t> replacingValues = { nan };
 
@@ -135,17 +133,25 @@ private:
             inputOffsets.resize(inDates.size(), 0);
         }
 
-        auto maskFilter = engeMaskSerieFilter<Int16VectorImageType, Int16VectorImageType,
-                                              Int16VectorImageType>::New();
-        maskFilter->SetInput(0, inImage);
-        maskFilter->SetInput(1, maskImage);
-        maskFilter->setMasks({ maskedValue }, replacingValues);
-        maskFilter->setInvertedMode(true);
-
         auto interpolationFilter =
             engeStepInterpolationFilter<Int16VectorImageType, Int16VectorImageType>::New();
+        engeMaskSerieFilter<Int16VectorImageType, Int16VectorImageType,
+                            Int16VectorImageType>::Pointer maskFilter;
 
-        interpolationFilter->SetInput(maskFilter->GetOutput());
+        if (HasValue("mask")) {
+            maskFilter = engeMaskSerieFilter<Int16VectorImageType, Int16VectorImageType,
+                                             Int16VectorImageType>::New();
+
+            const auto maskImage = GetParameterInt16VectorImage("mask");
+            maskFilter->SetInput(0, inImage);
+            maskFilter->SetInput(1, maskImage);
+            maskFilter->setMasks({ maskedValue }, replacingValues);
+            maskFilter->setInvertedMode(true);
+
+            interpolationFilter->SetInput(maskFilter->GetOutput());
+        } else {
+            interpolationFilter->SetInput(inImage);
+        }
         interpolationFilter->setInputTimes(inDates);
         interpolationFilter->setInputOffsets(inputOffsets);
         interpolationFilter->setOutputTimes(outDates);
