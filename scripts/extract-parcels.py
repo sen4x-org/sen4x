@@ -3,13 +3,14 @@ from __future__ import print_function
 
 import argparse
 import csv
-import dateutil.parser
 import os.path
-from osgeo import gdal, ogr
-import psycopg2
-from psycopg2.sql import SQL, Literal, Identifier
-import psycopg2.extras
 import sys
+
+import dateutil.parser
+import psycopg2
+import psycopg2.extras
+from osgeo import gdal, ogr
+from psycopg2.sql import SQL, Identifier, Literal
 
 try:
     from configparser import ConfigParser
@@ -203,7 +204,6 @@ def extract_optical_products(
         query = SQL(
             """
             select site_id,
-                   name,
                    full_path,
                    unnest(tiles) as tile,
                    created_timestamp
@@ -247,14 +247,14 @@ def extract_optical_products(
         print(query.as_string(conn))
         cursor.execute(query)
 
-        save_to_csv(
-            cursor, file, ["site_id", "name", "full_path", "tile", "created_timestamp"]
-        )
+        save_to_csv(cursor, file, ["site_id", "full_path", "tile", "created_timestamp"])
 
         conn.commit()
 
 
-def extract_radar_products(conn, site_id, season_start, season_end, tiles, products, file):
+def extract_radar_products(
+    conn, site_id, season_start, season_end, tiles, products, file
+):
     with conn.cursor() as cursor:
         query = SQL(
             """
@@ -303,10 +303,12 @@ def extract_radar_products(conn, site_id, season_start, season_end, tiles, produ
             tiles_filter = SQL("")
 
         query = query.format(
-            site_id_filter, site_id_filter,
+            site_id_filter,
+            site_id_filter,
             products_filter,
             tiles_filter,
-            start_date_filter, end_date_filter,
+            start_date_filter,
+            end_date_filter,
         )
 
         print(query.as_string(conn))
@@ -370,9 +372,7 @@ def main():
     parser.add_argument("--products", nargs="+", help="product filter")
     parser.add_argument("--strata", help="strata definition")
     parser.add_argument("--srid", help="strata SRID")
-    parser.add_argument(
-        "parcels", help="output parcels file", default="parcels.csv"
-    )
+    parser.add_argument("parcels", help="output parcels file", default="parcels.csv")
     parser.add_argument("lut", help="output LUT file", default="lut.csv")
     parser.add_argument(
         "tile_footprints", help="output tile footprints", default="tiles.csv"
@@ -383,9 +383,7 @@ def main():
     parser.add_argument(
         "radar_products", help="output radar products", default="radar.csv"
     )
-    parser.add_argument(
-        "lpis_path", help="output LPIS path file", default="lpis.txt"
-    )
+    parser.add_argument("lpis_path", help="output LPIS path file", default="lpis.txt")
 
     args = parser.parse_args()
 

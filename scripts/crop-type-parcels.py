@@ -274,7 +274,7 @@ def process_optical(args, pool, satellite_id):
     with open(args.optical_products, "rb") as file:
         reader = csv.reader(file)
         next(reader, None)
-        for site_id, name, full_path, tile, created_timestamp in reader:
+        for site_id, full_path, tile, created_timestamp in reader:
             site_id = int(site_id)
             # created_timestamp = datetime.fromisoformat(created_timestamp)
             created_timestamp = dateutil.parser.parse(created_timestamp)
