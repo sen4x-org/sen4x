@@ -21,8 +21,12 @@
 #include "processor/masked_l2a_handler.hpp"
 #include "processor/s4s_croptypemappinghandler.hpp"
 #include "processor/s4s_permanent_crop_handler.hpp"
-#include "processor/s4s_yieldhandler.hpp"
-#include "processor/s4s_yield_su_handler.hpp"
+//#include "processor/s4s_yieldhandler.hpp"
+//#include "processor/s4s_yield_su_handler.hpp"
+
+#include "processor/yield/s4s_yield_features.hpp"
+#include "processor/yield/s4s_yield.hpp"
+
 #include "processor/trex_handler.hpp"
 #include "processor/compositehandlers1.hpp"
 #include "processor/compositehandlerindicators.hpp"
@@ -75,16 +79,16 @@ std::map<int, std::unique_ptr<ProcessorHandler>> & GetHandlersMap(PersistenceMan
             handlersMap.emplace(procDescr.processorId, std::make_unique<S4SCropTypeMappingHandler>());
         } else if(procDescr.shortName == "t_rex_updater") {
             handlersMap.emplace(procDescr.processorId, std::make_unique<TRexHandler>());
-        } else if(procDescr.shortName == "s4s_yield_feat") {
-            handlersMap.emplace(procDescr.processorId, std::make_unique<S4SYieldHandler>());
+        } else if(procDescr.processorId == (int)Processor::S4SYieldFeaturesProcessorId) {
+            handlersMap.emplace(procDescr.processorId, std::make_unique<S4SYieldFeatures>());
         } else if(procDescr.processorId == (int)Processor::L3S1CompProcessorId) {
             handlersMap.emplace(procDescr.processorId, std::make_unique<CompositeHandlerS1>());
         } else if(procDescr.processorId == (int)Processor::L3IndCompProcessorId) {
             handlersMap.emplace(procDescr.processorId, std::make_unique<CompositeHandlerIndicators>());
         } else if(procDescr.processorId == (int)Processor::S4CHeterogeneityProcessorId) {
             handlersMap.emplace(procDescr.processorId, std::make_unique<S4CHeterogeneityHandler>());
-        } else if(procDescr.processorId == (int)Processor::S4SYieldSUProcessorId) {
-            handlersMap.emplace(procDescr.processorId, std::make_unique<S4SYieldSUHandler>());
+        } else if(procDescr.processorId == (int)Processor::S4SYieldProcessorId) {
+            handlersMap.emplace(procDescr.processorId, std::make_unique<S4SYield>());
         } else if(procDescr.processorId == (int)Processor::S4CBareSoilProcessorId) {
              handlersMap.emplace(procDescr.processorId, std::make_unique<S4CBareSoilHandler>());
         } else if(procDescr.processorId == (int)Processor::S4CChangeDetectionProcessorId) {

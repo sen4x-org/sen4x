@@ -39,7 +39,7 @@ public:
 protected:
     NewStep CreateTaskStep(TaskToSubmit &task, const QString &stepName, const QStringList &stepArgs);
 
-    QString GetFinalProductFolder(EventProcessingContext &ctx, int jobId, int siteId);
+    QString GetFinalProductFolder(EventProcessingContext &ctx, int jobId, int siteId, const QString &optionalPathSuffix = "");
     bool NeedRemoveJobFolder(EventProcessingContext &ctx, int jobId, const QString &procName);
     bool RemoveJobFolder(EventProcessingContext &ctx, int jobId, const QString &procName);
     QString GetTaskOutputPathFromEvt(EventProcessingContext &ctx, const TaskFinishedEvent &event);
@@ -72,7 +72,7 @@ protected:
     QStringList GetDefaultProductFormatterArgs(EventProcessingContext &ctx, TaskToSubmit &productFormatterTask,
                                                int jobId, int siteId, const QString &level, const QString &timePeriod,
                                                 const QString &processor, const QStringList &additionalParameters,
-                                                bool isVectPrd = false, const QString &gipp = "", bool compress = true);
+                                                bool isVectPrd = false, const QString &gipp = "", bool compress = true, const QString &destPathSuffix = "");
     bool CheckAllAncestorProductCreation(ExecutionContextBase &ctx, int siteId, const ProductType &prdType,
                                          const QDateTime &startDate, const QDateTime &endDate);
 

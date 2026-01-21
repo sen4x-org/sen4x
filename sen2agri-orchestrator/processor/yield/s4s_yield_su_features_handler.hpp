@@ -48,8 +48,38 @@ class S4SYieldSUFeaturesHandler : public ProcessorHandler
             suPath = suPath.replace("{site}", siteShortName);
             suPath = GetSUShapefile(suPath);
             suUniqueId = "ID_2";    // TODO: This should be configurable
-            cropTypePrdPath = GetCropTypeProductPath();
+            cropTypePrds = GetCropTypeProducts();
 
+            // Check the years from the given interval and the years where the crop types are available
+            QList<int> ctYears;
+            ctYears.reserve(cropTypePrds.size());
+            for (const Product& prd : cropTypePrds) {
+                ctYears.append(prd.created.date().year());
+            }
+            // bool identical = QSet<int>(list1.begin(), list1.end()) == QSet<int>(list2.begin(), list2.end());
+            bool allYearsHaveCT = true;
+            if (ctYears.size() != (int)years.size()) {
+                allYearsHaveCT = false;
+            } else {
+                QSet<int> setYears;
+                setYears.reserve(years.size());
+                for (int y : years) {
+                    setYears.insert(y);
+                }
+                for (int ctYear : ctYears) {
+                    if (!setYears.contains(ctYear)) {
+                        allYearsHaveCT = false;
+                        break;
+                    }
+                }
+            }
+            if (!allYearsHaveCT) {
+                pCtx->MarkJobFailed(event.jobId);
+                throw std::runtime_error(QStringLiteral("Yield SU Feature: Not all years selected for site %1 and interval %2 - %3 have a crop type.")
+                                         .arg(siteShortName)
+                                         .arg(startDate.toString())
+                                         .arg(endDate.toString()).toStdString());
+            }
             const ProductList &weatherPrdsList = pCtx->GetProducts(event.siteId, (int)ProductType::ERA5WeatherProductTypeId,
                                                                                startDate, endDate.addDays(1));
             if (weatherPrdsList.size() == 0) {
@@ -90,27 +120,31 @@ class S4SYieldSUFeaturesHandler : public ProcessorHandler
             }
 
             siteTiles = pCtx->GetSiteTiles(event.siteId, (int)Satellite::Sentinel2);
-            for (const Tile &tile : siteTiles) {
-                esuTileRasterPaths[tile.tileId] = QDir(rastersPath).filePath("ESU_Random_" + tile.tileId + ".tif");
-            }
 
             int startYear = startDate.date().year();
             int endYear = endDate.date().year();
             for (int i = 0; i <= (endYear - startYear); i++) {
-                LpisInfos infos;
                 int curYear = startYear+i;
+                QMap<QString, QString> esuTileRasters;
+                for (const Tile &tile : siteTiles) {
+                    esuTileRasters[tile.tileId] = QDir(rastersPath).filePath("ESU_Random_" + tile.tileId + "_" + QString::number(curYear) + ".tif");
+                }
+
+                esuRasterPaths[curYear] = esuTileRasters;
+
+                LpisInfos infos;
                 infos.productDate = startDate.addYears(i);
                 infos.insertedDate = infos.productDate;
                 infos.productName = QStringLiteral("LPIS_") + QString::number(curYear);
-                infos.optTilesGeomsRasters = esuTileRasterPaths;
-                infos.sarTilesGeomsRasters = esuTileRasterPaths;
+                infos.optTilesGeomsRasters = esuTileRasters;
+                infos.sarTilesGeomsRasters = esuTileRasters;
                 lpisInfos[curYear] = infos;
             }
 
             return lpisInfos;
         }
 
-        QString GetCropTypeProductPath();
+        ProductList GetCropTypeProducts();
         QString GetProcessorDirValue(const QJsonObject &parameters, const std::map<QString, QString> &configParameters,
                                      const QString &key, const QString &siteShortName, const QString &procShortName, const QString &defVal );
 
@@ -131,11 +165,11 @@ class S4SYieldSUFeaturesHandler : public ProcessorHandler
         bool isScheduled;
         std::vector<int> years;
         QMap<int, LpisInfos> lpisInfos;
-        QString cropTypePrdPath;
+        ProductList cropTypePrds;
         QString dataExtractionRootDir;
         QString suPath;
         QString suUniqueId;
-        QMap<QString, QString> esuTileRasterPaths;
+        QMap<int, QMap<QString, QString>> esuRasterPaths;
         TileList siteTiles;
         QString historicalYieldFile;
 
@@ -157,8 +191,9 @@ private:
     QString CreateStepsForFilesMerge(const S4SYieldJobConfig &jobCfg, const QStringList &dataExtrDirs,
                                      NewStepList &steps, QList<TaskToSubmit> &allTasksList, int &curTaskIdx);
 
-    QStringList GetEsuExtractionTaskArgs(const S4SYieldJobConfig &cfg, const QString &workingDir, const QString &outESUCsvFile, const QString &outSUAdditionalInfoCsvFile);
-    QStringList GetESUAggregationTaskArgs(const QString &esuCsvFile, const QString &laiMergedPath, const QString &workingDir,
+    QStringList GetEsuExtractionTaskArgs(const S4SYieldJobConfig &cfg, const QString &workingDir, const QString &outESUCsvFile,
+                                         const QString &outSUAdditionalInfoCsvFile, const QString &ctPath, int ctYear);
+    QStringList GetESUAggregationTaskArgs(const QStringList &esuCsvFiles, const QList<int> &ctYears, const QString &laiMergedPath, const QString &workingDir,
                                           const QString &outAggregatedLAI);
     QStringList GetSGLaiTaskArgs(const std::vector<int> &years, const QString &mdb1File, const QString &sgOutFile,
                                  const QString &outCropGrowthIndicesFile, const QString &outLaiMetricsFile);

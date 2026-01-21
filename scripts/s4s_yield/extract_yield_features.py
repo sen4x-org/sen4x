@@ -24,13 +24,14 @@ import numpy as np
 
 ID_COL_NAME = "NewID"
 CT_COL_NAME = "crop_code"
+AREA_COL_NAME = "area_meters"
 
 SAFY_YIELD_COL_NAME = "Yield"
 SAFY_D0OUT_COL_NAME = "d0out"
 SAFY_SENBOUT_COL_NAME = "SenBout"
 TREND_COL_NAME = "Trend"
 
-OUTPUT_FEATURE_NAMES = ['MeanLaiSGWinter', 'SumLaiSGInt0', 'SumLaiSGInt1', 'SumLaiSGInt2', 'MaxSG', 'DayMaxSG', 'MaxLAI', 'ColdT0', 'ColdT1', 'HotT2', 'SumT1', 'SumT2', 'SumT251', 'SumT252', 'SumP1', 'SumP2', 'SumR1', 'SumR2', 'SumE1', 'SumE2', 'MeanT1', 'MeanT2', 'MeanP1', 'MeanP2', 'MeanR1', 'MeanR2', 'MeanE1', 'MeanE2', 'MeanSW10', 'MeanSW11', 'MeanSW12', 'MeanSW20', 'MeanSW21', 'MeanSW22', 'MeanSW30', 'MeanSW31', 'MeanSW32', 'MeanSW40', 'MeanSW41', 'MeanSW42', SAFY_YIELD_COL_NAME, SAFY_D0OUT_COL_NAME, SAFY_SENBOUT_COL_NAME, TREND_COL_NAME, CT_COL_NAME]
+OUTPUT_FEATURE_NAMES = ['MeanLaiSGWinter', 'SumLaiSGInt0', 'SumLaiSGInt1', 'SumLaiSGInt2', 'MaxSG', 'DayMaxSG', 'MaxLAI', 'ColdT0', 'ColdT1', 'HotT2', 'SumT1', 'SumT2', 'SumT251', 'SumT252', 'SumP1', 'SumP2', 'SumR1', 'SumR2', 'SumE1', 'SumE2', 'MeanT1', 'MeanT2', 'MeanP1', 'MeanP2', 'MeanR1', 'MeanR2', 'MeanE1', 'MeanE2', 'MeanSW10', 'MeanSW11', 'MeanSW12', 'MeanSW20', 'MeanSW21', 'MeanSW22', 'MeanSW30', 'MeanSW31', 'MeanSW32', 'MeanSW40', 'MeanSW41', 'MeanSW42', SAFY_YIELD_COL_NAME, SAFY_D0OUT_COL_NAME, SAFY_SENBOUT_COL_NAME, TREND_COL_NAME, CT_COL_NAME, AREA_COL_NAME]
 
 INDICES_COLUMN_SUFFIXES=["Ind_MaxLai", "Ind_HalfLai", "Ind_Emerg", "Ind_EndLai"]
 
@@ -41,6 +42,7 @@ class InputColumnsInfo(object) :
         self.header = header
         self.id_pos = header.index(ID_COL_NAME)
         self.ct_pos = header.index(CT_COL_NAME)
+        self.area_pos = header.index(AREA_COL_NAME)
 
         # extract the LAI features indices 
         self.lai_features_indices = self.get_column_indices(header, LAI_FEATURES_COLUMN_SUFFIXES)
@@ -128,6 +130,7 @@ def handle_batch_record(rows, column_infos, writer):
     for row in rows:
         id = row[column_infos.id_pos]
         crop_type = row[column_infos.ct_pos]
+        area_meters = row[column_infos.area_pos]
 
         try:
             IndMaxLai = int(row[column_infos.crop_indices[0]])
@@ -201,12 +204,13 @@ def handle_batch_record(rows, column_infos, writer):
         safy_senb = filter_row_values(row, column_infos.safy_senb_indices)
         trend = filter_row_values(row, column_infos.trend_indices)
         
-        i = update_result_row_idx_and_increment(result, i, safy_yield[0] if safy_yield is not None and len(safy_yield) > 0 else None)   # ['safyyield']
-        i = update_result_row_idx_and_increment(result, i, safy_d0[0] if safy_d0 is not None and len(safy_d0) > 0 else None)            # ['safyd0'] 
-        i = update_result_row_idx_and_increment(result, i, safy_senb[0] if safy_senb is not None and len(safy_senb) > 0 else None)      # ['safysenb']
-        i = update_result_row_idx_and_increment(result, i, trend[0] if trend is not None and len(trend) > 0 else None)                  # ['Trend']
+        i = update_result_row_idx_and_increment(result, i, safy_yield[0] if safy_yield is not None and len(safy_yield) > 0 else 0)   # ['safyyield']
+        i = update_result_row_idx_and_increment(result, i, safy_d0[0] if safy_d0 is not None and len(safy_d0) > 0 else 0)            # ['safyd0'] 
+        i = update_result_row_idx_and_increment(result, i, safy_senb[0] if safy_senb is not None and len(safy_senb) > 0 else 0)      # ['safysenb']
+        i = update_result_row_idx_and_increment(result, i, trend[0] if trend is not None and len(trend) > 0 else 0)                  # ['Trend']
        
-        i = update_result_row_idx_and_increment(result, i, int(crop_type) if crop_type is not None and len(crop_type) > 0 else None)    # ['crop_type']
+        i = update_result_row_idx_and_increment(result, i, int(crop_type) if crop_type is not None and len(crop_type) > 0 else 0)    # ['crop_type']
+        i = update_result_row_idx_and_increment(result, i, float(area_meters) if area_meters is not None and len(area_meters) > 0 else 0)    # ['area_meters']
         
         batch_results.append(result)
 

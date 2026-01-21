@@ -105,3 +105,8 @@ bool ExecutionContextBase::IsProcessingDone(ProductType prdType, int siteId, con
 {
     return persistenceManager.IsProcessingDone(prdType, siteId, startDate, endDate, satIds);
 }
+
+bool ExecutionContextBase::HasParcelYieldEstimates(const QString &siteShortName, const Season &season)
+{
+    return persistenceManager.HasParcelYieldEstimates(siteShortName, season);
+}

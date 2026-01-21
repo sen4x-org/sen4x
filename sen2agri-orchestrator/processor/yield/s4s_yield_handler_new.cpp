@@ -51,7 +51,8 @@ NewStepList S4SYieldHandlerNew::CreateSteps(QList<TaskToSubmit> &allTasksList,co
     int curTaskIdx = 0;
     NewStepList allSteps;
     QStringList prdFormatterFiles;
-    const QString &yieldFeaturesOutputPath = cfg.yieldFeatPrds.at(0);
+    const QString &yieldInputFeaturesPath = cfg.yieldFeatPrds.at(0);
+    const QString &yieldTrainingFeaturesPath = (cfg.yieldFeatPrds.size() >= 2 ? cfg.yieldFeatPrds.at(1) : yieldInputFeaturesPath);
     int yieldRefTskId = curTaskIdx++;
     int ctExtrTskId = curTaskIdx++;
 
@@ -69,26 +70,27 @@ NewStepList S4SYieldHandlerNew::CreateSteps(QList<TaskToSubmit> &allTasksList,co
     TaskToSubmit &ctExtrTask = allTasksList[ctExtrTskId];
     const QString &yieldReference = yieldReferenceExtrTask.GetFilePath("yield_reference.csv");
     const QString &cropTypes = ctExtrTask.GetFilePath("crop_types.csv");
-    const QStringList &yieldReferenceExtractionArgs = GetYieldReferenceExtractionTaskArgs(cfg.event.siteId, cfg.seasons.at(0).seasonId, yieldReference);
+    const Season &currentSeason = cfg.seasons.at(0);
+    const QStringList &yieldReferenceExtractionArgs = GetYieldReferenceExtractionTaskArgs(cfg.event.siteId, currentSeason.seasonId, yieldReference);
     allSteps.append(CreateTaskStep(yieldReferenceExtrTask, "YieldReferenceExtraction", yieldReferenceExtractionArgs));
 
-    const QStringList &cropTypesExtractionArgs = GetCropTypesExtractionTaskArgs(cfg.event.siteId, cfg.seasons.at(0).seasonId, cropTypes);
+    const QStringList &cropTypesExtractionArgs = GetCropTypesExtractionTaskArgs(cfg.event.siteId, currentSeason.seasonId, cropTypes);
     allSteps.append(CreateTaskStep(ctExtrTask, "CropTypesExtraction", cropTypesExtractionArgs));
 
     QString parcelToSUPath;
     if (cfg.suPath.size() > 0) {
         TaskToSubmit &parcelsToSUExtrTask = allTasksList[parcelsToSuExtrIdx];
         parcelToSUPath = parcelsToSUExtrTask.GetFilePath("parcel_to_su_mapping.csv");
-        const QStringList &parcelToSUArgs = GetParcelToSUTaskArgs(cfg.event.siteId, cfg.seasons.at(0).seasonId, cfg.suPath, parcelToSUPath);
+        const QStringList &parcelToSUArgs = GetParcelToSUTaskArgs(cfg.event.siteId, currentSeason.seasonId, cfg.suPath, parcelToSUPath);
         allSteps.append(CreateTaskStep(parcelsToSUExtrTask, "ParcelsToSU", parcelToSUArgs ));
     }
 
     TaskToSubmit &yieldModelTask = allTasksList[yieldModelTskId];
     const QString &yieldEstimateOutputPath = yieldModelTask.GetFilePath("yield_estimate.csv");
     const QString &yieldStatisticalUnitEstimateOutputPath = yieldModelTask.GetFilePath("yield_statistical_units_estimate.csv");
-    const QStringList &yieldModelExtractionArgs = GetYieldModelTaskArgs(cfg, yieldReference, cropTypes, yieldFeaturesOutputPath,
-                                                                        parcelToSUPath, yieldEstimateOutputPath,
-                                                                        yieldStatisticalUnitEstimateOutputPath);
+    const QStringList &yieldModelExtractionArgs = GetYieldModelTaskArgs(cfg, yieldReference, cropTypes, yieldInputFeaturesPath,
+                                                                        yieldTrainingFeaturesPath, parcelToSUPath,
+                                                                        yieldEstimateOutputPath, yieldStatisticalUnitEstimateOutputPath);
     allSteps.append(CreateTaskStep(yieldModelTask, "YieldModel", yieldModelExtractionArgs));
     prdFormatterFiles += {yieldEstimateOutputPath, yieldStatisticalUnitEstimateOutputPath};
 
@@ -114,7 +116,7 @@ QStringList S4SYieldHandlerNew::GetCropTypesExtractionTaskArgs(int siteId, int s
 
 
 QStringList S4SYieldHandlerNew::GetYieldModelTaskArgs(const S4SYieldJobConfig &cfg, const QString & yieldReference, const QString & cropCodesFile,
-                                                   const QString &inYieldFeatures, const QString &statisticalUnitFields,
+                                                   const QString &inYieldFeatures, const QString &trainingFeatures, const QString &statisticalUnitFields,
                                                    const QString &outYieldEstimates, const QString &outYieldSUEstimates)
 {
     const QString &algo = ProcessorHandlerHelper::GetStringConfigValue(cfg.parameters, cfg.configParameters,
@@ -151,6 +153,7 @@ QStringList S4SYieldHandlerNew::GetYieldModelTaskArgs(const S4SYieldJobConfig &c
     QStringList args =
     {
         "-i", inYieldFeatures,
+        "-t", trainingFeatures,
         "-o", outYieldEstimates,
         "-e", outYieldSUEstimates,
         "-r", yieldReference,

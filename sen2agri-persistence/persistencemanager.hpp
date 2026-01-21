@@ -110,6 +110,7 @@ public:
 
     SeasonList GetSiteSeasons(int siteId);
     bool IsProcessingDone(ProductType prdType, int siteId, const QDateTime &startDate, const QDateTime &endDate, const QList<int> &satIds);
+    bool HasParcelYieldEstimates(const QString &siteShortName, const Season &season);
 
     QStringList QStringListFromString(QString str, const QString &sep = ",");
     QList<int> QListIntFromString(QString str, const QString &sep = ",");

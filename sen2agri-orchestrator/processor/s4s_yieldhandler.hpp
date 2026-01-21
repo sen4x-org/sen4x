@@ -24,6 +24,10 @@ class S4SYieldHandler : public ProcessorHandler
 
             year = endDate.date().year();           // TODO: see if this is valid
 
+            enableSafy = ProcessorHandlerHelper::GetBoolConfigValue(parameters, configParameters,
+                                    "enable_safy", S4S_YIELD_CFG_PREFIX, true);
+
+
 //            enableYieldModel = ProcessorHandlerHelper::GetBoolConfigValue(parameters, configParameters,
 //                                                                            "enable_yield_model", S4S_YIELD_CFG_PREFIX, true);
 //            if (enableYieldModel) {
@@ -77,6 +81,7 @@ class S4SYieldHandler : public ProcessorHandler
         QJsonObject parameters;
         bool isScheduled;
         int year;
+        bool enableSafy;
 
     } S4SYieldJobConfig;
 

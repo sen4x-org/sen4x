@@ -89,6 +89,13 @@ def get_site_name(conn, site_id):
         conn.commit()
         return rows[0][0]
 
+def get_season_infos(conn, season_id):
+    with conn.cursor() as cursor:
+        query = SQL("select name, start_date from season where id = %s")
+        cursor.execute(query, (season_id,))
+        rows = cursor.fetchall()
+        conn.commit()
+        return rows[0]
 
 def get_site_srid(conn, parcels_table):
     with conn.cursor() as cursor:
@@ -101,22 +108,24 @@ def get_site_srid(conn, parcels_table):
 
 class DataExtraction(object):
 
-    def __init__(self, config, year, output):
+    def __init__(self, config, season_id, output):
         self.config = config
-        self.year = year
+        self.season_id = season_id
 
         with self.get_connection() as conn:
             print("Retrieving site name")
             site_name = get_site_name(conn, config.site_id)
+            season_name, season_start_date = get_season_infos(conn, self.season_id)
             print(site_name)
 
-        self.parcels_table = "in_situ_polygons_{}_{}".format(site_name, year)
+        self.parcels_table = "in_situ_polygons_{}_{}".format(site_name, season_name)
         self.parcel_attributes_table = "polygon_attributes_{}_{}".format(
-            site_name, year
+            site_name, season_name
         )
-        self.statistical_data_table = "in_situ_data_{}_{}".format(site_name, year)
+        self.statistical_data_table = "in_situ_data_{}_{}".format(site_name, season_name)
 
         self.site_name = site_name
+        self.season_name = season_name
         self.output = output
 
     def get_connection(self):
@@ -184,10 +193,10 @@ def main():
         default="/etc/sen2agri/sen2agri.conf",
         help="configuration file location",
     )
-    parser.add_argument("-y", "--year", help="year", type=int, default=date.today().year)
     parser.add_argument(
         "-s", "--site-id", type=int, required=True, help="site ID to filter by"
     )
+    parser.add_argument("--season-id", help="season", type=int)
     parser.add_argument("-d", "--debug", help="debug mode", action="store_true")
     parser.add_argument("-o", "--output", help="the output CSV file")
 
@@ -201,7 +210,7 @@ def main():
     logging.basicConfig(level=level)
 
     config = Config(args)
-    data_extraction = DataExtraction(config, args.year, args.output)
+    data_extraction = DataExtraction(config, args.season_id, args.output)
 
     data_extraction.export_crop_codes()
 

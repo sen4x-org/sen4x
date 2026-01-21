@@ -2320,6 +2320,33 @@ bool PersistenceManagerDBProvider::IsProcessingDone(ProductType prdType, int sit
     });
 }
 
+bool PersistenceManagerDBProvider::HasParcelYieldEstimates(const QString &siteShortName, const Season &season)
+{
+    const QString &tableName = QStringLiteral("in_situ_data_%1_%2").arg(siteShortName).arg(season.name);
+    // Quote identifier to avoid SQL injection and case issues
+    const QString &quotedTableName = QStringLiteral("\"%1\"").arg(tableName);
+
+    const QString &cmd = QStringLiteral(
+            "SELECT EXISTS (SELECT 1 FROM %1 WHERE yield_estimate > 0)"
+    ).arg(quotedTableName);
+
+    auto db = getDatabase();
+
+    return provider.handleTransactionRetry(__func__, [&] {
+        auto query = db.prepareQuery(cmd);
+        query.setForwardOnly(true);
+        if (!query.exec()) {
+            throw_query_error(db, query);
+        }
+
+        if (!query.next()) {
+            throw std::runtime_error(
+                "Expecting a return value from insitu table yield estimates column, but none found");
+        }
+
+        return query.value(0).toBool();
+    });
+}
 
 QString PersistenceManagerDBProvider::GetProcessorShortName(int processorId)
 {

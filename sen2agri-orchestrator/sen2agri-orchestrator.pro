@@ -29,59 +29,72 @@ SOURCES += main.cpp \
     eventprocessingcontext.cpp \
     executioncontextbase.cpp \
     processorhandler.cpp \
-    processor/croptypehandler.cpp \
-    processor/cropmaskhandler.cpp \
-    tasktosubmit.cpp \
-    processor/compositehandler.cpp \
-    processor/lairetrievalhandler.cpp \
-    processor/lairetrievalhandler_l3b.cpp \
-    processor/lairetrhandler_multidt_base.cpp \
-    processor/lairetrievalhandler_l3c.cpp \
-    processor/lairetrievalhandler_l3d.cpp \
-    processor/maccshdrmeananglesreader.cpp \
-    processor/phenondvihandler.cpp \
     processorhandlerhelper.cpp \
     schedulingcontext.cpp \
+    tasktosubmit.cpp \
+    stepexecutiondecorator.cpp \
+    productdetailsbuilder.cpp \
+    \
+    processor/croptypehandler.cpp \
+    processor/cropmaskhandler.cpp \
+    processor/compositehandler.cpp \
+    processor/compositehandlerindicators.cpp \
+    processor/compositehandlers1.cpp \
+    processor/genericcompositehandlerbase.cpp \
     processor/ndvihandler.cpp \
-    processor/lairetrievalhandler_l3b_new.cpp \
-    processor/s4c_croptypehandler.cpp \
+    processor/phenondvihandler.cpp \
+    processor/maccshdrmeananglesreader.cpp \
+    processor/masked_l2a_handler.cpp \
     processor/agricpracticeshandler.cpp \
     processor/grasslandmowinghandler.cpp \
+    processor/trex_handler.cpp \
+    processor/zarr_handler.cpp \
+    processor/s4s_permanent_crop_handler.cpp \
+    processor/s4s_croptypemappinghandler.cpp \
     processor/s4c_utils.cpp \
     processor/s4c_markersdb1.cpp \
     processor/s4c_mdb1_dataextract_steps_builder.cpp \
+    processor/s4c_croptypehandler.cpp \
+    processor/s4c_heterogeneity_handler.cpp \
+    processor/s4c_baresoil_handler.cpp \
+    processor/s4c_change_detection_handler.cpp \
+    processor/s4s_yieldhandler.cpp \
+    \
+    processor/lairetrhandler_multidt_base.cpp \
+    processor/lairetrievalhandler.cpp \
+    processor/lairetrievalhandler_l3b.cpp \
+    processor/lairetrievalhandler_l3b_new.cpp \
+    processor/lairetrievalhandler_l3b_individual.cpp \
+    processor/lairetrievalhandler_l3c.cpp \
+    processor/lairetrievalhandler_l3d.cpp \
+    \
+    processor/products/producthelper.cpp \
+    processor/products/producthelperfactory.cpp \
+    processor/products/productdetails.cpp \
+    processor/products/productfilesextractor.cpp \
+    processor/products/generichighlevelproducthelper.cpp \
+    processor/products/l2aproducthelper.cpp \
+    processor/products/l3bproducthelper.cpp \
+    processor/products/s1l2producthelper.cpp \
+    processor/products/maskedl2aproducthelper.cpp \
+    processor/products/tilestimeseries.cpp \
+    processor/products/lpisinfosextractor.cpp \
+    \
+    processor/yield/s4s_yield.cpp \
+    processor/yield/s4s_yield_features.cpp \
+    processor/yield/s4s_yield_features_handler.cpp \
+    processor/yield/s4s_yield_handler_new.cpp \
+    processor/yield/s4s_yield_su_features_handler.cpp \
+    processor/yield/s4s_yield_su_handler_new.cpp \
+    \
     http/controller/orchestratorcontroller.cpp \
     adaptor/dbusorchestratoradaptor.cpp \
     adaptor/httporchestratoradaptor.cpp \
+    \
     executorclient/executorproxy.cpp \
     executorclient/dbusexecutorproxy.cpp \
     executorclient/httpexecutorproxy.cpp \
-    executorclient/executorproxyfactory.cpp \
-    stepexecutiondecorator.cpp \
-    processor/products/producthelper.cpp \
-    processor/products/producthelperfactory.cpp \
-    processor/products/s1l2producthelper.cpp \
-    processor/products/l2aproducthelper.cpp \
-    processor/products/generichighlevelproducthelper.cpp \
-    processor/products/maskedl2aproducthelper.cpp \
-    processor/products/tilestimeseries.cpp \
-    processor/masked_l2a_handler.cpp \
-    processor/s4s_permanent_crop_handler.cpp \
-    processor/products/productdetails.cpp \
-    productdetailsbuilder.cpp \
-    processor/s4s_yieldhandler.cpp \
-    processor/trex_handler.cpp \
-    processor/products/l3bproducthelper.cpp \
-    processor/genericcompositehandlerbase.cpp \
-    processor/compositehandlerindicators.cpp \
-    processor/compositehandlers1.cpp \
-    processor/s4s_croptypemappinghandler.cpp \
-    processor/zarr_handler.cpp \
-    processor/s4c_heterogeneity_handler.cpp \
-    processor/products/lpisinfosextractor.cpp \
-    processor/s4s_yield_su_handler.cpp \
-    processor/s4c_baresoil_handler.cpp \
-    processor/s4c_change_detection_handler.cpp
+    executorclient/executorproxyfactory.cpp
 
 HEADERS += \
     pch.hpp \
@@ -90,59 +103,73 @@ HEADERS += \
     executioncontextbase.hpp \
     eventprocessingcontext.hpp \
     processorhandler.hpp \
-    processor/croptypehandler.hpp \
-    processor/cropmaskhandler.hpp \
-    tasktosubmit.hpp \
-    processor/compositehandler.hpp \
-    processor/lairetrievalhandler.hpp \
-    processor/lairetrievalhandler_l3b.hpp \
-    processor/lairetrhandler_multidt_base.hpp \
-    processor/lairetrievalhandler_l3c.hpp \
-    processor/lairetrievalhandler_l3d.hpp \
-    processor/maccshdrmeananglesreader.hpp \
-    processor/phenondvihandler.hpp \
     processorhandlerhelper.h \
     schedulingcontext.h \
+    tasktosubmit.hpp \
+    stepexecutiondecorator.h \
+    productdetailsbuilder.h \
+    \
+    processor/croptypehandler.hpp \
+    processor/cropmaskhandler.hpp \
+    processor/compositehandler.hpp \
+    processor/compositehandlerindicators.hpp \
+    processor/compositehandlers1.hpp \
+    processor/genericcompositehandlerbase.hpp \
     processor/ndvihandler.hpp \
-    processor/lairetrievalhandler_l3b_new.hpp \
-    processor/s4c_croptypehandler.hpp \
+    processor/phenondvihandler.hpp \
+    processor/maccshdrmeananglesreader.hpp \
+    processor/masked_l2a_handler.hpp \
     processor/agricpracticeshandler.hpp \
     processor/grasslandmowinghandler.hpp \
+    processor/trex_handler.hpp \
+    processor/zarr_handler.hpp \
+    processor/s4s_permanent_crop_handler.hpp \
+    processor/s4s_croptypemappinghandler.hpp \
     processor/s4c_utils.hpp \
     processor/s4c_markersdb1.hpp \
     processor/s4c_mdb1_dataextract_steps_builder.hpp \
+    processor/s4c_croptypehandler.hpp \
+    processor/s4c_heterogeneity_handler.hpp \
+    processor/s4c_baresoil_handler.hpp \
+    processor/s4c_change_detection_handler.hpp \
+    processor/s4s_yieldhandler.hpp \
+    \
+    processor/lairetrhandler_multidt_base.hpp \
+    processor/lairetrievalhandler.hpp \
+    processor/lairetrievalhandler_l3b.hpp \
+    processor/lairetrievalhandler_l3b_new.hpp \
+    processor/lairetrievalhandler_l3b_individual.hpp \
+    processor/lairetrievalhandler_l3c.hpp \
+    processor/lairetrievalhandler_l3d.hpp \
+    \
+    processor/products/producthelper.h \
+    processor/products/producthelperfactory.h \
+    processor/products/productdetails.h \
+    processor/products/productfilesextractor.h \
+    processor/products/generichighlevelproducthelper.h \
+    processor/products/l2aproducthelper.h \
+    processor/products/l3bproducthelper.h \
+    processor/products/s1l2producthelper.h \
+    processor/products/maskedl2aproducthelper.h \
+    processor/products/tilestimeseries.hpp \
+    processor/products/lpisinfosextractor.h \
+    \
+    processor/yield/s4s_yield.hpp \
+    processor/yield/s4s_yield_features.hpp \
+    processor/yield/s4s_yield_features_handler.hpp \
+    processor/yield/s4s_yield_handler_new.hpp \
+    processor/yield/s4s_yield_su_features_handler.hpp \
+    processor/yield/s4s_yield_su_handler_new.hpp \
+    \
     http/controller/orchestratorcontroller.hpp \
     adaptor/dbusorchestratoradaptor.h \
     adaptor/httporchestratoradaptor.h \
+    \
+    executorclient/executorproxy.hpp \
     executorclient/dbusexecutorproxy.hpp \
     executorclient/httpexecutorproxy.hpp \
-    executorclient/executorproxy.hpp \
     executorclient/executorproxyfactory.h \
-    stepexecutiondecorator.h \
-    processor/products/producthelper.h \
-    processor/products/producthelperfactory.h \
-    processor/products/s1l2producthelper.h \
-    processor/products/l2aproducthelper.h \
-    processor/products/generichighlevelproducthelper.h \
-    processor/products/maskedl2aproducthelper.h \
-    processor/products/tilestimeseries.hpp \
-    processor/masked_l2a_handler.hpp \
-    processor/s4s_permanent_crop_handler.hpp \
-    processor/products/productdetails.h \
-    productdetailsbuilder.h \
-    processor/s4s_yieldhandler.hpp \
-    processor/trex_handler.hpp \
-    processor/products/l3bproducthelper.h \
-    processor/compositehandlers1.hpp \
-    processor/compositehandlerindicators.hpp \
-    processor/genericcompositehandlerbase.hpp \
-    processor/s4s_croptypemappinghandler.hpp \
-    processor/zarr_handler.hpp \
-    processor/s4c_heterogeneity_handler.hpp \
-    processor/products/lpisinfosextractor.h \
-    processor/s4s_yield_su_handler.hpp \
-    processor/s4c_baresoil_handler.hpp \
-    processor/s4c_change_detection_handler.hpp
+    processor/yield/s4s_yield_common.h
 
 DISTFILES += \
     ../dbus-interfaces/org.esa.sen2agri.orchestrator.xml \

@@ -27,17 +27,15 @@ class S4SYieldSUHandlerNew : public ProcessorHandler
             }
             std::sort(prdDetailsList.begin(), prdDetailsList.end(),
                       [](const ProductDetails &a, const ProductDetails &b) {
-                          return a.GetProduct().inserted > b.GetProduct().inserted;
+                            const auto &pa = a.GetProduct();
+                            const auto &pb = b.GetProduct();
+                            if (pa.created != pb.created)
+                                return pa.created > pb.created;   // descending by created
+                            return pa.inserted > pb.inserted;     // descending by inserted
                       });
 
             const SeasonList &ss = pContext->GetSiteSeasons(evt.siteId);
-
-            yieldFeatPrds.reserve(prdDetailsList.size());
-            mergePrevYearsYieldFeatOutPath.reserve(prdDetailsList.size());
             for (const auto &prdDetails : prdDetailsList) {
-                yieldFeatPrds.append(QDir(QDir(prdDetails.GetProduct().fullPath).filePath("VECTOR_DATA")).filePath("yield_features.csv"));
-                mergePrevYearsYieldFeatOutPath.append(QDir(QDir(prdDetails.GetProduct().fullPath).filePath("VECTOR_DATA")).filePath("merged_prev_years_yield_features.csv"));
-
                 orchestrator::products::GenericHighLevelProductHelper prdHelper(prdDetails.GetProduct().name);
                 if(prdHelper.IsValid()) {
                     if (prdHelper.GetStartDate() < startDate) {
@@ -62,6 +60,8 @@ class S4SYieldSUHandlerNew : public ProcessorHandler
                                                       });
                             if (!exists) {
                                 seasons.append(s);
+                                yieldFeatPrds.push_back(QDir(QDir(prdDetails.GetProduct().fullPath).filePath("VECTOR_DATA")).filePath("yield_features.csv"));
+                                mergePrevYearsYieldFeatOutPath.push_back(QDir(QDir(prdDetails.GetProduct().fullPath).filePath("VECTOR_DATA")).filePath("merged_prev_years_yield_features.csv"));
                             }
                             break;
                         }
@@ -82,7 +82,6 @@ class S4SYieldSUHandlerNew : public ProcessorHandler
             // ////////////////////////////////
         }
 
-        QString GetCropTypeProductPath();
         QString GetProcessorDirValue(const QJsonObject &parameters, const std::map<QString, QString> &configParameters,
                                      const QString &key, const QString &siteShortName, const QString &procShortName, const QString &defVal );
 
@@ -115,7 +114,7 @@ private:
     NewStepList CreateSteps(QList<TaskToSubmit> &allTasksList, const S4SYieldJobConfig &cfg);
 
     QStringList GetCropTypesExtractionTaskArgs(int siteId, int seasonId, const QString &outCropTypesFile);
-    QStringList GetYieldModelTaskArgs(const S4SYieldJobConfig &cfg, const QString &cropCodesFile, const QString &inYieldFeatures, const QString &inPrevYearsYieldFeatures,
+    QStringList GetYieldModelTaskArgs(const S4SYieldJobConfig &cfg, const QString &cropCodesFile, const QString &inYieldFeatures, const QString &inPrevYearsYieldFeatures, const QString &trainingFeaturesFile,
                                       const QString &outYieldEstimates, const QString &outYieldSUEstimates);
 
     QString GetProcessorDirValue(const QJsonObject &parameters, const std::map<QString, QString> &configParameters,

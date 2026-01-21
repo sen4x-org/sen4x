@@ -10,16 +10,20 @@ import numpy as np
 import pandas as pd
 import sys
 import pipes
+from datetime import date
 
 class Config(object):
     def __init__(self, args):
         self.su_path = args.su_path
         self.su_unique_id = args.su_unique_id
         self.crop_type_path = args.crop_type_path
+        self.crop_type_year = args.crop_type_year
         self.tiles = args.tiles
         self.working_dir = args.working_dir
         self.out_tile_rasters = args.out_tile_rasters
         self.output = args.output
+        self.out_additional_su_info = args.out_additional_su_info
+        
         self.tile_rasters_dict = dict()
         if len(self.out_tile_rasters) > 0 :
             if len(self.out_tile_rasters) != len(self.tiles):
@@ -34,7 +38,7 @@ class Config(object):
                 idx = idx + 1
         else :
             for tile in self.tiles:
-                raster_name = 'ESU_Random_' + tile + '.tif'
+                raster_name = 'ESU_Random_' + tile + "_" + str(args.crop_type_year) + '.tif'
                 raster_path = os.path.join(self.working_dir, raster_name)
                 self.tile_rasters_dict[tile] = raster_path
 
@@ -70,13 +74,13 @@ def run_command_get_output(args, env=None, retry=False):
 
 def get_crop_type_rasters(crop_type_path, tile):
     print("Extracting crop type rasters from {} for tile {}".format(crop_type_path, tile))
-    filtering_path = "{}/VECTOR_DATA/classified_{}.tif".format(crop_type_path, tile)
+    filtering_path = "{}/VECTOR_DATA/classified_pre_{}.tif".format(crop_type_path, tile)
     print("Using filter {}".format(filtering_path))
     ct_rasters = glob.glob(filtering_path)
     if len(ct_rasters) > 0:
         return ct_rasters[0]
 
-    filtering_path = "{}/TILES/classified_{}.tif".format(crop_type_path, tile)
+    filtering_path = "{}/TILES/classified_pre_{}.tif".format(crop_type_path, tile)
     print("Trying to use filter {}".format(filtering_path))
     ct_rasters = glob.glob(filtering_path)
     if len(ct_rasters) > 0:
@@ -87,7 +91,7 @@ def get_crop_type_rasters(crop_type_path, tile):
 def parcel_extraction(config):
 
     #Creation of an ESU dataframe to give an SU, a Tile, a Crop and the number of pixels for each ESU created
-    ESUtable=pd.DataFrame(columns=['ESUid','SUid','Tile','CropID','NbrPix'])
+    ESUtable=pd.DataFrame(columns=['ESUid','SUid','Tile','CropID','NbrPix', 'area_meters'])
     ESUid=1
     for tile in config.tiles :                              # Iteration of each tiles
         s2_tile_classif_file = get_crop_type_rasters(config.crop_type_path, tile)
@@ -146,8 +150,13 @@ def parcel_extraction(config):
         SUb = SU.read().reshape(SU.shape[0]*SU.shape[1])
         listSU=np.unique(SUb)                               # list SU id present on the tile
 
+        # pixel area (m²)
+        transform = SU.transform
+        pixel_area = abs(transform.a * transform.e)
+
         Class = rasterio.open(s2_tile_classif_file).read().reshape(SU.shape[0]*SU.shape[1])    # Open the Crop Type map of the tile
-        listclass=np.unique(Class)[np.unique(Class)>10]                     #list the crop present on the tile (The class of "crops" are >10, <10 is other land use)
+        listclass = np.unique(Class)
+        listclass = listclass[listclass > 10].astype(np.int32)  #list the crop present on the tile (The class of "crops" are >10, <10 is other land use)
 
         print('### Create ESU of TILE ' + tile + ' ###')
         ESUmapPix= np.zeros(np.shape(SUb))
@@ -157,9 +166,11 @@ def parcel_extraction(config):
                 if len(locESU)<5000:
                     continue
                 ESUmapPix[np.random.choice(locESU,5000,replace=False)]=ESUid    # Select randomly 5000 pixel of each ESU
+                nbr_pix = len(locESU)
+                area_m2 = nbr_pix * pixel_area
                 # Write a table to record information for the aggregation at the end of the process
-                print("Adding data ESUid = {}, SUid = {}, CropID = {}".format(ESUid, su, c))
-                ESUtable=pd.concat([ESUtable, pd.DataFrame(data={'ESUid':[ESUid],'SUid':[su],'Tile':[tile],'CropID':[c],'NbrPix':[len(locESU)]})])   
+                print("Adding data ESUid = {}, SUid = {}, CropID = {}, , Area = {:.2f} m²".format(ESUid, su, c, area_m2))
+                ESUtable=pd.concat([ESUtable, pd.DataFrame(data={'ESUid':[ESUid],'SUid':[su],'Tile':[tile],'CropID':[c],'NbrPix':[nbr_pix], 'area_meters': [area_m2]})])   
                 ESUid+=1
 
         raster_path = config.tile_rasters_dict[tile]
@@ -184,17 +195,21 @@ def parcel_extraction(config):
     for i in range(len(ESUtable)):
         ESUtable['Weight'][i]=ESUtable['NbrPix'][i]/np.sum(ESUtable['NbrPix'][np.logical_and(ESUtable['SUid']==ESUtable['SUid'][i],ESUtable['CropID']==ESUtable['CropID'][i])])
     ESUtable.to_csv(config.output, index=False)
-
+    
+    df_su_additional_info = (ESUtable.groupby('SUid', as_index=False)['area_meters'].sum().rename(columns={'SUid': 'NewID'}))
+    df_su_additional_info.to_csv(config.out_additional_su_info, index=False)
 
 def main():
     parser = argparse.ArgumentParser(description="Yield SU Parcels Extraction")
     parser.add_argument('-c', '--crop-type-path', help="Crop type product path")
+    parser.add_argument("-y", "--crop-type-year", help="Crop type year", type=int, default=date.today().year)
     parser.add_argument('-t', '--tiles', help="SU shapefile path", nargs="+")
     parser.add_argument('-u', '--su-path', help="SU shapefile path")
     parser.add_argument('-n', '--su-unique-id', help="SU unique id column name in the input SU shapefile",default="ID_2")
     parser.add_argument('-w', '--working-dir', help="Working dir")
     parser.add_argument('-r', '--out-tile-rasters', help="Output tiles rasters. Should have the same size as the tiles", nargs="+")
     parser.add_argument('-o', '--output', help="ESU CSV file output path")
+    parser.add_argument('--out-additional-su-info', help="Output CSV file containing additional information about SUs (area, etc)")
     
     args = parser.parse_args()
 

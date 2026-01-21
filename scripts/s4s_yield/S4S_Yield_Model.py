@@ -14,7 +14,7 @@ from sklearn.model_selection import train_test_split
 
 from enum import Enum
 
-INPUT_FEATURE_NAMES = ['NewID', 'MeanLaiSGWinter', 'SumLaiSGInt0', 'SumLaiSGInt1', 'SumLaiSGInt2', 'MaxSG', 'DayMaxSG', 'MaxLAI', 'ColdT0','ColdT1','HotT2','SumT1','SumT2','SumT251','SumT252','SumP1','SumP2','SumR1','SumR2','SumE1','SumE2','MeanT1','MeanT2','MeanP1','MeanP2','MeanR1','MeanR2','MeanE1','MeanE2','MeanSW10','MeanSW11','MeanSW12','MeanSW20','MeanSW21','MeanSW22','MeanSW30','MeanSW31','MeanSW32','MeanSW40','MeanSW41','MeanSW42','Yield','d0out','SenBout', 'Trend', 'crop_code']    # TODO: add the other feature names here
+INPUT_FEATURE_NAMES = ['NewID', 'MeanLaiSGWinter', 'SumLaiSGInt0', 'SumLaiSGInt1', 'SumLaiSGInt2', 'MaxSG', 'DayMaxSG', 'MaxLAI', 'ColdT0','ColdT1','HotT2','SumT1','SumT2','SumT251','SumT252','SumP1','SumP2','SumR1','SumR2','SumE1','SumE2','MeanT1','MeanT2','MeanP1','MeanP2','MeanR1','MeanR2','MeanE1','MeanE2','MeanSW10','MeanSW11','MeanSW12','MeanSW20','MeanSW21','MeanSW22','MeanSW30','MeanSW31','MeanSW32','MeanSW40','MeanSW41','MeanSW42','Yield','d0out','SenBout', 'Trend', 'crop_code', 'area_meters']    # TODO: add the other feature names here
 
 class Selection(Enum):
     NoSelection = 1
@@ -29,6 +29,7 @@ class Algorithm(Enum):
 class Config(object):
     def __init__(self, args):
         self.input_features = args.input_features
+        self.input_training_features = args.input_training_features
         self.yield_reference = args.yield_reference
         self.statistical_unit_fields = args.statistical_unit_fields
         self.crop_codes = args.crop_codes ### change
@@ -133,14 +134,18 @@ def apply_model(algo, merged_features, list_features):
     fieldestim = pd.DataFrame({"NewID": merged_features["NewID"], "Estimation": algo.predict(merged_features.iloc[:, np.where([p in list_features[1:] for p in merged_features.columns])[0]])})
     return fieldestim
 
-def aggregate_at_statistical_unit(fieldestim, statistical_unit_fields_file):
+def aggregate_at_statistical_unit(fieldestim, su_estim_df):
     # read the file providing the mapping from the fields to statistical units
-    statistical_unit_fields = pd.read_csv(config.statistical_unit_fields_file, names=['NewID','SU','AreaField'])  #Table including Stat. Unit ID by field, Area of each field
+    # statistical_unit_fields = pd.read_csv(statistical_unit_fields_file, names=['NewID','SU_ID','area_meters'])  #Table including Stat. Unit ID by field, Area of each field
+    # print(statistical_unit_fields)
     # Agregation at Statistical Unit
-    SUestim = pd.merge(statistical_unit_fields,fieldestim,on='NewID')
-    SUestim['Production']=SUestim['AreaField']*SUestim['Estimation']
-    SUestim= SUestim.groupby('SU').sum().reset_index()
-    SUestim['Estimation']=SUestim['Production']/SUestim['AreaField']
+    SUestim = pd.merge(su_estim_df,fieldestim,on='NewID')
+    print(SUestim)
+    SUestim['Production']=SUestim['area_meters']*SUestim['Estimation']
+    SUestim= SUestim.groupby('SU_ID').sum().reset_index()
+    SUestim['Estimation']=SUestim['Production']/SUestim['area_meters']
+
+    print(SUestim)
 
     return SUestim
 
@@ -165,6 +170,10 @@ def main():
     
     parser.add_argument(
         "-i", "--input-features", required=True, help="The input features file"
+    )
+
+    parser.add_argument(
+        "-t", "--input-training-features", required=False, help="The input training features file", default = None
     )
 
     parser.add_argument(
@@ -211,12 +220,13 @@ def main():
         # remove Trend column
         columns_to_ignore = ["Trend"]
         yield_ref_columns = ['NewID','yield_estimate']
-        
+      
     merged_features = pd.read_csv(config.input_features, sep=',', names=in_feat_names, header = 1)    
-    # merged_features['ColdT0'] = merged_features['ColdT0'].astype(float)
-    # print(merged_features)
+    merged_trainig_features = None
+    if config.input_training_features is not None:
+        merged_trainig_features = pd.read_csv(config.input_training_features, sep=',', names=in_feat_names, header = 1)        
+    
     crop_codes = pd.read_csv(config.crop_codes, sep=',')[['crop_code']] ### change
-    # merged_features = merged_features.merge(id2crop, on='NewID')   ### change
 
     print("Reading yield reference from {}".format(config.yield_reference))
     print("Yield referece columns are {}".format(yield_ref_columns))
@@ -224,25 +234,29 @@ def main():
 
     print("Cleaning input features for NaN")
     merged_features = remove_ignoring_columns(merged_features, columns_to_ignore)
+    if merged_trainig_features is not None:
+        merged_trainig_features = remove_ignoring_columns(merged_trainig_features, columns_to_ignore)
     yield_ref = remove_ignoring_columns(yield_ref, columns_to_ignore)
-    
-    # print(merged_features)
-    # print(yield_ref)
     
     clean_dataset(merged_features)
     clean_dataset(yield_ref)
-    # print(merged_features)
+    if merged_trainig_features is not None:
+        clean_dataset(merged_trainig_features)
     
     fieldestim= pd.DataFrame(columns=["NewID", "Estimation",'crop_code'])
     if args.statistical_unit_fields is not None:
-        SUestim = pd.DataFrame(columns=['SU','Estimation','crop_code'])
+        SUestim = pd.DataFrame(columns=['SU_ID','Estimation','crop_code'])
+        df_su = pd.read_csv(args.statistical_unit_fields)
+        df_su["NewID"] = df_su["NewID"].astype(int)
+        su_fields_df = (merged_features.merge(df_su, on="NewID", how="left")[["NewID", "SU_ID", "area_meters"]])
 
     for cc in np.unique(crop_codes['crop_code']): ### change
-        merged_features_cc =  merged_features[merged_features['crop_code'] == cc] ### change
-        # print("Crop Code {} Values: {}".format(cc, merged_features_cc))
+        if merged_trainig_features is not None:
+            merged_training_features_cc =  merged_trainig_features[merged_trainig_features['crop_code'] == cc] ### change
+        else :
+            merged_training_features_cc =  merged_features[merged_features['crop_code'] == cc] ### change
 
-        if len(merged_features_cc)<5 : ### change
-            # print("Too few features provided {}".format(len(merged_features_cc)))
+        if len(merged_training_features_cc)<5 : ### change
             continue  ### change
 
         # train the model
@@ -255,7 +269,7 @@ def main():
             col = calibdata.pop("Trend")
             calibdata.insert(0, col.name, col)
         else :
-            feats = merged_features_cc.iloc[:,:-1]
+            feats = merged_training_features_cc.iloc[:,:-1]
             calibdata = pd.merge(yield_ref, feats,on='NewID').iloc[:,1:]
             
         # print("=====================================================")
@@ -269,8 +283,24 @@ def main():
         
         # apply the model
         print("Applying model {}...".format(str(cc))) ### change
-        
-        data_features = merged_features_cc.copy()
+       
+        # If we had different training dataset, we need to update the merged_features
+        if merged_trainig_features is not None:
+            data_features =  merged_features[merged_features['crop_code'] == cc] ### change
+            if len(data_features)<5 : ### change
+                continue  ### change
+        else :
+            data_features = merged_training_features_cc.copy()
+            
+        # print("=====================================================")
+        # print("Training Data")    
+        # print(merged_training_features_cc)
+        # 
+        # print("=====================================================")
+        # print("Model Data")    
+        # print(data_features)
+
+            
         if args.has_trend:
             # print("Orig :")
             # print("=====================================================")
@@ -286,14 +316,14 @@ def main():
         fieldestimcc = apply_model(config.algo, data_features.iloc[:,:-1], list_features) ### change
         fieldestimcc['crop_code'] = cc  ### change
         
-        # print(fieldestimcc)
+        print(fieldestimcc)
         
         fieldestim = pd.concat([fieldestim,fieldestimcc]) ### change
 
         if args.statistical_unit_fields is not None:
             # Perform aggregation at statistical units level
             print("Performing aggregation at statistical unit level {} ...".format(str(cc)))
-            SUestimcc = aggregate_at_statistical_unit(fieldestim, config.statistical_unit_fields)[['SU','Estimation']] ### change
+            SUestimcc = aggregate_at_statistical_unit(fieldestim, su_fields_df)[['SU_ID','Estimation']] ### change
             SUestimcc['crop_code'] = cc  ### change
             SUestim = pd.concat([SUestim,SUestimcc])  ### change
 
@@ -302,7 +332,7 @@ def main():
     fieldestim.to_csv(args.output,index=False)
 
     if args.statistical_unit_fields is not None:
-        print("Writing statistical units estimate into{}".format(args.output_statistical_units_estimate))
+        print("Writing statistical units estimate into {}".format(args.output_statistical_units_estimate))
         SUestim.to_csv(args.output_statistical_units_estimate, index=False)  ### change
 
 if __name__ == "__main__":

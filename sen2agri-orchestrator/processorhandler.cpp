@@ -85,7 +85,7 @@ void ProcessorHandler::HandleProductAvailableImpl(EventProcessingContext &,
 }
 
 QString ProcessorHandler::GetFinalProductFolder(EventProcessingContext &ctx, int jobId,
-                                                int siteId) {
+                                                int siteId, const QString &optionalPathSuffix) {
     auto configParameters = ctx.GetJobConfigurationParameters(jobId, PRODUCTS_LOCATION_CFG_KEY);
     const QString &siteName = ctx.GetSiteShortName(siteId);
 
@@ -100,6 +100,9 @@ QString ProcessorHandler::GetFinalProductFolder(EventProcessingContext &ctx, int
     QString folderName = (*it).second;
     folderName = folderName.replace("{site}", siteName);
     folderName = folderName.replace("{processor}", processorDescr.shortName);
+    if (optionalPathSuffix.length() > 0) {
+        folderName = QDir::cleanPath(folderName + QDir::separator() + optionalPathSuffix);
+    }
 
     return folderName;
 }
@@ -271,8 +274,8 @@ QString ProcessorHandler::GetProductFormatterFootprint(EventProcessingContext &c
 QStringList ProcessorHandler::GetDefaultProductFormatterArgs(EventProcessingContext &ctx, TaskToSubmit &productFormatterTask,
                                                              int jobId, int siteId, const QString &level, const QString &timePeriod,
                                                              const QString &processor, const QStringList &additionalParameters,
-                                                             bool isVectPrd, const QString &gipp, bool compress) {
-    const auto &targetFolder = GetFinalProductFolder(ctx, jobId, siteId);
+                                                             bool isVectPrd, const QString &gipp, bool compress, const QString &destPathSuffix) {
+    const auto &targetFolder = GetFinalProductFolder(ctx, jobId, siteId, destPathSuffix);
     const auto &outPropsPath = productFormatterTask.GetFilePath(PRODUCT_FORMATTER_OUT_PROPS_FILE);
     const QString &gippTmp = (gipp.size() == 0 ? productFormatterTask.GetFilePath("executionInfos.txt") : gipp);
     QStringList productFormatterArgs =  {

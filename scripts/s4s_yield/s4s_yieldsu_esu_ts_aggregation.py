@@ -13,15 +13,20 @@ import datetime as dt
 import csv
 import time
 import os
+from datetime import date
 
 ID_COL_NAME = "NewID"
 
 class Config(object):
     def __init__(self, args):
         self.esu_path = args.esu_path
+        self.years = args.years
         self.lai_merged_path = args.lai_merged_path
         self.working_dir = args.working_dir
         self.output = args.output
+        if len(self.years) != len(self.esu_path) :
+            print("ERROR: Number of years provided is not the same as the number of ESU paths provided")
+            sys.exit(1)
 
 class MetricCSVConverter(object) :
     class SelectedColumns(object):
@@ -158,23 +163,41 @@ class MetricCSVConverter(object) :
 
 
 def bv_time_series_aggregation(config):
-    SUtable = pd.read_csv(config.esu_path) # Import ESU table containg SU weight for each ESU
 
-    # LAIobstable = pd.DataFrame(columns=['cropfield','date','LAImean','NbPix','NbPixValid'])# Create final BV Time Serie table
-    # TileList=glob.glob(InputDir+'Output/Parcellaire/'+Yearst+'/ESU_Random*') # list ESU Rasterized file to list tiles
-    
-    # Import the Table of LAI extracted by ESU for all tiles with the BV processor, for the year y, the table should be presented as the exemple as follow
-    # cropfield is in our case the name of the randomly selected pixel of an ESU
-    # LAIobs= pd.DataFrame({'cropfield':[1,7,1,7],'date':[1,1,2,3],'LAImean':[2,1,3,2],'Nbpix':[150,50,150,50],'Nbpixvalid':[100,25,100,50]})
-    
     lai_merged_converted_path = os.path.join(config.working_dir, "translated_lai.csv")
     MetricCSVConverter().translate_csv(config.lai_merged_path, lai_merged_converted_path)
     # I don't know how you store this intermediate outputs in the yield processor but you get the idea.
-    LAIobs = pd.read_csv(lai_merged_converted_path)
+    LAIobs1 = pd.read_csv(lai_merged_converted_path)
+    merged_groups = []
 
-    # Merge of the Observation with the Weighted ESU table for the aggregation
-    LAIobs = pd.merge(LAIobs, SUtable, left_on='ESUId', right_on='ESUid') 
-    LAIobs = LAIobs.loc[np.where(LAIobs['LAImean']>0)[0]]
+    for i, year in enumerate(config.years):
+        SUtable = pd.read_csv(config.esu_path[i]) # Import ESU table containg SU weight for each ESU
+
+        # LAIobstable = pd.DataFrame(columns=['cropfield','date','LAImean','NbPix','NbPixValid'])# Create final BV Time Serie table
+        # TileList=glob.glob(InputDir+'Output/Parcellaire/'+Yearst+'/ESU_Random*') # list ESU Rasterized file to list tiles
+        
+        # Import the Table of LAI extracted by ESU for all tiles with the BV processor, for the year y, the table should be presented as the exemple as follow
+        # cropfield is in our case the name of the randomly selected pixel of an ESU
+        # LAIobs= pd.DataFrame({'cropfield':[1,7,1,7],'date':[1,1,2,3],'LAImean':[2,1,3,2],'Nbpix':[150,50,150,50],'Nbpixvalid':[100,25,100,50]})
+        
+        # LAIobs_year = LAIobs1.copy()
+
+        # Extract year from YYYYMMDD column
+        #LAIobs_year["year"] = LAIobs_year["date"].astype(str).str[:4]
+
+        mask = LAIobs1["date"].astype(str).str.startswith(str(year))
+        group = LAIobs1.loc[mask]
+        if group.empty:
+            continue
+            
+        # Merge of the Observation with the Weighted ESU table for the aggregation
+        merged = pd.merge(group, SUtable, left_on='ESUId', right_on='ESUid') 
+        merged = merged.loc[np.where(merged['LAImean']>0)[0]]
+        merged_groups.append(merged)
+
+    LAIobs = pd.concat(merged_groups, ignore_index=True)
+    LAIobs["date_dt"] = pd.to_datetime(LAIobs["date"], format="%Y%m%d")
+    LAIobs = (LAIobs.sort_values(by=["date_dt", "ESUId"]).drop(columns="date_dt").reset_index(drop=True))
     
     filename, file_extension = os.path.splitext(config.output)
     LAIobs.to_csv(filename + "_intermediate.csv", index=False)
@@ -189,6 +212,7 @@ def bv_time_series_aggregation(config):
         date=[]
         LAImean=[]
         Nbpix=[]
+        AreaMeters=[]
         Nbpixvalid=[]
         unique_dates = []
 
@@ -216,11 +240,13 @@ def bv_time_series_aggregation(config):
                 
                 Nbpix.append(np.sum(LAIobs['Nbpix'].iloc[wherelai] * LAIobs['Weight'].iloc[wherelai]))
                 Nbpixvalid.append(np.sum(LAIobs['Nbpixvalid'].iloc[wherelai] *LAIobs['Weight'].iloc[wherelai]))
+                AreaMeters.append(np.sum(LAIobs['area_meters'].iloc[wherelai] * LAIobs['Weight'].iloc[wherelai]))
         
         # compute the columns
         output_dict = dict()
         output_dict["NewID"] = []
         output_dict["crop_code"] = []
+        output_dict["area_meters"] = []
         unique_dates.sort()
         for dt in unique_dates:
             output_dict[dt + "_mean_LAI"] = []
@@ -228,7 +254,7 @@ def bv_time_series_aggregation(config):
             output_dict[dt + "_total_pixels_cnt_LAI"] = []
         
         curNewId = None
-        for (cf, dt, lai, total_pix, valid_pix) in zip(cropfield, date, LAImean, Nbpix, Nbpixvalid):
+        for (cf, dt, lai, total_pix, valid_pix, area_meters) in zip(cropfield, date, LAImean, Nbpix, Nbpixvalid, AreaMeters):
             if curNewId is None or cf != curNewId : 
                 # add entries for all columns in dictionary (a line)
                 for k in output_dict.keys() : 
@@ -240,6 +266,7 @@ def bv_time_series_aggregation(config):
             output_dict[dt + "_mean_LAI"][-1] = lai
             output_dict[dt + "_valid_pixels_cnt_LAI"][-1] = valid_pix
             output_dict[dt + "_total_pixels_cnt_LAI"][-1] = total_pix
+            output_dict["area_meters"][-1] = area_meters
         
         # cropfield is not anymore the ESU but now the SU, the rest of the yield feature computation model can take place.
         LAIobs_new=pd.DataFrame(output_dict) 
@@ -259,7 +286,8 @@ def bv_time_series_aggregation(config):
 
 def main():
     parser = argparse.ArgumentParser(description="Yield SU Parcels Extraction")
-    parser.add_argument('-e', '--esu-path', help="ESU csv path")
+    parser.add_argument('-e', '--esu-path', nargs="+", help="ESU csv paths")
+    parser.add_argument('-y', '--years', type=int, nargs="+", help="ESU Years", default=[date.today().year])
     parser.add_argument('-l', '--lai-merged-path', help="LAI merged markers path")
     parser.add_argument('-w', '--working-dir', help="Working directory")
     parser.add_argument('-o', '--output', help="LAI grouped file CSV output path")

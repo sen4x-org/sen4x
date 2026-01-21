@@ -16,15 +16,19 @@ using namespace orchestrator::products;
 static QStringList YIELD_INPUT_MARKER_NAMES = {"LAI"};
 
 QList<std::reference_wrapper<TaskToSubmit>>
-S4SYieldSUFeaturesHandler::CreateTasks(const S4SYieldJobConfig & /* cfg */, QList<TaskToSubmit> &outAllTasksList,
+S4SYieldSUFeaturesHandler::CreateTasks(const S4SYieldJobConfig &cfg, QList<TaskToSubmit> &outAllTasksList,
                              const S4CMarkersDB1DataExtractStepsBuilder &dataExtrStepsBuilder)
 {
     int curTaskIdx = 0;
-
-    outAllTasksList.append(TaskToSubmit{ "s4s-yield-esu-extraction", {} });
-    int extractESUIdx = curTaskIdx++;
-    auto dataExtrParentTaskIdxs = {extractESUIdx};
-
+    QList<int> dataExtrParentTaskIdxs;
+    for (int year: cfg.years) {
+        outAllTasksList.append(TaskToSubmit{ "s4s-yield-esu-extraction", {} });
+        int extractESUIdx = curTaskIdx++;
+        dataExtrParentTaskIdxs.append(extractESUIdx);
+    }
+//    outAllTasksList.append(TaskToSubmit{ "s4s-yield-esu-extraction", {} });
+//    int extractESUIdx = curTaskIdx++;
+//    auto dataExtrParentTaskIdxs = {extractESUIdx};
 
     const QList<MarkerType> &enabledMarkers = dataExtrStepsBuilder.GetEnabledMarkers();
     QList<int> mergeTasksIndexes;
@@ -79,15 +83,28 @@ NewStepList S4SYieldSUFeaturesHandler::CreateSteps(QList<TaskToSubmit> &allTasks
     int curTaskIdx = 0;
     NewStepList allSteps;
     QStringList prdFormatterFiles;
-
+    QStringList esuCSVPaths;
+    QString suAdditionlInfoCSVPath;
+    QList<int> ctYears;
     // create the step for ESU extraction
-    TaskToSubmit &esuExtrTask = allTasksList[curTaskIdx++];
+    for (const Product &ctPrd: cfg.cropTypePrds) {
+        const QString &ctPath = ctPrd.fullPath;
+        int ctYear = ctPrd.created.date().year();
 
-    const QString &esuExtrPath = esuExtrTask.GetFilePath("");
-    const QString &esuCSVPath = esuExtrTask.GetFilePath("ESU.csv");
-    const QString &suAdditionlInfoCSVPath = esuExtrTask.GetFilePath("SU_additional_info.csv");
-    const QStringList &esuExtrArgs = GetEsuExtractionTaskArgs(cfg, esuExtrPath, esuCSVPath, suAdditionlInfoCSVPath);
-    allSteps.append(CreateTaskStep(esuExtrTask, "ESUExtraction", esuExtrArgs ));
+        TaskToSubmit &esuExtrTask = allTasksList[curTaskIdx++];
+
+        const QString &esuExtrPath = esuExtrTask.GetFilePath("");
+        const QString &esuPath = esuExtrTask.GetFilePath("ESU_" + QString::number(ctYear) + ".csv");
+        const QString &suAdditionlInfoPath = esuExtrTask.GetFilePath("SU_additional_info.csv");
+
+        const QStringList &esuExtrArgs = GetEsuExtractionTaskArgs(cfg, esuExtrPath, esuPath, suAdditionlInfoPath,
+                                                                  ctPath, ctYear);
+        allSteps.append(CreateTaskStep(esuExtrTask, "ESUExtraction", esuExtrArgs ));
+
+        esuCSVPaths.append(esuPath);
+        ctYears.append(ctYear);
+        suAdditionlInfoCSVPath = suAdditionlInfoPath;
+    }
 
     const QList<MarkerType> &enabledMarkers = dataExtrStepsBuilder.GetEnabledMarkers();
     // if only data extraction is needed, then we create the filter ids step into the general configured directory
@@ -145,7 +162,7 @@ NewStepList S4SYieldSUFeaturesHandler::CreateSteps(QList<TaskToSubmit> &allTasks
     const QString &mergePrevYearsYieldFeatOutPath = mergeYearlyYieldFeatTask.GetFilePath("merged_prev_years_yield_features.csv");
 
     // Inputs extraction and reflectances stack tif creation
-    const QStringList &esuAggArgs = GetESUAggregationTaskArgs(esuCSVPath, mdb1File, esuAggWorkPath, esuAggResultPath);
+    const QStringList &esuAggArgs = GetESUAggregationTaskArgs(esuCSVPaths,ctYears,  mdb1File, esuAggWorkPath, esuAggResultPath);
     allSteps.append(CreateTaskStep(esuAggregateTask, "ESUAggregation", esuAggArgs ));
 
     // Inputs extraction and reflectances stack tif creation
@@ -214,9 +231,11 @@ QString S4SYieldSUFeaturesHandler::CreateStepsForFilesMerge(const S4SYieldJobCon
 }
 
 QStringList S4SYieldSUFeaturesHandler::GetEsuExtractionTaskArgs(const S4SYieldJobConfig &cfg, const QString &workingDir,
-                                                                const QString &outESUCsvFile,  const QString &outSUAdditionalInfoCsvFile)
+                                                                const QString &outESUCsvFile,  const QString &outSUAdditionalInfoCsvFile,
+                                                                const QString &ctPath, int ctYear)
 {
-    QStringList args = {    "--crop-type-path", cfg.cropTypePrdPath,
+    QStringList args = {    "--crop-type-path", ctPath,
+                "--crop-type-year", QString::number(ctYear),
                 "--su-path", cfg.suPath,
                 "--su-unique-id", cfg.suUniqueId,
                 "--working-dir", workingDir,
@@ -225,7 +244,8 @@ QStringList S4SYieldSUFeaturesHandler::GetEsuExtractionTaskArgs(const S4SYieldJo
     };
     args += "--out-tile-rasters";
     for (const Tile &tile: cfg.siteTiles) {
-        args += cfg.esuTileRasterPaths[tile.tileId];
+        const QMap<QString, QString> &esuRasters = cfg.esuRasterPaths[ctYear];
+        args += esuRasters[tile.tileId];
     }
     args += "--tiles";
     for(const Tile &tile: cfg.siteTiles) {
@@ -235,14 +255,25 @@ QStringList S4SYieldSUFeaturesHandler::GetEsuExtractionTaskArgs(const S4SYieldJo
     return args;
 }
 
-QStringList S4SYieldSUFeaturesHandler::GetESUAggregationTaskArgs(const QString &esuCsvFile, const QString &laiMergedPath,
-                                              const QString &workingDir, const QString &outAggregatedLAI)
+QStringList S4SYieldSUFeaturesHandler::GetESUAggregationTaskArgs(const QStringList &esuCsvFiles, const QList<int> &ctYears,
+                                                                 const QString &laiMergedPath, const QString &workingDir,
+                                                                 const QString &outAggregatedLAI)
 {
-    return {    "--esu-path", esuCsvFile,
+    QStringList args = {
                 "--lai-merged-path", laiMergedPath,
                 "--working-dir", workingDir,
                 "--output", outAggregatedLAI
     };
+
+    args += "--esu-path";
+    for (const QString &esuFile: esuCsvFiles) {
+        args += esuFile;
+    }
+    args += "--years";
+    for (int year: ctYears) {
+        args += QString::number(year);
+    }
+    return args;
 }
 
 QStringList S4SYieldSUFeaturesHandler::GetSGLaiTaskArgs(const std::vector<int> &years, const QString &mdb1File, const QString &sgOutFile,
@@ -467,12 +498,12 @@ QStringList S4SYieldSUFeaturesHandler::GetProductFormatterArgs(TaskToSubmit &pro
                                          "generic", additionalArgs, true);
 }
 
-static bool ComparePrdsDates(const Product &prd1, const Product &prd2)
-{
-    return (prd1.created < prd2.created);
-}
+//static bool ComparePrdsDates(const Product &prd1, const Product &prd2)
+//{
+//    return (prd1.created > prd2.created);
+//}
 
-QString S4SYieldSUFeaturesHandler::S4SYieldJobConfig::GetCropTypeProductPath()
+ProductList S4SYieldSUFeaturesHandler::S4SYieldJobConfig::GetCropTypeProducts()
 {
     ProductList cropTypePrdsList = pCtx->GetProducts(event.siteId, (int)ProductType::S4SCropTypeMappingProductTypeId,
                                                                        startDate, endDate.addDays(1));
@@ -483,10 +514,24 @@ QString S4SYieldSUFeaturesHandler::S4SYieldJobConfig::GetCropTypeProductPath()
                                  .arg(startDate.toString())
                                  .arg(endDate.toString()).toStdString());
     }
-    std::sort(cropTypePrdsList.begin(), cropTypePrdsList.end(), ComparePrdsDates);
-    return cropTypePrdsList.at(0).fullPath;
-}
+    // std::sort(cropTypePrdsList.begin(), cropTypePrdsList.end(), ComparePrdsDates);
 
+    std::sort(cropTypePrdsList.begin(), cropTypePrdsList.end(),
+                  [](const Product& a, const Product& b) {
+                      return a.created < b.created;
+                  });
+    QSet<int> seenYears;
+    ProductList result;
+    for (const Product& prd : cropTypePrdsList) {
+        int year = prd.created.date().year();
+        if (!seenYears.contains(year)) {
+            seenYears.insert(year);
+            result.append(prd);
+        }
+    }
+
+    return result;
+}
 
 QString S4SYieldSUFeaturesHandler::S4SYieldJobConfig::GetProcessorDirValue(const QJsonObject &parameters, const std::map<QString, QString> &configParameters,
                                                     const QString &key, const QString &siteShortName, const QString &procShortName,

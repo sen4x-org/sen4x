@@ -28,14 +28,18 @@ class S4SYieldHandlerNew : public ProcessorHandler
             }
             std::sort(prdDetailsList.begin(), prdDetailsList.end(),
                       [](const ProductDetails &a, const ProductDetails &b) {
-                          return a.GetProduct().inserted > b.GetProduct().inserted;
+                            const auto &pa = a.GetProduct();
+                            const auto &pb = b.GetProduct();
+                            if (pa.created != pb.created)
+                                return pa.created > pb.created;   // descending by created
+                            return pa.inserted > pb.inserted;     // descending by inserted
                       });
 
             const SeasonList &ss = pContext->GetSiteSeasons(evt.siteId);
 
-            yieldFeatPrds.reserve(prdDetailsList.size());
+            // yieldFeatPrds.reserve(prdDetailsList.size());
             for (const auto &prdDetails : prdDetailsList) {
-                yieldFeatPrds.append(QDir(QDir(prdDetails.GetProduct().fullPath).filePath("VECTOR_DATA")).filePath("yield_features.csv"));
+                const QString &yieldFeatPrd = QDir(QDir(prdDetails.GetProduct().fullPath).filePath("VECTOR_DATA")).filePath("yield_features.csv");
 
                 orchestrator::products::GenericHighLevelProductHelper prdHelper(prdDetails.GetProduct().name);
                 if(prdHelper.IsValid()) {
@@ -61,6 +65,7 @@ class S4SYieldHandlerNew : public ProcessorHandler
                                                       });
                             if (!exists) {
                                 seasons.append(s);
+                                yieldFeatPrds.push_back(yieldFeatPrd);
                             }
                             break;
                         }
@@ -130,7 +135,7 @@ private:
     NewStepList CreateSteps(QList<TaskToSubmit> &allTasksList,
                             const S4SYieldJobConfig &cfg);
     QStringList GetYieldReferenceExtractionTaskArgs(int siteId, int seasonId, const QString &outRefYieldFile);
-    QStringList GetYieldModelTaskArgs(const S4SYieldJobConfig &cfg, const QString &yieldReference, const QString &cropCodesFile, const QString &inYieldFeatures,
+    QStringList GetYieldModelTaskArgs(const S4SYieldJobConfig &cfg, const QString &yieldReference, const QString &cropCodesFile, const QString &inYieldFeatures, const QString &trainingFeatures,
                                       const QString &statisticalUnitFields, const QString &outYieldEstimates, const QString &outYieldSUEstimates);
     QStringList GetCropTypesExtractionTaskArgs(int siteId, int seasonId, const QString &outCropTypesFile);
 

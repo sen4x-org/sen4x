@@ -26,7 +26,7 @@ S4SYieldSUHandlerNew::CreateTasks(const S4SYieldJobConfig & /* cfg */, QList<Tas
     outAllTasksList.append(TaskToSubmit{ "s4s-yield-su-model-wrp", {outAllTasksList[yieldCTExtrIdx] } } );
     int yieldModelIdx = curTaskIdx++;
 
-    outAllTasksList.append(TaskToSubmit{ "product-formatter", {outAllTasksList[yieldModelIdx]} });
+    outAllTasksList.append(TaskToSubmit{ "yield-su-product-formatter", {outAllTasksList[yieldModelIdx]} });
 
     QList<std::reference_wrapper<TaskToSubmit>> allTasksListRef;
     for (TaskToSubmit &task : outAllTasksList) {
@@ -55,9 +55,15 @@ NewStepList S4SYieldSUHandlerNew::CreateSteps(QList<TaskToSubmit> &allTasksList,
     const QString &yieldModelOutputPath = yieldModelTask.GetFilePath("");
     const QString &yieldEstimateOutputPath = yieldModelTask.GetFilePath("yield_estimate.csv");
     const QString &yieldStatisticalUnitEstimateOutputPath = yieldModelTask.GetFilePath("yield_statistical_units_estimate.csv");
+
+    const QString &yieldInputFeaturesPath = cfg.yieldFeatPrds.at(0);
+    const QString &mergePrevYearsYieldFeatOutPath = cfg.mergePrevYearsYieldFeatOutPath.at(0);
+    const QString &yieldTrainingFeaturesPath = (cfg.yieldFeatPrds.size() >= 2 ? cfg.yieldFeatPrds.at(1) : yieldInputFeaturesPath);
+
     const QStringList &yieldModelExtractionArgs = GetYieldModelTaskArgs(cfg, /* yieldReference, */ cropTypes,
-                                                                        cfg.yieldFeatPrds.at(0), cfg.mergePrevYearsYieldFeatOutPath.at(0),
-                                                                        yieldEstimateOutputPath, yieldStatisticalUnitEstimateOutputPath);
+                                                                        yieldInputFeaturesPath, mergePrevYearsYieldFeatOutPath,
+                                                                        yieldTrainingFeaturesPath, yieldEstimateOutputPath,
+                                                                        yieldStatisticalUnitEstimateOutputPath);
     allSteps.append(CreateTaskStep(yieldModelTask, "YieldModel", yieldModelExtractionArgs));
     // we append the full directory containing all resulted files
     prdFormatterFiles.append(yieldModelOutputPath);
@@ -77,7 +83,8 @@ QStringList S4SYieldSUHandlerNew::GetCropTypesExtractionTaskArgs(int siteId, int
 }
 
 QStringList S4SYieldSUHandlerNew::GetYieldModelTaskArgs(const S4SYieldJobConfig &cfg, const QString & cropCodesFile, const QString & inYieldFeatures,
-                                                     const QString &inPrevYearsYieldFeatures, const QString &outYieldEstimates, const QString & /* outYieldSUEstimates */)
+                                                     const QString &inPrevYearsYieldFeatures, const QString &trainingFeaturesFile,
+                                                        const QString &outYieldEstimates, const QString & /* outYieldSUEstimates */)
 {
     const QString &algo = ProcessorHandlerHelper::GetStringConfigValue(cfg.parameters, cfg.configParameters,
                                                                                "algorithm", S4S_YIELD_CFG_PREFIX);
@@ -113,6 +120,7 @@ QStringList S4SYieldSUHandlerNew::GetYieldModelTaskArgs(const S4SYieldJobConfig 
     QStringList args =
     {
         "-i", inYieldFeatures,
+        "-t", trainingFeaturesFile,
         "-o", outYieldEstimates,
         // "-e", outYieldSUEstimates,
         "-r", inPrevYearsYieldFeatures,
@@ -280,22 +288,6 @@ static bool ComparePrdsDates(const Product &prd1, const Product &prd2)
 {
     return (prd1.created < prd2.created);
 }
-
-QString S4SYieldSUHandlerNew::S4SYieldJobConfig::GetCropTypeProductPath()
-{
-    ProductList cropTypePrdsList = pCtx->GetProducts(event.siteId, (int)ProductType::S4SCropTypeMappingProductTypeId,
-                                                                       startDate, endDate);
-    if (cropTypePrdsList.size() == 0) {
-        pCtx->MarkJobFailed(event.jobId);
-        throw std::runtime_error(QStringLiteral("Yield SU: No crop type products were found in database for site %1 and interval %2 - %3.")
-                                 .arg(siteShortName)
-                                 .arg(startDate.toString())
-                                 .arg(endDate.toString()).toStdString());
-    }
-    std::sort(cropTypePrdsList.begin(), cropTypePrdsList.end(), ComparePrdsDates);
-    return cropTypePrdsList.at(0).fullPath;
-}
-
 
 QString S4SYieldSUHandlerNew::S4SYieldJobConfig::GetProcessorDirValue(const QJsonObject &parameters, const std::map<QString, QString> &configParameters,
                                                     const QString &key, const QString &siteShortName, const QString &procShortName,

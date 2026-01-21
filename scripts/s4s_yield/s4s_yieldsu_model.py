@@ -28,9 +28,10 @@ def run_command(args, env=None):
         print("WARNING: Command `{}` failed with exit code {}".format(cmd_line, result))
 
 def read_input_files(input_file):
-    input_files = dict()
+    year_ct_input_files = dict()
+    ct_year_input_files = dict()
     if input_file is None or input_file == "":
-        return input_files    
+        return year_ct_input_files,ct_year_input_files    
     input_file_dir = os.path.dirname(input_file)
     with open(input_file, "r") as file:
         # skip headers
@@ -44,11 +45,15 @@ def read_input_files(input_file):
                 abs_path = file_path
                 if not os.path.isabs(file_path):
                     abs_path = os.path.join(input_file_dir, file_path)
-                if not year in input_files:
-                    input_files[year] = dict()
-                input_files[year][crop_type] = abs_path
+                if not year in year_ct_input_files:
+                    year_ct_input_files[year] = dict()
+                year_ct_input_files[year][crop_type] = abs_path
 
-    return input_files
+                if not crop_type in ct_year_input_files:
+                    ct_year_input_files[crop_type] = dict()
+                ct_year_input_files[crop_type][year] = abs_path
+
+    return year_ct_input_files,ct_year_input_files
 
 def read_prev_years_files(input_file):
     input_files = dict()
@@ -69,6 +74,36 @@ def read_prev_years_files(input_file):
                 input_files[crop_type] = abs_path
 
     return input_files
+
+def merge_yearly_ct_files(years_input_files, output_file) : 
+    sorted_years = list(years_input_files.keys())
+    sorted_years.sort()
+    list_files = []
+    for year in sorted_years : 
+        list_files.append(years_input_files[year])
+    out_header = []
+    all_lines = []
+    for year, input_file in zip(sorted_years, list_files):
+        print("Processing file {} for year {}".format(input_file, year))
+        with open(input_file, "r") as file:  
+            r = csv.reader(file)
+            header = next(r)
+            if len(out_header) == 0 and len(header) > 1 : 
+                out_header = header
+                out_header.insert(len(out_header)-1, "year")
+                all_lines.append(out_header)
+
+            # ensure that we have the header
+            if len(out_header) > 0 :
+                for item in r:
+                    item.insert(len(item)-1, year)
+                    all_lines.append(item)
+    
+    with open(output_file, 'w') as csvoutput:
+        writer = csv.writer(csvoutput)
+        writer.writerows(all_lines)
+
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -94,6 +129,10 @@ def main():
     )
 
     parser.add_argument(
+        "-t", "--input-training-features", nargs="+", required=False, help="The input training features file", default = None
+    )
+
+    parser.add_argument(
         "-r", "--yield-reference", required=True, help="The input yield reference file"
     )
 
@@ -107,15 +146,60 @@ def main():
 
     args = parser.parse_args()
     
-    input_files = read_input_files(args.input_features)
+    input_files, _ = read_input_files(args.input_features)
+    training_input_files = dict()
+    if args.input_training_features:
+        training_input_files, _ = read_input_files(args.input_training_features[0])
+        
     prev_years_files = read_prev_years_files(args.yield_reference)
+    print("Using the previous years files: {}".format(prev_years_files))
     
     if len(input_files) != 1:
         print("Input files for year does not contains exactly one year but it has = {}. Exiting ...".format(input_files))
         sys.exit(1)
 
+    # If there are provided files that contain the previous years products, we need to merge them
+    if args.input_training_features : 
+        if not os.path.samefile(args.input_training_features[0], args.input_features) :
+            out_file_parent_dir = os.path.dirname(os.path.abspath(args.output))
+            output_file, file_extension = os.path.splitext(args.output)
+            master_merge_out_path = os.path.join(out_file_parent_dir, output_file + "_prev_years_merge_tmp.csv")
+            
+            merge_output_files_dict = dict()
+            tr_in_files = dict()
+            for trainig_file in args.input_training_features:
+                _, training_file_info = read_input_files(trainig_file)
+                for crop_type, years_dict in training_file_info.items():
+                    if crop_type not in tr_in_files:
+                        tr_in_files[crop_type] = dict()
+                    for year, path in years_dict.items():
+                        tr_in_files[crop_type][year] = path    
+            
+            for crop_type in tr_in_files.keys():
+                print(f"Merging training data on ct = {crop_type}")
+                years_input_files = tr_in_files[crop_type]
+
+                ct_merge_out_file = output_file + "_prev_years_merge_tmp_" + str(crop_type) + ".csv"
+                merge_output_files_dict[str(crop_type)] = ct_merge_out_file
+                
+                merge_yearly_ct_files(years_input_files, ct_merge_out_file)
+
+            with open(master_merge_out_path, 'w') as out_sg:  
+                writer = csv.writer(out_sg)
+                writer.writerow(["crop_type", "features_file"])
+                for key, value in merge_output_files_dict.items():
+                    # In this case, write the relative path instead of the full path
+                    # as usually the full path is from a temporary folder
+                    # NOTE: Attention in the loading modules to handle the relative path
+                    writer.writerow([key, os.path.basename(value)])
+            
+            # The files extracted this way have priority against the ones in the current product
+            prev_years_files = read_prev_years_files(master_merge_out_path)
+            
     proc_year = list(input_files.keys())[0]
     ct_input_files = input_files[proc_year]
+    
+    print("Using the previous years files: {}".format(prev_years_files))
 
     output_files_dict = dict()
     for crop_type in ct_input_files.keys() : 
@@ -143,6 +227,11 @@ def main():
                     "--output", output_file,
                     "--has-trend"
                     ]
+
+        ct_train_input_file = (training_input_files.get(proc_year, {}).get(crop_type))
+        if ct_train_input_file:
+            print("Using training file {} for crop type {}".format(ct_train_input_file, crop_type))
+            command += ["--input-training-features", ct_train_input_file]
 
         run_command(command)
     

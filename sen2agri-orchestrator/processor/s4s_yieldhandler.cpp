@@ -16,7 +16,7 @@ using namespace orchestrator::products;
 static QStringList YIELD_INPUT_MARKER_NAMES = {"LAI"};
 
 QList<std::reference_wrapper<TaskToSubmit>>
-S4SYieldHandler::CreateTasks(const S4SYieldJobConfig & /* cfg */, QList<TaskToSubmit> &outAllTasksList,
+S4SYieldHandler::CreateTasks(const S4SYieldJobConfig &cfg, QList<TaskToSubmit> &outAllTasksList,
                              const S4CMarkersDB1DataExtractStepsBuilder &dataExtrStepsBuilder)
 {
     int curTaskIdx = 0;
@@ -51,16 +51,20 @@ S4SYieldHandler::CreateTasks(const S4SYieldJobConfig & /* cfg */, QList<TaskToSu
         outAllTasksList.append(TaskToSubmit{ "s4s-merge-weather-features", {outAllTasksList[weatherFeatIdx]}  });
         int mergeWeatherFeatIdx = curTaskIdx++;
 
-        outAllTasksList.append(TaskToSubmit{ "s4s-safy-lut", mergeTasks });
-        int safyLutTaskIdx = curTaskIdx++;
         outAllTasksList.append(TaskToSubmit{ "s4s-merge-lai-with-grid", {outAllTasksList[weatherFeatIdx]}  });
         int mergeLaiGridIdx = curTaskIdx++;
-        outAllTasksList.append(TaskToSubmit{ "s4s-safy-optim", {outAllTasksList[safyLutTaskIdx], outAllTasksList[mergeLaiGridIdx]} });
-        int safyOptimIdx = curTaskIdx++;
 
-        outAllTasksList.append(TaskToSubmit{ "s4s-merge-all-features", {outAllTasksList[sgIdx],
-                                                                            outAllTasksList[mergeWeatherFeatIdx],
-                                                                            outAllTasksList[safyOptimIdx] }  });
+        QList<std::reference_wrapper<const TaskToSubmit>> mergeAllFeatTasks = {outAllTasksList[sgIdx],
+                                                                               outAllTasksList[mergeWeatherFeatIdx]};
+        if (cfg.enableSafy) {
+            outAllTasksList.append(TaskToSubmit{ "s4s-safy-lut", mergeTasks });
+            int safyLutTaskIdx = curTaskIdx++;
+            outAllTasksList.append(TaskToSubmit{ "s4s-safy-optim", {outAllTasksList[safyLutTaskIdx], outAllTasksList[mergeLaiGridIdx]} });
+            int safyOptimIdx = curTaskIdx++;
+            mergeAllFeatTasks.push_back(outAllTasksList[safyOptimIdx]);
+        }
+
+        outAllTasksList.append(TaskToSubmit{ "s4s-merge-all-features", mergeAllFeatTasks  });
         int mergeAllFeatIdx = curTaskIdx++;
         outAllTasksList.append(TaskToSubmit{ "s4s-yield-features-extraction", {outAllTasksList[mergeAllFeatIdx]} });
 
@@ -135,9 +139,12 @@ NewStepList S4SYieldHandler::CreateSteps(QList<TaskToSubmit> &allTasksList,const
         TaskToSubmit &parcelExtrTask = allTasksList[curTaskIdx++];
         TaskToSubmit &weatherFeatTask = allTasksList[curTaskIdx++];
         TaskToSubmit &weatherFeatMergeTask = allTasksList[curTaskIdx++];
-        TaskToSubmit &safyLutTask = allTasksList[curTaskIdx++];
         TaskToSubmit &mergeLaiGridTask = allTasksList[curTaskIdx++];
-        TaskToSubmit &safyOptimTask = allTasksList[curTaskIdx++];
+        int safyLutIdx = -1, safyOptimIdx = -1;
+        if (cfg.enableSafy) {
+            safyLutIdx = curTaskIdx++;
+            safyOptimIdx = curTaskIdx++;
+        }
         TaskToSubmit &mergeAllFeatTask = allTasksList[curTaskIdx++];
         TaskToSubmit &yieldFeatTask = allTasksList[curTaskIdx++];
 
@@ -154,13 +161,7 @@ NewStepList S4SYieldHandler::CreateSteps(QList<TaskToSubmit> &allTasksList,const
         const QString &outParcelIdsToGridPath = weatherFeatMergeTask.GetFilePath("parcels_to_grid.csv");
         const QString &outWeatherFeaturesPath = weatherFeatMergeTask.GetFilePath("weather_raw_features.csv");
 
-        const QString &safyLutRangesFilesDirPath = safyLutTask.GetFilePath("");
-        const QString &safyLutOutputDirPath = safyLutTask.GetFilePath("");
-
         const QString &outMergedLaiGrid = mergeLaiGridTask.GetFilePath("lai_with_grid.csv");
-
-        const QString &safyOptimWorkingDirPath = safyOptimTask.GetFilePath("");
-        const QString &safyOptimOutputPath = safyOptimTask.GetFilePath("safy_optim_features.csv");
 
         const QString &allFeatOutputPath = mergeAllFeatTask.GetFilePath("merged_weather_sg_features.csv");
         yieldFeaturesOutputPath = yieldFeatTask.GetFilePath("yield_features.csv");
@@ -185,17 +186,28 @@ NewStepList S4SYieldHandler::CreateSteps(QList<TaskToSubmit> &allTasksList,const
         const QStringList &weatherFeaturesMergeArgs = GetWeatherFeaturesMergeTaskArgs(weatherWorkingDirPath, outWeatherFeaturesPath);
         allSteps.append(CreateTaskStep(weatherFeatMergeTask, "WeatherFeaturesMerge", weatherFeaturesMergeArgs));
 
-        const QStringList &safyLutArgs = GetSafyLutTaskArgs(cfg.weatherPrdPaths, safyParamFile, safyLutRangesFilesDirPath, safyLutOutputDirPath);
-        allSteps.append(CreateTaskStep(safyLutTask, "SafyLut", safyLutArgs));
-
         const QStringList &mergeLaiGridArgs = GetMergeLaiGridTaskArgs(mdb1File, outParcelIdsToGridPath, outMergedLaiGrid);
         allSteps.append(CreateTaskStep(mergeLaiGridTask, "MergeLaiWitGrid", mergeLaiGridArgs));
 
-        const QStringList &safyOptimArgs = GetSafyOptimTaskArgs(cfg.weatherPrdPaths, cfg.year, outMergedLaiGrid,
-                                                                outGridToParcelIdsPath, safyParamFile, safyLutRangesFilesDirPath,
-                                                                safyLutOutputDirPath, safyOptimWorkingDirPath, safyOptimOutputPath);
-        allSteps.append(CreateTaskStep(safyOptimTask, "SafyOptim", safyOptimArgs));
+        QString safyOptimOutputPath;
+        if (cfg.enableSafy) {
+            TaskToSubmit &safyLutTask = allTasksList[safyLutIdx];
+            TaskToSubmit &safyOptimTask = allTasksList[safyOptimIdx];
 
+            const QString &safyLutRangesFilesDirPath = safyLutTask.GetFilePath("");
+            const QString &safyLutOutputDirPath = safyLutTask.GetFilePath("");
+
+            const QString &safyOptimWorkingDirPath = safyOptimTask.GetFilePath("");
+            safyOptimOutputPath = safyOptimTask.GetFilePath("safy_optim_features.csv");
+
+            const QStringList &safyLutArgs = GetSafyLutTaskArgs(cfg.weatherPrdPaths, safyParamFile, safyLutRangesFilesDirPath, safyLutOutputDirPath);
+            allSteps.append(CreateTaskStep(safyLutTask, "SafyLut", safyLutArgs));
+
+            const QStringList &safyOptimArgs = GetSafyOptimTaskArgs(cfg.weatherPrdPaths, cfg.year, outMergedLaiGrid,
+                                                                    outGridToParcelIdsPath, safyParamFile, safyLutRangesFilesDirPath,
+                                                                    safyLutOutputDirPath, safyOptimWorkingDirPath, safyOptimOutputPath);
+            allSteps.append(CreateTaskStep(safyOptimTask, "SafyOptim", safyOptimArgs));
+        }
         const QStringList &allFeatureMergeArgs = GetAllFeaturesMergeTaskArgs(outWeatherFeaturesPath, sgCropGrowthIndicesPath, safyOptimOutputPath,
                                                                               allFeatOutputPath, sgYieldLaiFeaturesPath);
         allSteps.append(CreateTaskStep(mergeAllFeatTask, "AllFeaturesMerge", allFeatureMergeArgs));
@@ -344,10 +356,15 @@ QStringList S4SYieldHandler::GetAllFeaturesMergeTaskArgs(const QString &weatherF
                                                       const QString &safyFeatsFile, const QString &outMergedFeatures,
                                                          const QString &sgYieldLaiFeaturesPath)
 {
-    return { "Markers1CsvMerge",
-             "-il", weatherFeatFile, sgCropGrowthIndicesFile, safyFeatsFile, sgYieldLaiFeaturesPath,
-             "-out", outMergedFeatures,
-             "-ignnodatecol", "0"};
+    QStringList args = { "Markers1CsvMerge",
+             "-il", weatherFeatFile, sgCropGrowthIndicesFile, sgYieldLaiFeaturesPath};
+    if(safyFeatsFile.size() > 0) {
+        args += safyFeatsFile;
+    }
+
+    args.append({"-out", outMergedFeatures, "-ignnodatecol", "0"});
+
+    return args;
 }
 
 QStringList S4SYieldHandler::GetYieldFeaturesTaskArgs(const QString &inMergedFeatures, const QString &outYieldFeatures)

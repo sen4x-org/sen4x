@@ -16,18 +16,6 @@ try:
 except ImportError:
     from ConfigParser import ConfigParser
 
-
-def get_year(start, end):
-    if start.year == end.year:
-        return start.year
-    d1 = start.replace(month=12, day=31) - start
-    d2 = end - end.replace(month=1, day=1)
-    if d2 >= d1:
-        return end.year
-    else:
-        return start.year
-
-
 class Config(object):
     def __init__(self, args):
         parser = ConfigParser()
@@ -44,6 +32,7 @@ class Config(object):
         self.password = parser.get("Database", "Password")
 
         self.site_id = args.site_id
+        self.season_id = args.season_id
 
 
 def get_site_name(conn, site_id):
@@ -64,6 +53,13 @@ def get_site_name(conn, site_id):
         conn.commit()
         return rows[0][0]
 
+def get_season_infos(conn, season_id):
+    with conn.cursor() as cursor:
+        query = SQL("select name, start_date, end_date from season where id = %s")
+        cursor.execute(query, (season_id,))
+        rows = cursor.fetchall()
+        conn.commit()
+        return rows[0]
 
 def save_to_csv(rows, path, headers):
     with open(path, "w") as csvfile:
@@ -107,8 +103,7 @@ def main():
         help="configuration file location",
     )
     parser.add_argument("-s", "--site-id", type=int, help="site ID to filter by")
-    parser.add_argument("-b", "--season-start", help="Season start")
-    parser.add_argument("-e", "--season-end", help="Season end")
+    parser.add_argument("--season-id", help="season", type=int)
     parser.add_argument("-o", "--output", help="Output file containing reference yield")
 
     args = parser.parse_args()
@@ -123,11 +118,8 @@ def main():
         password=config.password,
     ) as conn:
         site_name = get_site_name(conn, config.site_id)
-        season_start = dateutil.parser.parse(args.season_start)
-        season_end = dateutil.parser.parse(args.season_end)
-
-        year = get_year(season_start, season_end)
-        insitu_table = "in_situ_data_{}_{}".format(site_name, year)
+        season_name, season_start, season_end = get_season_infos(conn, config.season_id)
+        insitu_table = "in_situ_data_{}_{}".format(site_name, season_name)
         
         print("Using insitu table {}".format(insitu_table))
 

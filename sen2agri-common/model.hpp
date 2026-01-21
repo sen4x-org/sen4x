@@ -241,14 +241,22 @@ enum class ProductType {
     FMaskProductTypeId           = 25,
     MaskedL2AProductTypeId       = 26,
     S4SPermCropsProductTypeId    = 27,
-    S4SYieldProductTypeId        = 28,
+    S4SYieldFeatProductTypeId     = 28,
     ERA5WeatherProductTypeId     = 29,
     S1CompositeProductTypeId     = 30,
     L3IndicatorsCompositeProductTypeId = 31,
     S4SCropTypeMappingProductTypeId = 32,
     S4CBareSoilProductTypeId     = 33,
-    S4SYieldSUProductTypeId      = 34,
-    S4CChangeDetectionProductTypeId = 35
+    S4SYieldSUFeatProductTypeId  = 34,
+    S4CChangeDetectionProductTypeId = 35,
+    L3BNdviProductTypeId = 36,
+    L3BLaiProductTypeId = 37,
+    L3BFaparProductTypeId = 38,
+    L3BFcoverProductTypeId = 39,
+    L3BNdwiProductTypeId = 40,
+    L3BBrightnessProductTypeId = 41,
+    S4SYieldProductTypeId = 42,
+    S4SYieldSUProductTypeId = 43
 };
 
 enum class Processor {
@@ -268,7 +276,7 @@ enum class Processor {
     MDBProcessorId = 14,
     MaskedL2AProcessorId = 15,
     S4SPermCropsProcessorId = 16,
-    S4SYieldProcessorId = 17,
+    S4SYieldFeaturesProcessorId = 17,
     Era5ProcessorId = 18,
     ZarrProcessorId = 19,
     S4SCropTypeMapProcessorId = 20,
@@ -278,7 +286,7 @@ enum class Processor {
     FMaskProcessorId = 24,
     S4CHeterogeneityProcessorId = 25,
     S4CBareSoilProcessorId = 26,
-    S4SYieldSUProcessorId = 27,
+    S4SYieldProcessorId = 27,
     S4CChangeDetectionProcessorId = 28
 };
 

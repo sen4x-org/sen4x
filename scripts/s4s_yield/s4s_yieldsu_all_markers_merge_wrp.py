@@ -60,6 +60,7 @@ def main():
     parser.add_argument("-t", "--trend-features-list-file", help="File containing the trend features files for each crop", required=True)
     parser.add_argument("-w", "--weather-metrics-file", help="File or folder containing the weather features merged", required=True)
     parser.add_argument("-l", "--sg-metrics-file", help="File or folder containing the SG weather features", required=False, default="")
+    parser.add_argument("-a", "--out-additional-su-info", help="File or folder containing the SU additional info", required=False, default="")
     parser.add_argument("-o", "--output", help="Output merged file", required=True)
     parser.add_argument("-g", "--ignnodatecol", help="Ignore date column", required=False, default = 0)
     
@@ -91,9 +92,10 @@ def main():
                     
                     command = []
                     command += ["otbcli", "Markers1CsvMerge"]
-                    command += ["-il", sg_input_file, trend_input_file, args.weather_metrics_file]
+                    command += ["-il", sg_input_file, trend_input_file, args.weather_metrics_file, args.out_additional_su_info]
                     if sg_metrics_file != "" : 
                         command += [sg_metrics_file]
+                        
                     command += ["-ignnodatecol", args.ignnodatecol]
                     command += ["-out", output_file]
 

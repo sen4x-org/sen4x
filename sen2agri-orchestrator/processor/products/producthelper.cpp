@@ -77,6 +77,18 @@ QString ProductHelper::GetProductTypeShortName(ProductType prdType)
         return "L3A";
     case ProductType::L3BProductTypeId:
         return "L3B";
+    case ProductType::L3BNdviProductTypeId:
+        return "L3B_NDVI";
+    case ProductType::L3BLaiProductTypeId:
+        return "L3B_LAI";
+    case ProductType::L3BFaparProductTypeId:
+        return "L3B_FAPAR";
+    case ProductType::L3BFcoverProductTypeId:
+        return "L3B_FCOVER";
+    case ProductType::L3BNdwiProductTypeId:
+        return "L3B_NDWI";
+    case ProductType::L3BBrightnessProductTypeId:
+        return "L3B_BRIGHT";
     case ProductType::L3EProductTypeId:
         return "L3E";
     case ProductType::L4AProductTypeId:
@@ -122,6 +134,10 @@ QString ProductHelper::GetProductTypeShortName(ProductType prdType)
         return "FMASK";
     case ProductType::MaskedL2AProductTypeId:
         return "L2A_MASKED";
+    case ProductType::S4SYieldFeatProductTypeId:
+        return "S4S_YIELD_FEAT";
+    case ProductType::S4SYieldSUFeatProductTypeId:
+        return "S4S_YIELD_SU_FEAT";
     default:
         break;
     }
