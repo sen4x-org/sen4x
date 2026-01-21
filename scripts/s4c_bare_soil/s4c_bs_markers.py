@@ -27,8 +27,9 @@ class Config(object):
         self.thr_bs_s1 = args.thr_bs_s1
         self.thr_nbs_s1 = args.thr_nbs_s1
 
-def GetPeriodsBS(S_i,Pshort,Plong,thr_bs,thr_nbs,year):
-    #Analyse S2 - START period
+def GetPeriodsBS(S_i, Pshort, Plong, thr_bs, thr_nbs):
+
+    # Initialize variables
     START_BS = 'nan'
     END_BS = 'nan'
     Conf_BS = np.nan
@@ -45,147 +46,136 @@ def GetPeriodsBS(S_i,Pshort,Plong,thr_bs,thr_nbs,year):
     ind = S_i.index
     M3_transition = 0
     baresoil_lastdate = 'nan'
-
-    for idx in ind:
-        NbrTT += 1 
-        # look for START_BS
-
-        if (np.isnan(M1)| (M1==0)) & (S_i.at[idx,'pred']=='BS') & (S_i.at[idx,'conf']>=thr_bs):
-            M1 = 1
-            START_BS = S_i.at[idx,'dates']
-            NbrBS = 0
-            d_start = datetime.strptime(START_BS,'%Y-%m-%d')
-            continue
-        elif (M1 != 1):
-            d_start = datetime.strptime(f'{year}-01-01','%Y-%m-%d')
-
-        d_continue = datetime.strptime(S_i.at[idx,'dates'],'%Y-%m-%d')
+    first_nbs_date = 'nan'
+    p_max = timedelta(days=80)
         
-        if (M1 == 1) & (d_continue-d_start > Pshort) & (END_BS=='nan') & (M2 == 0):
+    for idx in ind:
+        NbrTT += 1
+
+        # START detection
+        if (np.isnan(M1) or (M1 == 0)) and (S_i.at[idx, 'pred'] == 'BS') and (S_i.at[idx, 'conf'] >= thr_bs):
+            M1 = 1
+            START_BS = S_i.at[idx, 'dates']
+            NbrBS = 0
+            d_start = datetime.strptime(START_BS, '%Y-%m-%d')
+            continue
+        elif M1 != 1:
+            d_start = datetime.strptime(f'{S_i.at[idx, "dates"][:4]}-01-01', '%Y-%m-%d')
+
+        d_continue = datetime.strptime(S_i.at[idx, 'dates'], '%Y-%m-%d')
+
+        # END condition - short phase
+        if (M1 == 1) and (d_continue - d_start > Pshort) and (END_BS == 'nan') and (M2 == 0):
             END_BS = START_BS
             EndLook = False
             LookNext = True
-        elif (M1 == 1) & (d_continue-d_start > Plong) & (END_BS=='nan') & (M4==0) & (baresoil_lastdate != 'nan'):
+
+        # END condition - long phase fallback
+        elif (M1 == 1) and (END_BS == 'nan') and (M4 == 0) and (baresoil_lastdate != 'nan') and (
+            (d_continue - d_start > p_max) or (M6 <= -4)):
             END_BS = baresoil_lastdate
             EndLook = False
             LookNext = True
 
-        elif (M1==1) and (END_BS=='nan'):
+        # In BS phase
+        elif M1 == 1 and END_BS == 'nan':
             NbrBS += 1
             if np.isnan(M2):
                 M2 = 0
                 M3 = 0
-            if (S_i.at[idx,'pred']=='BS'):
+
+            if S_i.at[idx, 'pred'] == 'BS':
                 EndLook = True
                 M4 = 0
                 baresoil_lastdate = 'nan'
                 M3_transition = 0
 
-            if (S_i.at[idx,'conf'] > thr_bs) & (S_i.at[idx,'pred']=='BS') :
+            if (S_i.at[idx, 'conf'] > thr_bs) and (S_i.at[idx, 'pred'] == 'BS'):
                 M2 += 1
                 M3 += 2
-            
-            elif (S_i.at[idx,'pred']=='BS') & (S_i.at[idx,'conf'] <= thr_bs) :
+            elif (S_i.at[idx, 'pred'] == 'BS') and (S_i.at[idx, 'conf'] <= thr_bs):
                 M3 += 1
-
-            elif ((S_i.at[idx,'pred']!='BS') & (S_i.at[idx,'conf'] <= thr_nbs)): 
+            elif (S_i.at[idx, 'pred'] != 'BS') and (S_i.at[idx, 'conf'] <= thr_nbs):
                 M3 += -2
                 M3_transition += 2
-                if baresoil_lastdate=='nan':
-                    baresoil_lastdate = S_i.at[idx-1,'dates']
-                       
+                if baresoil_lastdate == 'nan':
+                    baresoil_lastdate = S_i.at[idx - 1, 'dates']
+                    first_nbs_date = S_i.at[idx, 'dates']
 
-        # look for the END_BS
-
-        if (M1==1) & (EndLook) :
+        # Detect transition to non-BS
+        if M1 == 1 and EndLook:
             LookNext = True
-            if (M4==0) & (S_i.at[idx,'pred']!='BS') & (S_i.at[idx,'conf']> thr_nbs):
+            if (M4 == 0) and (S_i.at[idx, 'pred'] != 'BS') and (S_i.at[idx, 'conf'] > thr_nbs):
                 M4 = 1
-                if baresoil_lastdate=='nan':
-                    END_BS = S_i.at[idx-1,'dates']
-                    
+                first_nbs_date = S_i.at[idx, 'dates']
+                if baresoil_lastdate == 'nan':
+                    END_BS = S_i.at[idx - 1, 'dates']
                 else:
                     END_BS = baresoil_lastdate
                     M3 += M3_transition
-                    NbrBS += - M3_transition/2
+                    NbrBS -= M3_transition / 2
 
-                d_end = datetime.strptime(END_BS,'%Y-%m-%d')
-                    
+                if first_nbs_date != 'nan':
+                    d_end = datetime.strptime(first_nbs_date, '%Y-%m-%d')
+                else:
+                    d_end = datetime.strptime(END_BS, '%Y-%m-%d')
                 continue
-            elif (M4!=1):
+            elif M4 != 1:
                 M4 = 0
-                d_end = d_start
+                d_end = d_continue
 
-            if (M4==1) & (d_continue-d_end < Plong):
+            if (M4 == 1) and (d_continue - d_end < Plong):
                 if np.isnan(M5):
                     M5 = 0
                     M6 = 0
-                if (S_i.at[idx,'conf']>thr_nbs) & (S_i.at[idx,'pred']!='BS') :
+                if (S_i.at[idx, 'conf'] > thr_nbs) and (S_i.at[idx, 'pred'] != 'BS'):
                     M5 += 1
                     M6 += 2
-                elif (S_i.at[idx,'conf']<= thr_nbs) & (S_i.at[idx,'pred']!='BS'):
+                elif (S_i.at[idx, 'conf'] <= thr_nbs) and (S_i.at[idx, 'pred'] != 'BS'):
                     M6 += 1
-                elif (S_i.at[idx,'pred']=='BS') & (S_i.at[idx,'conf']>thr_bs) & (d_continue-d_end < Pshort):
+                elif (S_i.at[idx, 'pred'] == 'BS') and (S_i.at[idx, 'conf'] > thr_bs) and (
+                    d_continue - d_end < Pshort):
                     M6 += -2
-                    #print('end_next')
-                    if M6 <= -4 :
+                    if M6 <= -4:
                         M4 = 0
                         END_BS = 'nan'
                         continue
-                elif (S_i.at[idx,'pred']=='BS'):
-                    M6 += -2
-                else : 
+                else:
                     M6 += 0
 
-        #print(d_continue)
-        #print(START_BS)
-        #print('M2: ' + str(M2))
-        #print('M3: ' + str(M3))
-        #print('M3_t: ' + str(M3_transition))
-        #print(END_BS)
-        #print(M6)
-        #print(baresoil_lastdate)
-
-    if ((M2 >= 1) & (M4 == 0) & (baresoil_lastdate=='nan')):
+    # Fallbacks
+    if (M2 >= 1) and (M4 == 0) and (baresoil_lastdate == 'nan'):
         END_BS = 'Continue'
         LookNext = False
-    elif (baresoil_lastdate!='nan'):
+    elif baresoil_lastdate != 'nan':
         END_BS = baresoil_lastdate
 
-    if (END_BS=='nan'):
+    if END_BS == 'nan':
         Conf_BS = 'nan'
-# according to the value of M1-M3 --> assess the confidence start and the start_date
- 
-    if (M2 == 0) & (np.isnan(M4) | (M4 == 0)) :
+
+    if (M2 == 0) and (np.isnan(M4) or (M4 == 0)):
         END_BS = START_BS
 
-    if (M1 == 1) & (M2 >= 3) & (M3 >= 2) & (M6 > 0):
+    # Confidence classification
+    if (M1 == 1) and (M2 >= 3) and (M3 >= 2) and (M6 >=3):
         Conf_BS = 'Strong'
-    
-    elif (M1 == 1) & (M2 > 0) & (M3 >= 0) & (M5>0):
+    elif (M1 == 1) and (M2 > 0) and (M3 >= 0) and (M5 > 0):
         Conf_BS = 'Good'
-    
-    elif (M1 == 1) & (M2 > 0) & (M3 >= 0):
+    elif (M1 == 1) and (M2 > 0) and (M3 >= 0):
         Conf_BS = 'Medium'
-
-    elif ((M1==1) & (M2 == 0) & (M3 >= 0)) | ((M2 >= 0) & (M3 <=0)):
+    elif ((M1 == 1) and (M2 == 0) and (M3 >= 0)) or ((M2 >= 0) and (M3 <= 0)):
         Conf_BS = 'Poor'
 
-    if (M1==1) & (M3 < 0) & (END_BS == START_BS):
+    if (M1 == 1) and (M3 < 0) and (END_BS == START_BS):
         Conf_BS = 'Doubtful'
-        
     
+    return (M1, M2, M3, M4, M5, M6, START_BS, END_BS, Conf_BS, NbrBS, LookNext, NbrTT)
 
-# set the END date if M1 not confirm and END date note found 
-        
-    return(M1,M2,M3,M4,M5,M6,START_BS,END_BS,Conf_BS,NbrBS,LookNext,NbrTT)
-
-
-def OutputMarkers(Sat,NPeriod,df_results,i,Pshort,Plong,thr_bs,thr_nbs,year):
+def OutputMarkers(Sat,NPeriod,df_results,i,Pshort,Plong,thr_bs,thr_nbs):
     for p in range(1,NPeriod+1):
         if p == 1:
             S2_i = df_results.loc[df_results.NewID==i]
-            markers = list(GetPeriodsBS(S_i=S2_i,Pshort=Pshort,Plong=Plong,thr_bs=thr_bs,thr_nbs=thr_nbs, year=year))
+            markers = list(GetPeriodsBS(S_i=S2_i,Pshort=Pshort,Plong=Plong,thr_bs=thr_bs,thr_nbs=thr_nbs))
             NbrTT = markers[11]
             LastObs = lambda x: np.nan if x.empty else x.iloc[-1]['dates']
             df_out1 = {
@@ -208,10 +198,10 @@ def OutputMarkers(Sat,NPeriod,df_results,i,Pshort,Plong,thr_bs,thr_nbs,year):
         else :
             if markers[10]:
                 S2_i2 = df_results.loc[(df_results.NewID==i) & (df_results.date_d > (datetime.strptime(markers[7],'%Y-%m-%d') + Pshort))]
-                markers = list(GetPeriodsBS(S2_i2,Pshort,Plong,thr_bs,thr_nbs,year))
+                markers = list(GetPeriodsBS(S2_i2,Pshort,Plong,thr_bs,thr_nbs))
             else:
                 S2_i2 = df_results.head(0)
-                markers = list(GetPeriodsBS(S2_i2,Pshort,Plong,thr_bs,thr_nbs,year))
+                markers = list(GetPeriodsBS(S2_i2,Pshort,Plong,thr_bs,thr_nbs))
 
             df_out1.setdefault(f'M1_{Sat}_{p}',markers[0])
             df_out1.setdefault(f'M2_{Sat}_{p}',markers[1])
@@ -324,7 +314,7 @@ def extract_markers(cfg, fileS2, fileS1, file_outS2, file_outS1, file_outTT) :
         for i in list_id:
             #Sentinel-2
             df_out1 = OutputMarkers('S2', cfg.s2_periods, df_resultsS2, i, Pshort = cfg.p_short, Plong = cfg.p_long,
-                                    thr_bs = cfg.thr_bs_s2, thr_nbs = cfg.thr_nbs_s2, year = cfg.year)
+                                    thr_bs = cfg.thr_bs_s2, thr_nbs = cfg.thr_nbs_s2)
             dfS2_out.append(df_out1)
 
         dt_S2 = pd.DataFrame(dfS2_out)
@@ -336,7 +326,7 @@ def extract_markers(cfg, fileS2, fileS1, file_outS2, file_outS1, file_outTT) :
         for i in list_id:
             #Sentinel-1
             df_out1 = OutputMarkers('S1', cfg.s1_periods, df_resultsS1, i, Pshort=cfg.p_short, Plong = cfg.p_long, 
-                                    thr_bs = cfg.thr_bs_s1, thr_nbs = cfg.thr_nbs_s1, year = cfg.year)
+                                    thr_bs = cfg.thr_bs_s1, thr_nbs = cfg.thr_nbs_s1)
             dfS1_out.append(df_out1)
 
         dt_S1 = pd.DataFrame(dfS1_out)
@@ -374,7 +364,7 @@ def main():
     )
     parser.add_argument("-i", "--input-s2", help="Input S2 results file", required=True)
     parser.add_argument("-j", "--input-s1", help="Input S1 results file", required=True)
-    parser.add_argument("-y", "--year", help="The processing year", required=True, type=int)
+    parser.add_argument("-y", "--year", help="The processing year (Not used anymore)", required=False, type=int, default=2025)
     parser.add_argument("-m", "--out-markers-s2", help="Output S2 markers", required=True)
     parser.add_argument("-n", "--out-markers-s1", help="Output S1 markers", required=True)
     parser.add_argument("-o", "--out-markers-all", help="All markers output", required=True)
