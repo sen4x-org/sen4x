@@ -1,0 +1,1 @@
+ALTER TABLE service_processors ADD CONSTRAINT fk_service_processor_id FOREIGN KEY (processor_id) REFERENCES public.processor(id);

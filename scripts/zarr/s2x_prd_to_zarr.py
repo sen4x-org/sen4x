@@ -23,10 +23,10 @@ S1_PRD_PATTERNS_DICT = {
                   }
 
 PRD_TYPE_RASTERS_DICT = {
-                    "L3A" : ("S2AGRI_L3A_SRFL_V\d{8}_\d{8}_T.*_\d{2}M\.TIF", "S2AGRI_L3A_MFLG_V\d{8}_\d{8}_T.*_\d{2}M\.TIF"),
-                    "L3B" : ("S2AGRI_L3B_S.*\.TIF", "S2AGRI_L3B_MMONODFLG_.*\.TIF"), 
-                    "L4A" : ("S2AGRI_L4A_CM_V\d{8}_\d{8}_T.*\.TIF", "S2AGRI_L4A_MCMFLG_V\d{8}_\d{8}_T.*\.TIF"), 
-                    "L4B" : ("S2AGRI_L4A_CT_V\d{8}_\d{8}_T.*\.TIF", "S2AGRI_L4A_MCTFLG_V\d{8}_\d{8}_T.*\.TIF")
+                    "L3A" : ("S2AGRI_(?P<BAND_NAME>L3A_SRFL)_V\d{8}_\d{8}_T.*_\d{2}M\.TIF", "S2AGRI_(?P<BAND_NAME>L3A_MFLG)_V\d{8}_\d{8}_T.*_\d{2}M\.TIF"),
+                    "L3B" : ("S2AGRI_(?P<BAND_NAME>L3B_S.*)_.*\.TIF", "S2AGRI_(?P<BAND_NAME>L3B_MMONODFLG)_.*\.TIF"), 
+                    "L4A" : ("S2AGRI_(?P<BAND_NAME>L4A_CM)_V\d{8}_\d{8}_T.*\.TIF", "S2AGRI_(?P<BAND_NAME>L4A_MCMFLG)_V\d{8}_\d{8}_T.*\.TIF"), 
+                    "L4B" : ("S2AGRI_(?P<BAND_NAME>L4A_CT)_V\d{8}_\d{8}_T.*\.TIF", "S2AGRI_(?P<BAND_NAME>L4A_MCTFLG)_V\d{8}_\d{8}_T.*\.TIF")
                    }
 
 class Config(object):
@@ -83,11 +83,15 @@ def get_files_from_dir(in_dir, regex_patter):
     regex = re.compile(regex_patter)
     for root, dirs, files in os.walk(in_dir):
         for file in files:
-            if regex.match(file):
+            match = regex.match(file)
+            if match:
                 file_path = os.path.join(in_dir, file)
-                band_name = file
-                if band_name.endswith(".TIF"):
-                    band_name = band_name[: -len(".TIF")]
+                if 'BAND_NAME' in match.groupdict():
+                    band_name = match.group('BAND_NAME')
+                else :
+                    band_name = file
+                    if band_name.endswith(".TIF"):
+                        band_name = band_name[: -len(".TIF")]
                 ret_files += [(file_path, band_name)]
     
     return ret_files

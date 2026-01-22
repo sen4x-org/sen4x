@@ -1,0 +1,1 @@
+ALTER TABLE ONLY public.service ADD CONSTRAINT fk_service_site FOREIGN KEY (site_id) REFERENCES public.site(id);
