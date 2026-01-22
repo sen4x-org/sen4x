@@ -81,7 +81,7 @@ VALUES
 INSERT INTO processor
 (id, name, short_name, label, required, supported_satellite_ids, mandatory_satellite_ids, is_admin_ui_visible, is_service_ui_visible, lpis_required, additional_config_required)
 VALUES
-(17, 'L3 Yield','s4s_yield_feat', 'L3 Yield', false, '{1,2}', null, true, false, true, false);
+(17, 'L3 Yield Features','s4s_yield_feat', 'L3 Yield Features', false, '{1,2}', null, true, false, true, false);
 
 INSERT INTO processor
 (id, name, short_name, label, required, supported_satellite_ids, mandatory_satellite_ids, is_admin_ui_visible, is_service_ui_visible, lpis_required, additional_config_required)
@@ -131,7 +131,7 @@ VALUES
 INSERT INTO processor
 (id, name, short_name, label, required, supported_satellite_ids, mandatory_satellite_ids, is_admin_ui_visible, is_service_ui_visible, lpis_required, additional_config_required)
 VALUES
-(27, 'L3 Yield SU','s4s_yield_su', 'L3 Yield SU', false, '{1,2}', null, true, false, true, false);
+(27, 'L4 Yield','s4s_yield', 'L4 Yield', false, '{1,2}', null, true, false, true, false);
 
 INSERT INTO processor
 (id, name, short_name, label, required, supported_satellite_ids, mandatory_satellite_ids, is_admin_ui_visible, is_service_ui_visible, lpis_required, additional_config_required)

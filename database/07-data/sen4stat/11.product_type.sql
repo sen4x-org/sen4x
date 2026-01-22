@@ -4,7 +4,7 @@ update product_type set description ='Sentinel 1 L2 Amplitude product', is_raste
 update product_type set description ='Sentinel 1 L2 Coherence product', is_raster = true where id = 11;
 update product_type set description ='L2A product with validity mask', is_raster = true where id = 26;
 update product_type set description ='ERA5 dayily weather averages', is_raster = true where id = 29;
-update product_type set description ='L3 Yield Features', is_raster = false where id = 28;
+update product_type set description ='L3 Yield Features', name = 's4s_yield_feat', is_raster = false where id = 28;
 update product_type set description ='L4 Permanent crops', is_raster = false where id = 27;
 update product_type set description ='FMask product', is_raster = true where id = 25;
 update product_type set description ='L3 Composite product', is_raster = true where id = 2;
@@ -12,3 +12,14 @@ update product_type set description ='L3 Basic Features', is_raster = false wher
 update product_type set description ='L3 Vegetation Status', is_raster = true where id = 3;
 update product_type set description ='Parcels product', is_raster = false where id = 14;
 update product_type set description ='Crop Type Mapping product', is_raster = true where id = 32;
+update product_type set description ='L3 Yield SU Features', name = 's4s_yield_su_feat',is_raster = false where id = 34;
+
+update product_type set description ='L3 NDVI Status', is_raster = true where id = 36;
+update product_type set description ='L3 LAI Status', is_raster = true where id = 37;
+update product_type set description ='L3 FAPAR Status', is_raster = true where id = 38;
+update product_type set description ='L3 FCOVER Status', is_raster = true where id = 39;
+update product_type set description ='L3 NDWI Status', is_raster = true where id = 40;
+update product_type set description ='L3 Brightness Status', is_raster = true where id = 41;
+
+update product_type set description ='L4 Yield', name = 's4s_yield',is_raster = false where id = 42;
+update product_type set description ='L4 Yield SU', name = 's4s_yield_su',is_raster = false where id = 43;

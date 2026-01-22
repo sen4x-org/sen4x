@@ -4,7 +4,10 @@ INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.fmask.e
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.l2s1.enabled', NULL, 'true', '2020-05-18 14:56:57.501918+02') on conflict (key, COALESCE(site_id, -1)) DO UPDATE SET value = 'true';
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('s1.enabled', NULL, 'true', '2017-10-24 14:56:57.501918+02') on conflict (key, COALESCE(site_id, -1)) DO UPDATE SET value = 'true';
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('downloader.s1.enabled', NULL, 'true', '2017-10-24 14:56:57.501918+02') on conflict (key, COALESCE(site_id, -1)) DO UPDATE SET value = 'true';
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.l2s1.tiled.tiff', NULL, true, '2022-09-30 10:31:00.501+02') on conflict (key, COALESCE(site_id, -1)) DO UPDATE SET value = 'true';
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.l2s1.tiled.tiff', NULL, 'true', '2022-09-30 10:31:00.501+02') on conflict (key, COALESCE(site_id, -1)) DO UPDATE SET value = 'true';
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.l2s1.convert.int', NULL, 'true', '2022-09-30 10:31:00.501+02')  on conflict (key, COALESCE(site_id, -1)) DO UPDATE SET value = 'true';
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.l2s1.compress.enabled', NULL, 'true', '2022-09-30 10:31:00.501+02')  on conflict (key, COALESCE(site_id, -1)) DO UPDATE SET value = 'true';
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.l2s1.crop.enabled', NULL, 'true', '2022-09-30 10:31:00.501+02')  on conflict (key, COALESCE(site_id, -1)) DO UPDATE SET value = 'true';
 
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.parcels_product.parcel_id_col_name', NULL, 'parcel_id', '2019-10-11 16:15:00.0+02') on conflict (key, COALESCE(site_id, -1)) DO UPDATE SET value = 'parcel_id';
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.parcels_product.parcels_optical_file_name_pattern', NULL, 'in_?situ_.*_buf_10m.shp', '2019-10-11 16:15:00.0+02') on conflict (key, COALESCE(site_id, -1)) DO UPDATE SET value = 'in_?situ_.*_buf_10m.shp';
@@ -26,7 +29,9 @@ INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.era5_we
 
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('downloader.start.offset', NULL, '0', '2016-07-20 20:05:00')  on conflict (key, COALESCE(site_id, -1)) DO UPDATE SET value = '0';
 
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.docker_script_unit_image', NULL, 'sen4cap/data-preparation:0.3', '2023-11-16 20:05:00')  on conflict (key, COALESCE(site_id, -1)) DO UPDATE SET value = 'sen4cap/data-preparation:0.3';
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.docker_script_unit_image', NULL, 'sen4x/data-preparation:0.4', '2023-11-16 20:05:00')  on conflict (key, COALESCE(site_id, -1)) DO UPDATE SET value = 'sen4x/data-preparation:0.4';
 
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.l2s1.version', NULL, '2', '2023-11-16 20:05:00')  on conflict (key, COALESCE(site_id, -1)) DO UPDATE SET value = '2';
 
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.l2s1.projection', NULL, 'GEOGCS["WGS 84", DATUM["World Geodetic System 1984", SPHEROID["WGS 84", 6378137.0, 298.257223563, AUTHORITY["EPSG","7030"]], AUTHORITY["EPSG","6326"]], PRIMEM["Greenwich", 0.0, AUTHORITY["EPSG","8901"]], UNIT["degree", 0.017453292519943295], AXIS["Geodetic longitude", EAST], AXIS["Geodetic latitude", NORTH], AUTHORITY["EPSG","4326"]]', '2022-09-30 10:31:00.501+02') on conflict (key, COALESCE(site_id, -1)) DO UPDATE SET value = 'GEOGCS["WGS 84", DATUM["World Geodetic System 1984", SPHEROID["WGS 84", 6378137.0, 298.257223563, AUTHORITY["EPSG","7030"]], AUTHORITY["EPSG","6326"]], PRIMEM["Greenwich", 0.0, AUTHORITY["EPSG","8901"]], UNIT["degree", 0.017453292519943295], AXIS["Geodetic longitude", EAST], AXIS["Geodetic latitude", NORTH], AUTHORITY["EPSG","4326"]]';
+  

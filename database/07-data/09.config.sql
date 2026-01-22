@@ -29,13 +29,15 @@ INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.parcels_p
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.parcels_product.parcels_optical_file_name_pattern', NULL, '.*_buf_5m.shp', '2019-10-11 16:15:00.0+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.parcels_product.parcels_sar_file_name_pattern', NULL, '.*_(\d{4,5})_buf_10m.shp', '2019-10-11 16:15:00.0+02');
 
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.docker_script_unit_image', NULL, 'sen4cap/data-preparation:0.3', '2023-11-16 20:05:00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.docker_script_unit_image', NULL, 'sen4x/data-preparation:0.4', '2023-11-16 20:05:00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.docker_script_unit_execution_timeout', NULL, '7200', '2025-02-28 16:05:00');
 
 -- -----------------------------------------------------------
 -- Executor/orchestrator/scheduler specific keys
 -- -----------------------------------------------------------
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.http-server.listen-ip', NULL, '127.0.0.1', '2020-12-16 17:31:06.01191+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.http-server.listen-port', NULL, '8084', '2020-12-16 17:31:06.01191+02');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.http-server.max-request-size', NULL, 16000000, '2024-08-22 17:31:06.01191+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.listen-ip', NULL, '127.0.0.1', '2015-06-03 17:03:39.541136+03');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.listen-port', NULL, '7777', '2015-07-07 12:17:06.182674+03');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.resource-manager.name', NULL, 'slurm', '2020-12-16 17:31:06.01191+02');
@@ -46,22 +48,22 @@ INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.wrp-time
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.sacct-max-retries', NULL, '1', '2023-10-26 17:03:39.541136+03');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.inter-proc-com-type', NULL, 'http', '2020-12-16 17:31:06.01191+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.docker_add_mounts', NULL, '', '2021-01-21 10:23:12.993537+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.docker_image', NULL, 'sen4cap/processors:3.3.0', '2021-01-14 12:11:21.800537+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.docker_image', NULL, 'sen4x/sen4cap-processors:5.0.4', '2021-01-14 12:11:21.800537+00');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.earth-signature.docker_image',  NULL, 'snapearth/earthagriculture:0.1', '2021-02-19 14:43:00.720811+00');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.ndvi-veg-stats.docker_image',  NULL, 'snapearth/earthagriculture:0.1', '2021-02-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.export-product-launcher.use_docker', NULL, '0', '2021-01-20 11:44:25.330355+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.export-product-launcher.use_docker', NULL, '1', '2021-01-20 11:44:25.330355+00');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-grassland-extract-products.use_docker', NULL, '0', '2021-01-18 14:43:00.720811+00');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-grassland-gen-input-shp.use_docker', NULL, '0', '2021-01-18 14:41:25.651377+00');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-grassland-mowing.docker_image', NULL, 'sen4cap/grassland_mowing:3.0.0', '2021-02-19 14:43:00.720811+00');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-grassland-mowing.use_docker', NULL, '1', '2021-01-18 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-l4a-extract-parcels.use_docker', NULL, '0', '2021-01-20 18:50:52.244303+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-l4a-extract-parcels.use_docker', NULL, '1', '2021-01-20 18:50:52.244303+00');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.use_docker', NULL, '1', '2021-01-14 12:11:21.800537+00');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('orchestrator.http-server.listen-ip', NULL, '127.0.0.1', '2020-12-16 17:31:06.01191+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('orchestrator.http-server.listen-port', NULL, '8083', '2020-12-16 17:31:06.01191+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.mdb3-input-tables-extract.docker_image', NULL, 'sen4cap/data-preparation:0.1', '2021-02-19 14:43:00.720811+00');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.mdb3-input-tables-extract.use_docker', NULL, '1', '2021-01-18 14:43:00.720811+00');
 
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-crop-type-mapping.docker_image', NULL, 'sen4x/crop-map-s4s:0.4.0', '2022-08-22 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-crop-type-mapping.docker_image', NULL, 'sen4x/crop-map-s4s:0.5.0', '2022-08-22 14:43:00.720811+00');
 
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('orchestrator.check_ancestors.disabled', NULL, 'true', '2023-03-17 14:43:00.720811+00');
 
@@ -84,7 +86,7 @@ INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.p
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.end-of-job', NULL, '/usr/bin/true', '2016-01-12 14:56:57.501918+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.export-product-launcher', NULL, '/usr/bin/export-product-launcher.py', '2019-04-12 14:56:57.501918+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.files-remover', NULL, '/usr/bin/rm', '2015-08-24 17:44:38.29255+03');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.gdalbuildvrt', NULL, '/usr/bin/gdalbuildvrt', '2018-08-30 14:56:57.501918+02');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.gdalbuildvrt', NULL, 'gdalbuildvrt', '2018-08-30 14:56:57.501918+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.gdal_translate', NULL, '/usr/bin/gdal_translate', '2018-08-30 14:56:57.501918+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.image-classifier', NULL, '/usr/bin/otbcli_ImageClassifier', '2015-08-12 17:09:20.418973+03');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.image-compression', NULL, '/usr/bin/otbcli_Convert', '2016-02-22 22:39:08.386406+02');
@@ -154,7 +156,7 @@ INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.l2a.swb
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.l2a.working-dir', NULL, '/mnt/archive/demmaccs_tmp/', '2016-02-25 17:31:06.01191+02');
 insert into config(key, site_id, value, last_updated) VALUES ('processor.l2a.processors_image', NULL, 'sen4x/l2a-processors:0.2.5', '2021-04-19 16:30:00.0');
 insert into config(key, site_id, value, last_updated) VALUES ('processor.l2a.sen2cor_image', NULL, 'sen4x/sen2cor:2.10.01-ubuntu-20.04', '2021-04-19 16:30:00.0');
-insert into config(key, site_id, value, last_updated) VALUES ('processor.l2a.maja_image', NULL, 'sen4x/maja:4.5.4-centos-7', '2021-04-19 16:30:00.0');
+insert into config(key, site_id, value, last_updated) VALUES ('processor.l2a.maja_image', NULL, 'sen4x/maja:4.10.0', '2021-04-19 16:30:00.0');
 insert into config(key, site_id, value, last_updated) VALUES ('processor.l2a.gdal_image', NULL, 'osgeo/gdal:ubuntu-full-3.4.1', '2021-04-19 16:30:00.0');
 insert into config(key, site_id, value, last_updated) VALUES ('processor.l2a.l8_align_image', NULL, 'sen4x/l2a-l8-alignment:0.1.2', '2021-04-19 16:30:00.0');
 insert into config(key, site_id, value, last_updated) VALUES ('processor.l2a.dem_image', NULL, 'sen4x/l2a-dem:0.1.3', '2021-04-19 16:30:00.0');
@@ -163,6 +165,7 @@ insert into config(key, site_id, value, last_updated) VALUES ('processor.l2a.dem
 -- L2S1 processor Specific keys
 -- -----------------------------------------------------------
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('dem.name', NULL, 'SRTM 1Sec HGT', '2022-09-30 10:31:00.501+02');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('dem.no_data_value', NULL, '-32768', '2022-09-30 10:31:00.501+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.l2s1.enabled', NULL, 'false', '2020-05-18 14:56:57.501918+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.l2s1.parallelism', NULL, '1','2020-07-22 19:52:22.395661+00');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.l2s1.path', NULL, '/mnt/archive/{site}/l2a-s1', '2017-10-24 14:56:57.501918+02');
@@ -284,6 +287,9 @@ INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.l3b.lai
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.l3b.lai.use_inra_version', NULL, '1', '2017-10-24 14:56:57.501918+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.l3b.lai.use_lai_bands_cfg', NULL, '1', '2016-02-16 11:54:47.223904+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.l3b.production_interval', NULL, '10', '2016-02-29 12:03:31.197823+02');
+
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.l3b-composite-duplicate-dates', NULL, 'l3b_multi_dates_composite.py', '2025-09-04 12:03:31.197823+02');
+
 -- TODO: This should be removed or moved to S2A_L3C ?
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.l3b.reproc_production_interval', NULL, '30', '2016-02-29 12:03:31.197823+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.l3b.sched_wait_proc_inputs', NULL, '0', '2015-07-10 17:54:17.288095+03');
@@ -333,6 +339,7 @@ INSERT INTO config(key, site_id, value, last_updated) VALUES ('archiver.max_age.
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.processor.l4a.keep_job_folders', NULL, '0', '2016-03-09 16:41:20.194169+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.processor.l4a.slurm_qos', NULL, 'qoscropmask', '2015-08-24 17:44:38.29255+03');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.scratch-path.l4a', NULL, '/mnt/archive/orchestrator_temp/l4a/{job_id}/{task_id}-{module}', '2015-07-10 17:54:17.288095+03');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.export-product-launcher.docker_image', NULL, 'sen4x/sen4cap-processors-scripts:5.0.1', '2025-11-09 16:41:29.945249+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.l4a.classifier', NULL, 'rf', '2016-03-10 18:27:19.634909+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.l4a.classifier.field', NULL, 'CROP', '2016-03-10 11:32:30.859069+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.l4a.classifier.rf.max', NULL, '25', '2016-03-10 11:33:33.450239+02');
@@ -491,10 +498,16 @@ INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4c_mdb
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4c_mdb1.input_l2a', NULL, 'N/A', '2024-03-16 17:31:06.01191+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4c_mdb1.input_amp', NULL, 'N/A', '2020-12-16 17:31:06.01191+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4c_mdb1.input_cohe', NULL, 'N/A', '2020-12-16 17:31:06.01191+02');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4c_mdb1.input_l3b', NULL, 'N/A', '2020-12-16 17:31:06.01191+02');
+-- INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4c_mdb1.input_l3b', NULL, 'N/A', '2020-12-16 17:31:06.01191+02');
+
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4c_mdb1.input_l3b_ndvi', NULL, 'N/A', '2025-12-16 17:31:06.01191+02');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4c_mdb1.input_l3b_lai', NULL, 'N/A', '2025-12-16 17:31:06.01191+02');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4c_mdb1.input_l3b_fapar', NULL, 'N/A', '2025-12-16 17:31:06.01191+02');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4c_mdb1.input_l3b_fcover', NULL, 'N/A', '2025-12-16 17:31:06.01191+02');
+
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4c_mdb1.lai_enabled', NULL, 'true', '2020-12-16 17:31:06.01191+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4c_mdb1.ndvi_enabled', NULL, 'true', '2020-12-16 17:31:06.01191+02');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4c_mdb1.amp_vvvh_enabled', NULL, 'true', '2020-12-16 17:31:06.01191+02');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4c_mdb1.amp_vvvh_enabled', NULL, 'false', '2020-12-16 17:31:06.01191+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4c_mdb1.valid_pixels_enabled', NULL, 'true', '2020-12-16 17:31:06.01191+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4c_mdb1.invalid_pixels_enabled', NULL, 'true', '2020-12-16 17:31:06.01191+02');
 -- INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4c_mdb1.stdev_enabled', NULL, 'true', '2020-12-16 17:31:06.01191+02');
@@ -519,9 +532,9 @@ INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4c_mdb
 -- FMask Specific Keys
 -- -----------------------------------------------------------
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.fmask.enabled', NULL, 'false', '2021-02-10 15:58:31.878939+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.fmask.extractor_image', NULL, 'sen4x/fmask_extractor:0.1.8', '2021-03-18 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.fmask.extractor_image', NULL, 'sen4x/fmask_extractor:0.1.6', '2021-03-18 14:43:00.720811+00');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.fmask.gdal_image', NULL, 'osgeo/gdal:ubuntu-full-3.3.1', '2021-03-18 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.fmask.image', NULL, 'sen4x/fmask:4.4-ubuntu-20.04', '2021-03-18 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.fmask.image', NULL, 'sen4x/fmask:4.7-ubuntu-24.04', '2021-03-18 14:43:00.720811+00');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.fmask.optical.cog-tiffs', NULL, '1', '2021-03-18 14:43:00.720811+00');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.fmask.optical.compress-tiffs', NULL, '1', '2021-03-18 14:43:00.720811+00');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.fmask.optical.dilation.cloud', NULL, '3', '2021-03-18 14:43:00.720811+00');
@@ -546,7 +559,7 @@ INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.processo
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s_perm_crop.use_docker',  NULL, '1',	'2021-01-18 14:43:00.720811+00');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s_perm_crop.docker_image',  NULL, 'sen4x/otb:7.2.0', '2021-02-19 14:43:00.720811+00');
 
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-perm-crops-samples-rasterization.docker_image',  NULL, 'sen4stat/processors:1.0.0', '2021-02-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-perm-crops-samples-rasterization.docker_image',  NULL, 'sen4x/sen4stat-processors:4.0.0', '2021-02-19 14:43:00.720811+00');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.s4s-perm-crops-samples-rasterization',  NULL, 's4s-perm-crops-rasterization.py', '2021-01-18 14:43:00.720811+00');
 
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-perm-crops-run-broceliande.use_docker',  NULL, '0', '2021-01-18 14:43:00.720811+00');
@@ -554,10 +567,10 @@ INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.p
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_perm_crop.broceliande-docker-image',  NULL, 'registry.gitlab.inria.fr/obelix/broceliande/develop:2.7.20210608', '2021-02-19 14:43:00.720811+00');
 
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.s4s-perm-crops-extract-inputs',  NULL, 's4s-perm-crops-extract-inputs.py', '2021-01-18 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-perm-crops-extract-inputs.docker_image',  NULL, 'sen4stat/processors:1.0.0', '2021-02-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-perm-crops-extract-inputs.docker_image',  NULL, 'sen4x/sen4stat-processors:4.0.0', '2021-02-19 14:43:00.720811+00');
 
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.s4s-perm-crops-build-refl-stack-tif',  NULL, 's4s-perm-crops-build-refl-stack.py', '2021-01-18 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-perm-crops-build-refl-stack-tif.docker_image',  NULL, 'sen4stat/processors:1.0.0', '2021-02-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-perm-crops-build-refl-stack-tif.docker_image',  NULL, 'sen4x/sen4stat-processors:4.0.0', '2021-02-19 14:43:00.720811+00');
 
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-perm-crops-sieve.docker_image',  NULL, 'osgeo/gdal:ubuntu-full-3.2.0', '2021-02-19 14:43:00.720811+00');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.s4s-perm-crops-sieve',  NULL, '/usr/bin/gdal_sieve.py', '2021-01-18 14:43:00.720811+00');
@@ -565,11 +578,10 @@ INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.p
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_perm_crop.vec_field',  NULL, 'code_n1', '2021-02-19 14:43:00.720811+00');
 
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.s4s-perm-crops-extract-parcels',  NULL, 'extract_yield_parcels.py', '2021-01-18 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-perm-crops-extract-parcels.docker_image',  NULL, 'sen4stat/processors:1.0.0', '2021-02-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-perm-crops-extract-parcels.docker_image',  NULL, 'sen4x/sen4stat-processors:4.0.0', '2021-02-19 14:43:00.720811+00');
 
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.s4s-perm-crop-post-processing',  NULL, 's4s-perm-crops-post-processing.py', '2024-01-11 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-perm-crop-post-processing.docker_image',  NULL, 'sen4stat/processors:1.0.0', '2024-01-11 14:43:00.720811+00');
-
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-perm-crop-post-processing.docker_image',  NULL, 'sen4x/sen4stat-processors:4.0.0', '2024-01-11 14:43:00.720811+00');
 
 -- -----------------------------------------------------------
 -- S4S Yield Features Keys
@@ -578,55 +590,67 @@ INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.scratch-p
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.processor.s4s_yield_feat.keep_job_folders', NULL, '1', '2021-12-09 11:09:43.978921+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.processor.s4s_yield_feat.slurm_qos', NULL, 'qoss4syield', '2021-12-09 11:09:43.978921+02');
 
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-savitzky-golay.docker_image',  NULL, 'sen4stat/processors:1.0.0', '2021-02-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-extract-weather-features.docker_image',  NULL, 'sen4stat/processors:1.0.0', '2021-02-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-safy-lut.docker_image',  NULL, 'sen4stat/processors:1.0.0', '2021-02-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-safy-optim.docker_image',  NULL, 'sen4stat/processors:1.0.0', '2021-02-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-yield-features-extraction.docker_image',  NULL, 'sen4stat/processors:1.0.0', '2021-02-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-yield-parcels-extraction.docker_image',  NULL, 'sen4stat/processors:1.0.0', '2021-02-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-yield-reference-extraction.docker_image',  NULL, 'sen4stat/processors:1.0.0', '2021-02-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-yield-model.docker_image',  NULL, 'sen4stat/processors:1.0.0', '2021-02-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-yield-crop-types-extraction.docker_image',  NULL, 'sen4stat/processors:1.0.0', '2021-02-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-savitzky-golay.docker_image',  NULL, 'sen4x/sen4stat-processors:4.0.0', '2021-02-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-extract-weather-features.docker_image',  NULL, 'sen4x/sen4stat-processors:4.0.0', '2021-02-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-safy-lut.docker_image',  NULL, 'sen4x/sen4stat-processors:4.0.0', '2021-02-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-safy-optim.docker_image',  NULL, 'sen4x/sen4stat-processors:4.0.0', '2021-02-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-yield-features-extraction.docker_image',  NULL, 'sen4x/sen4stat-processors:4.0.0', '2021-02-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-yield-parcels-extraction.docker_image',  NULL, 'sen4x/sen4stat-processors:4.0.0', '2021-02-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-yield-reference-extraction.docker_image',  NULL, 'sen4x/sen4stat-processors:4.0.0', '2021-02-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-yield-model.docker_image',  NULL, 'sen4x/sen4stat-processors:4.0.0', '2021-02-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-yield-crop-types-extraction.docker_image',  NULL, 'sen4x/sen4stat-processors:4.0.0', '2021-02-19 14:43:00.720811+00');
+
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-yield-parcels-to-su.docker_image',  NULL, 'sen4x/sen4stat-processors:4.0.0', '2021-02-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-yield-parcels-trend-extraction.docker_image',  NULL, 'sen4x/sen4stat-processors:4.0.0', '2021-02-19 14:43:00.720811+00');
 
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.s4s-savitzky-golay',  NULL, 'run_savitzky_golay.py', '2021-01-18 14:43:00.720811+00');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.s4s-extract-weather-features',  NULL, 'extract_weather_features.py', '2021-01-18 14:43:00.720811+00');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.s4s-safy-lut',  NULL, 'run_safy_lut.py', '2021-01-18 14:43:00.720811+00');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.s4s-safy-optim',  NULL, 'run_safy_optim.py', '2021-01-18 14:43:00.720811+00');
+
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.s4s-yield-parcels-to-su',  NULL, 's4s_su_parcels_intersection.py', '2026-01-18 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.s4s-yield-parcels-trend-extraction',  NULL, 's4s_yield_parcels_trends_extraction.py', '2026-01-18 14:43:00.720811+00');
+
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.s4s-yield-features-extraction',  NULL, 'extract_yield_features.py', '2021-01-18 14:43:00.720811+00');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.s4s-yield-parcels-extraction',  NULL, 'extract_yield_parcels.py', '2021-01-18 14:43:00.720811+00');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.s4s-yield-reference-extraction',  NULL, 'extract_yield_reference.py', '2021-01-18 14:43:00.720811+00');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.s4s-yield-model',  NULL, 'S4S_Yield_Model.py', '2021-01-18 14:43:00.720811+00');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.s4s-yield-crop-types-extraction',  NULL, 'extract_crop_codes.py', '2021-01-18 14:43:00.720811+00');
 
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield_feat.algorithm',  NULL, 'rf', '2021-01-18 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield_feat.selection-type',  NULL, 'automatic', '2021-01-18 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield_feat.max-automatic-features-no',  NULL, '44', '2021-01-18 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield_feat.manual-selection-features',  NULL, '', '2021-01-18 14:43:00.720811+00');
-
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield_feat.su_path',  NULL, '/mnt/archive/s4s_yield/{site}/yield_su/', '2021-02-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield_feat.enable_safy',  NULL, 'false', '2025-11-03 14:43:00.720811+00');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield_feat.safy_params_upload_dir',  NULL, '/mnt/archive/s4s_yield_upload/safy_params', '2021-02-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield_feat.safy_params_path',  NULL, '/mnt/archive/s4s_yield/{site}/{year}/SAFY_Config/safy_params.json', '2021-02-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield_feat.safy_params_path',  NULL, '/mnt/archive/s4s_yield/{site}/{season}/SAFY_Config/safy_params.json', '2021-02-19 14:43:00.720811+00');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.s4s_yield_safy_import',  NULL, 's4s-yield-safy-params-import.py', '2021-02-19 14:43:00.720811+00');
 
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield_feat.input_l2a', NULL, 'N/A', '2023-03-04 11:09:58.820032+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield_feat.start_date',  NULL, '', '2023-10-04 15:27:41.861613+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield_feat.end_date',  NULL, '', '2023-03-04 15:27:41.861613+02');
 
--- -----------------------------------------------------------
--- S4S Yield SU Keys
--- -----------------------------------------------------------
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.scratch-path.s4s_yield_su', NULL, '/mnt/archive/orchestrator_temp/s4s_yield_su/{job_id}/{task_id}-{module}', '2021-05-18 17:54:17.288095+03');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.processor.s4s_yield_su.keep_job_folders', NULL, '1', '2021-12-09 11:09:43.978921+02');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.processor.s4s_yield_su.slurm_qos', NULL, 'qoss4syield', '2021-12-09 11:09:43.978921+02');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield_feat.force_yield_su', NULL, 'false', '2026-01-04 11:09:58.820032+02');
 
--- INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s_yield_su.docker_image',  NULL, 'sen4stat/processors:1.0.0', '2021-02-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-yield-esu-extraction.docker_image',  NULL, 'sen4stat/processors:1.0.0', '2021-02-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-yield-esu-aggregate.docker_image',  NULL, 'sen4stat/processors:1.0.0', '2021-02-19 14:43:00.720811+00');
+-- -----------------------------------------------------------
+-- S4S Yield Model Keys
+-- -----------------------------------------------------------
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.scratch-path.s4s_yield', NULL, '/mnt/archive/orchestrator_temp/s4s_yield/{job_id}/{task_id}-{module}', '2021-05-18 17:54:17.288095+03');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.processor.s4s_yield.keep_job_folders', NULL, '1', '2021-12-09 11:09:43.978921+02');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.processor.s4s_yield.slurm_qos', NULL, 'qoss4syield', '2021-12-09 11:09:43.978921+02');
 
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-savitzky-golay-wrp.docker_image',  NULL, 'sen4stat/processors:1.0.0', '2021-02-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-yield-features-extraction-wrp.docker_image',  NULL, 'sen4stat/processors:1.0.0', '2021-02-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-yield-trend-features-extraction.docker_image',  NULL, 'sen4stat/processors:1.0.0', '2021-02-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-yield-su-merge-yearly-features.docker_image',  NULL, 'sen4stat/processors:1.0.0', '2021-02-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-yield-su-model-wrp.docker_image',  NULL, 'sen4stat/processors:1.0.0', '2021-02-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield.input_s4s_yield_feat', NULL, 'N/A', '2025-12-16 17:31:06.01191+02');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield.input_s4s_yield_su_feat', NULL, 'N/A', '2025-12-16 17:31:06.01191+02');
+
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-yield-esu-extraction.docker_image',  NULL, 'sen4x/sen4stat-processors:4.0.0', '2021-02-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-yield-esu-aggregate.docker_image',  NULL, 'sen4x/sen4stat-processors:4.0.0', '2021-02-19 14:43:00.720811+00');
+
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-savitzky-golay-wrp.docker_image',  NULL, 'sen4x/sen4stat-processors:4.0.0', '2021-02-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-yield-features-extraction-wrp.docker_image',  NULL, 'sen4x/sen4stat-processors:4.0.0', '2021-02-19 14:43:00.720811+00');
+
+-- This app is actually in the Sen4CAP image as it needs OTB
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-merge-all-features-wrp.docker_image',  NULL, 'sen4x/sen4cap-processors:5.0.4', '2021-02-19 14:43:00.720811+00');
+
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-yield-trend-features-extraction.docker_image',  NULL, 'sen4x/sen4stat-processors:4.0.0', '2021-02-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-yield-su-merge-yearly-features.docker_image',  NULL, 'sen4x/sen4stat-processors:4.0.0', '2021-02-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4s-yield-su-model-wrp.docker_image',  NULL, 'sen4x/sen4stat-processors:4.0.0', '2021-02-19 14:43:00.720811+00');
 
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.s4s-yield-esu-extraction',  NULL, 's4s_yieldsu_esu_extraction.py', '2021-01-18 14:43:00.720811+00');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.s4s-yield-esu-aggregate',  NULL, 's4s_yieldsu_esu_ts_aggregation.py', '2021-01-18 14:43:00.720811+00');
@@ -638,32 +662,36 @@ INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.p
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.s4s-yield-su-merge-yearly-features',  NULL, 's4s_yieldsu_merge_features.py', '2021-01-18 14:43:00.720811+00');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.s4s-yield-su-model-wrp',  NULL, 's4s_yieldsu_model.py', '2021-01-18 14:43:00.720811+00');
 
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield_su.algorithm',  NULL, 'rf', '2021-01-18 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield_su.selection-type',  NULL, 'automatic', '2021-01-18 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield_su.max-automatic-features-no',  NULL, '44', '2021-01-18 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield_su.manual-selection-features',  NULL, '', '2021-01-18 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield.algorithm',  NULL, 'rf', '2021-01-18 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield.selection-type',  NULL, 'automatic', '2021-01-18 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield.max-automatic-features-no',  NULL, '44', '2021-01-18 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield.manual-selection-features',  NULL, '', '2021-01-18 14:43:00.720811+00');
 
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield_su.su_path',  NULL, '/mnt/archive/s4s_yield/{site}/yield_su/', '2021-02-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield_su.data_extr_dir',  NULL, '/mnt/archive/marker_database_files/yield_su/mdb1/{site}/{year}/data_extraction/', '2021-02-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield.admin_units_upload_dir',  NULL, '/mnt/archive/admin_units_upload/', '2021-02-19 14:43:00.720811+00');
 
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield_su.historical_data_upload_dir',  NULL, '/mnt/archive/s4s_yield_upload/su_historical_data', '2023-09-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield_su.historical_data_path',  NULL, '/mnt/archive/s4s_yield/{site}/yield_su/HistoricalData/SU_yield_historical_data.csv', '2023-09-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield.historical_data_upload_dir',  NULL, '/mnt/archive/s4s_yield_upload/su_historical_data', '2023-09-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield.historical_data_path',  NULL, '/mnt/archive/s4s_yield/{site}/yield_su/HistoricalData/SU_yield_historical_data.csv', '2023-09-19 14:43:00.720811+00');
+
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.s4s_yield_su_historical_data_import',  NULL, 's4s-yield-su-historical-data-import.py', '2023-09-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.s4s_admin_units_import',  NULL, 's4s-admin-units-import.py', '2021-02-19 14:43:00.720811+00');
 
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield_su.input_l2a', NULL, 'N/A', '2023-03-04 11:09:58.820032+02');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield_su.start_date',  NULL, '', '2023-10-04 15:27:41.861613+02');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield_su.end_date',  NULL, '', '2023-03-04 15:27:41.861613+02');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield.input_l2a', NULL, 'N/A', '2023-03-04 11:09:58.820032+02');
+-- INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield.start_date',  NULL, '', '2023-10-04 15:27:41.861613+02');
+-- INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield.end_date',  NULL, '', '2023-03-04 15:27:41.861613+02');
+
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_yield.force_yield_su', NULL, 'false', '2026-01-04 11:09:58.820032+02');
 
 -- -----------------------------------------------------------
 -- ERA5 Weather Download Keys
 -- -----------------------------------------------------------
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.era5_weather.enabled',  NULL, 'false', '2021-02-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.era5_weather.docker_image',  NULL, 'sen4x/era5-weather:0.0.4', '2025-04-30 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.era5_weather.retry_days',  NULL, '3', '2025-04-30 14:43:00.720811+00');
 
 -- -----------------------------------------------------------
 -- S4S Parcels Import Processor
 -- -----------------------------------------------------------
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.s4s_parcels_import',  NULL, 'data-preparation-s4s.py', '2021-02-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.s4s_admin_units_import',  NULL, '/usr/bin/s4s-admin-units-import.py', '2021-02-19 14:43:00.720811+00');
 
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_parcels.regions_upload_dir',  NULL, '/mnt/archive/s4s_parcels_upload/regions', '2021-02-19 14:43:00.720811+00');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_parcels.provinces_upload_dir',  NULL, '/mnt/archive/s4s_parcels_upload/provinces', '2021-02-19 14:43:00.720811+00');
@@ -724,7 +752,8 @@ INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.scratch-p
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.processor.s4s_crop_mapping.keep_job_folders', NULL, '1', '2021-12-09 11:09:43.978921+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.processor.s4s_crop_mapping.slurm_qos', NULL, 'qoss4scropmap', '2021-12-09 11:09:43.978921+02');
 
-insert into config(key, site_id, value, last_updated) values ('processor.insitu.path', null, '/mnt/archive/insitu/{site}/{year}', '2021-08-26 20:29:59.7325+03');
+insert into config(key, site_id, value, last_updated) values ('processor.insitu.path', null, '/mnt/archive/insitu/{site}/{season}', '2021-08-26 20:29:59.7325+03');
+-- insert into config(key, site_id, value, last_updated) values ('processor.insitu.path', null, '/mnt/archive/insitu/{site}/{year}', '2021-08-26 20:29:59.7325+03');
 insert into config(key, site_id, value, last_updated) values ('executor.module.path.s4s-crop-type-mapping',  NULL, 'crop-map-s4s.py', '2021-01-18 14:43:00.720811+00');
 
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_crop_mapping.input_l2a', NULL, 'N/A', '2023-03-04 11:09:58.820032+02');
@@ -733,14 +762,12 @@ INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4s_cro
 
 insert into config(key, site_id, value, last_updated) values ('processor.s4s_crop_mapping.pix-min', null, '1', '2021-08-30 13:56:07.537023+03');
 insert into config(key, site_id, value, last_updated) values ('processor.s4s_crop_mapping.pix-best', null, '1', '2021-08-30 13:56:07.537023+03');
-insert into config(key, site_id, value, last_updated) values ('processor.s4s_crop_mapping.pix-ratio-min', null, '0.0002', '2021-08-30 13:56:07.537023+03');
+insert into config(key, site_id, value, last_updated) values ('processor.s4s_crop_mapping.pix-ratio-min', null, '0.0000002', '2021-08-30 13:56:07.537023+03');
 insert into config(key, site_id, value, last_updated) values ('processor.s4s_crop_mapping.poly-min', null, '1', '2021-08-30 13:56:07.537023+03');
 insert into config(key, site_id, value, last_updated) values ('processor.s4s_crop_mapping.pix-ratio-hi', null, '0.05', '2021-08-30 13:56:07.537023+03');
 insert into config(key, site_id, value, last_updated) values ('processor.s4s_crop_mapping.pix-ratio-lo', null, '0.01', '2021-08-30 13:56:07.537023+03');
-insert into config(key, site_id, value, last_updated) values ('processor.s4s_crop_mapping.monitored-land-covers', null, '{1,2,3,4,5,6,7,8,9}', '2021-08-30 13:56:07.537023+03');
+insert into config(key, site_id, value, last_updated) values ('processor.s4s_crop_mapping.monitored-land-covers', null, '1,2,3,4,5,6,7,8,9', '2021-08-30 13:56:07.537023+03');
 insert into config(key, site_id, value, last_updated) values ('processor.s4s_crop_mapping.monitored-crops', null, '', '2021-08-30 13:56:07.537023+03');
-insert into config(key, site_id, value, last_updated) values ('processor.s4s_crop_mapping.monitored-crops-remapped-pre', null, '', '2021-08-30 13:56:07.537023+03');
-insert into config(key, site_id, value, last_updated) values ('processor.s4s_crop_mapping.excluded-crops-remapped-pre', null, '', '2021-08-30 13:56:07.537023+03');
 insert into config(key, site_id, value, last_updated) values ('processor.s4s_crop_mapping.smote-ratio', null, '0.0075', '2021-08-30 13:56:07.537023+03');
 insert into config(key, site_id, value, last_updated) values ('processor.s4s_crop_mapping.sample-ratio-hi', null, '0.25', '2021-08-30 13:56:07.537023+03');
 insert into config(key, site_id, value, last_updated) values ('processor.s4s_crop_mapping.sample-ratio-lo', null, '0.75', '2021-08-30 13:56:07.537023+03');
@@ -777,13 +804,13 @@ INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.processo
 
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4c_heterog.input_l2a', NULL, 'N/A', '2023-03-04 11:09:58.820032+02');
 
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-cluster-preparation-s1.docker_image',  NULL, 'sen4cap/processors-scripts:3.3.0', '2023-08-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-cluster-preparation-s2.docker_image',  NULL, 'sen4cap/processors-scripts:3.3.0', '2023-08-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-cluster-analysis-s2.docker_image',  NULL, 'sen4cap/processors-scripts:3.3.0', '2023-08-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-cluster-analysis-s1.docker_image',  NULL, 'sen4cap/processors-scripts:3.3.0', '2023-08-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-cluster-tiles-analysis-merge.docker_image',  NULL, 'sen4cap/processors-scripts:3.3.0', '2023-08-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-heterog-period-analysis.docker_image',  NULL, 'sen4cap/processors-scripts:3.3.0', '2023-08-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-heterog-extract-s1-list.docker_image',  NULL, 'sen4cap/processors-scripts:3.3.0', '2023-08-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-cluster-preparation-s1.docker_image',  NULL, 'sen4x/sen4cap-processors-scripts:5.0.0', '2023-08-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-cluster-preparation-s2.docker_image',  NULL, 'sen4x/sen4cap-processors-scripts:5.0.0', '2023-08-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-cluster-analysis-s2.docker_image',  NULL, 'sen4x/sen4cap-processors-scripts:5.0.0', '2023-08-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-cluster-analysis-s1.docker_image',  NULL, 'sen4x/sen4cap-processors-scripts:5.0.0', '2023-08-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-cluster-tiles-analysis-merge.docker_image',  NULL, 'sen4x/sen4cap-processors-scripts:5.0.0', '2023-08-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-heterog-period-analysis.docker_image',  NULL, 'sen4x/sen4cap-processors-scripts:5.0.0', '2023-08-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-heterog-extract-s1-list.docker_image',  NULL, 'sen4x/sen4cap-processors-scripts:5.0.0', '2023-08-19 14:43:00.720811+00');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-temporal-resampling.docker_image',  NULL, 'sen4x/processors-new:0.1.0', '2023-08-19 14:43:00.720811+00');
 
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.s4c-heterog-crop-type',  NULL, 'heterog_crop_type_wrapper.py', '2021-01-18 14:43:00.720811+00');
@@ -826,11 +853,11 @@ INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.processo
 
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4c_bare_soil.input_l2a', NULL, 'N/A', '2023-03-04 11:09:58.820032+02');
 
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-bare-soil-s2-calibration.docker_image',  NULL, 'sen4cap/processors-scripts:3.3.0', '2023-08-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-bare-soil-s1-calibration.docker_image',  NULL, 'sen4cap/processors-scripts:3.3.0', '2023-08-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-bare-soil-s2-model.docker_image',  NULL, 'sen4cap/processors-scripts:3.3.0', '2023-08-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-bare-soil-s1-model.docker_image',  NULL, 'sen4cap/processors-scripts:3.3.0', '2023-08-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-bare-soil-markers.docker_image',  NULL, 'sen4cap/processors-scripts:3.3.0', '2023-08-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-bare-soil-s2-calibration.docker_image',  NULL, 'sen4x/sen4cap-processors-scripts:5.0.0', '2023-08-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-bare-soil-s1-calibration.docker_image',  NULL, 'sen4x/sen4cap-processors-scripts:5.0.0', '2023-08-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-bare-soil-s2-model.docker_image',  NULL, 'sen4x/sen4cap-processors-scripts:5.0.0', '2023-08-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-bare-soil-s1-model.docker_image',  NULL, 'sen4x/sen4cap-processors-scripts:5.0.0', '2023-08-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-bare-soil-markers.docker_image',  NULL, 'sen4x/sen4cap-processors-scripts:5.0.0', '2023-08-19 14:43:00.720811+00');
 
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.s4c-bare-soil-s2-calibration',  NULL, 's4c_bs_calibration_s2.py', '2023-09-18 14:43:00.720811+00');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.s4c-bare-soil-s1-calibration',  NULL, 's4c_bs_calibration_s1.py', '2023-09-18 14:43:00.720811+00');
@@ -848,6 +875,7 @@ INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4c_bar
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4c_bare_soil.calib_bs_ndti_thr', NULL, 0.1, '2023-10-03 11:09:43.978921+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4c_bare_soil.calib_nbs_ndti_thr', NULL, 0.25, '2023-10-03 11:09:43.978921+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4c_bare_soil.calib_nbs_fcover_thr', NULL, 0.01, '2023-10-03 11:09:43.978921+02');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4c_bare_soil.calib_s2_pix_thr', NULL, 50, '2024-08-19 11:09:43.978921+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4c_bare_soil.model_estimator_no', NULL, 30, '2023-10-03 11:09:43.978921+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4c_bare_soil.markers_long_period', NULL, 60, '2023-10-03 11:09:43.978921+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4c_bare_soil.markers_short_period', NULL, 30, '2023-10-03 11:09:43.978921+02');
@@ -868,13 +896,13 @@ INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.processo
 
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('processor.s4c_change_detection.input_l2a', NULL, 'N/A', '2023-03-04 11:09:58.820032+02');
 
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-change-detection-extract-common-parcels.docker_image',  NULL, 'sen4cap/processors-scripts:3.3.0', '2023-08-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-change-detection-filter-lpis-cols.docker_image',  NULL, 'sen4cap/processors-scripts:3.3.0', '2023-08-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-change-detection-lai-outliers.docker_image',  NULL, 'sen4cap/processors-scripts:3.3.0', '2023-08-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-change-detection-veg-growth-markers.docker_image',  NULL, 'sen4cap/processors-scripts:3.3.0', '2023-08-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-change-detection-bs-markers.docker_image',  NULL, 'sen4cap/processors-scripts:3.3.0', '2023-08-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-change-detection-computation.docker_image',  NULL, 'sen4cap/processors-scripts:3.3.0', '2023-08-19 14:43:00.720811+00');
-INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-change-detection-consolidation.docker_image',  NULL, 'sen4cap/processors-scripts:3.3.0', '2023-08-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-change-detection-extract-common-parcels.docker_image',  NULL, 'sen4x/sen4cap-processors-scripts:5.0.0', '2023-08-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-change-detection-filter-lpis-cols.docker_image',  NULL, 'sen4x/sen4cap-processors-scripts:5.0.0', '2023-08-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-change-detection-lai-outliers.docker_image',  NULL, 'sen4x/sen4cap-processors-scripts:5.0.0', '2023-08-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-change-detection-veg-growth-markers.docker_image',  NULL, 'sen4x/sen4cap-processors-scripts:5.0.0', '2023-08-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-change-detection-bs-markers.docker_image',  NULL, 'sen4x/sen4cap-processors-scripts:5.0.0', '2023-08-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-change-detection-computation.docker_image',  NULL, 'sen4x/sen4cap-processors-scripts:5.0.0', '2023-08-19 14:43:00.720811+00');
+INSERT INTO config(key, site_id, value, last_updated) VALUES ('general.orchestrator.s4c-change-detection-consolidation.docker_image',  NULL, 'sen4x/sen4cap-processors-scripts:5.0.0', '2023-08-19 14:43:00.720811+00');
 
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.s4c-change-detection-extract-common-parcels', NULL, 'match_sites_parcels.py', '2023-09-18 14:25:14.193131+02');
 INSERT INTO config(key, site_id, value, last_updated) VALUES ('executor.module.path.s4c-change-detection-filter-lpis-cols',  NULL, 'filter_csv_by_cols.py', '2023-09-18 14:43:00.720811+00');

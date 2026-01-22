@@ -10,7 +10,7 @@ update config_category set name ='S1 L2 Pre-processor' where id = 23 ;
 update config_category set name ='T-Rex Updater' where id = 32 ;
 update config_category set name ='L2 Validity Mask' where id = 27 ;
 update config_category set name ='L4 Permanent Crops' where id = 28 ;
-update config_category set name ='L3 Yield' where id = 29 ;
+update config_category set name ='L3 Yield Features' where id = 29 ;
 update config_category set name ='L4 Crop Mapping' where id = 30 ;
 update config_category set name ='L2 Fmask' where id = 31 ;
 update config_category set name ='L2 In situ Preparation' where id = 21 ;
@@ -18,4 +18,5 @@ update config_category set name ='L3 Composite' where id = 3 ;
 update config_category set name ='L3 Vegetation Status' where id = 4 ;
 update config_category set name ='L2 S2&L8 preprocessing' where id = 2 ;
 update config_category set name ='L3 Basic Features' where id = 26 ;
+update config_category set name ='L4 Yield' where id = 38 ;
 

@@ -22,7 +22,7 @@ INSERT INTO config_category VALUES (25, 'S2A L3D LAI Fitted Reprocessing', 4, tr
 INSERT INTO config_category VALUES (26, 'S4C Markers Database 1', 26, true);
 INSERT INTO config_category VALUES (27, 'Validity Flags', 17, true);
 INSERT INTO config_category VALUES (28, 'L4 Permanent crops', 27, true);
-INSERT INTO config_category VALUES (29, 'L3 Yield', 28, true);
+INSERT INTO config_category VALUES (29, 'L3 Yield Features', 28, true);
 INSERT INTO config_category VALUES (30, 'L4 Crop Mapping', 29, true);
 INSERT INTO config_category VALUES (31, 'FMask', 18, true);
 INSERT INTO config_category VALUES (32, 'T-Rex Updater', 32, false);
@@ -31,7 +31,7 @@ INSERT INTO config_category VALUES (34, 'Biophysical Indicators Composite', 34, 
 INSERT INTO config_category VALUES (35, 'Zarr Converter', 35, true);
 INSERT INTO config_category VALUES (36, 'Parcel heterogeneity', 36, true);
 INSERT INTO config_category VALUES (37, 'Bare soil detection', 37, true);
-INSERT INTO config_category VALUES (38, 'L3 Yield SU', 38, true);
+INSERT INTO config_category VALUES (38, 'L4 Yield', 38, true);
 INSERT INTO config_category VALUES (39, 'ERA5', 39, true);
 INSERT INTO config_category VALUES (40, 'S4C L4 Change Detection', 40, true);
 

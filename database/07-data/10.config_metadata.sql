@@ -23,13 +23,15 @@ INSERT INTO config_metadata VALUES ('general.parcels_product.parcel_id_col_name'
 
 INSERT INTO config_metadata VALUES ('disk.monitor.interval', 'Disk Monitor interval', 'int', false, 13, FALSE, 'Disk Monitor interval', NULL);
 
-INSERT INTO config_metadata VALUES ('general.docker_script_unit_image', 'Sen4CAP services scripts docker image', 'string', false, 1, FALSE, 'Sen4CAP services scripts docker image', NULL) ;
+INSERT INTO config_metadata VALUES ('general.docker_script_unit_image', 'Services scripts docker image', 'string', false, 1, FALSE, 'Services scripts docker image', NULL) ;
+INSERT INTO config_metadata VALUES ('general.docker_script_unit_execution_timeout', 'Services scripts execution timeout', 'string', false, 1, FALSE, 'Services scripts execution timeout', NULL) ;
 
 -- -----------------------------------------------------------
 -- Executor/orchestrator/scheduler Specific Keys
 -- -----------------------------------------------------------
 INSERT INTO config_metadata VALUES ('executor.http-server.listen-ip', 'Executor HTTP listen ip', 'string', false, 1, FALSE, 'Executor HTTP listen ip', NULL);
 INSERT INTO config_metadata VALUES ('executor.http-server.listen-port', 'Executor HTTP listen port', 'string', false, 1, FALSE, 'Executor HTTP listen port', NULL);
+INSERT INTO config_metadata VALUES ('executor.http-server.max-request-size', 'Executor HTTP server max request size', 'int', false, 1, FALSE, 'Executor HTTP server max request size', NULL);
 INSERT INTO config_metadata VALUES ('executor.listen-ip', 'Executor IP Address', 'string', true, 8, FALSE, 'Executor IP Address', NULL);
 INSERT INTO config_metadata VALUES ('executor.listen-port', 'Executor Port', 'int', true, 8, FALSE, 'Executor Port', NULL);
 INSERT INTO config_metadata VALUES ('executor.resource-manager.name', 'Executor resource manager name', 'string', false, 1, FALSE, 'Executor resource manager name', NULL);
@@ -100,6 +102,11 @@ INSERT INTO config_metadata VALUES ('general.orchestrator.s4s-yield-su-merge-yea
 INSERT INTO config_metadata VALUES ('general.orchestrator.s4s-yield-su-model-wrp.docker_image', 'Yield SU Model docker image', 'string', false, 1, FALSE, 'Yield SU Model docker image', NULL) ;
 INSERT INTO config_metadata VALUES ('general.orchestrator.s4s-yield-trend-features-extraction.docker_image', 'Yield SU Trend features extraction docker image', 'string', false, 1, FALSE, 'Yield SU Trend features extraction docker image', NULL) ;
 INSERT INTO config_metadata VALUES ('general.orchestrator.s4s_perm_crop.docker_image', 'Permanent Crops default docker image', 'string', false, 1, FALSE, 'Permanent Crops default docker image', NULL) ;
+
+INSERT INTO config_metadata VALUES ('general.orchestrator.s4s-merge-all-features-wrp.docker_image', 'Yield merge all features wrapper docker image', 'string', false, 1, FALSE, 'Yield merge all features wrapper', NULL) ;
+INSERT INTO config_metadata VALUES ('general.orchestrator.s4s-yield-parcels-trend-extraction.docker_image', 'Yield parcel trend extraction docker image', 'string', false, 1, FALSE, 'Yield parcel trend extraction docker image', NULL) ;
+INSERT INTO config_metadata VALUES ('general.orchestrator.s4s-yield-parcels-to-su.docker_image', 'Yield parcel to SU docker image', 'string', false, 1, FALSE, 'Yield parcel to SU docker image', NULL) ;
+INSERT INTO config_metadata VALUES ('general.orchestrator.export-product-launcher.docker_image', 'Export product launcher docker image', 'string', false, 1, FALSE, 'Export product launcher docker image', NULL) ;
 
 INSERT INTO config_metadata VALUES ('general.orchestrator.s4s-perm-crops-run-broceliande.use_docker', 'Broceliande execution use docker', 'int', false, 1, FALSE, 'Broceliande execution use docker', NULL) ;
 INSERT INTO config_metadata VALUES ('general.orchestrator.s4s_perm_crop.use_docker', 'Permanent crops use docker default value', 'int', false, 1, FALSE, 'Permanent crops use docker default value', NULL) ;
@@ -176,6 +183,10 @@ INSERT INTO config_metadata VALUES ('executor.module.path.s4s-yield-trend-featur
 INSERT INTO config_metadata VALUES ('executor.module.path.s4s_admin_units_import', 'Script for importing S4S adminstrative units', 'file', true, 8, FALSE, 'Script for importing S4S adminstrative units', NULL);
 INSERT INTO config_metadata VALUES ('executor.module.path.s4s_parcels_import', 'Script for importing S4S parcels', 'file', true, 8, FALSE, 'Script for importing S4S parcels', NULL);
 INSERT INTO config_metadata VALUES ('executor.module.path.s4s_yield_safy_import', 'Script for importing SAFY config file', 'file', true, 8, FALSE, 'Script for importing SAFY config file', NULL);
+INSERT INTO config_metadata VALUES ('executor.module.path.s4s-yield-parcels-trend-extraction', 'Script for parcels trend extraction', 'file', true, 8, FALSE, 'Script for parcels trend extraction', NULL);
+INSERT INTO config_metadata VALUES ('executor.module.path.s4s-yield-parcels-to-su', 'Script for parcels to SU extraction', 'file', true, 8, FALSE, 'Script for parcels to SU extraction', NULL);
+
+INSERT INTO config_metadata VALUES ('executor.module.path.l3b-composite-duplicate-dates', 'Script for compositing S1A/S2B duplicate dates', 'file', true, 8, FALSE, 'Script for compositing S1A/S2B duplicate dates', NULL);
 
 -- -----------------------------------------------------------
 -- Downloader Specific Keys
@@ -261,6 +272,7 @@ INSERT INTO config_metadata VALUES ('processor.l2s1.join.amplitude.steps', 'Join
 INSERT INTO config_metadata VALUES ('processor.l2s1.join.coherence.steps', 'Join coherence steps', 'bool', false, 23, FALSE, 'Join coherence steps', NULL);
 
 INSERT INTO config_metadata VALUES ('dem.name', 'DEM to use', 'string', false, 23, FALSE, 'DEM to use', NULL);
+INSERT INTO config_metadata VALUES ('dem.no_data_value', 'DEM no data value', 'int', false, 23, FALSE, 'DEM no data value', NULL);
 INSERT INTO config_metadata VALUES ('processor.l2s1.acquisition.delay', 'Acquisition delay', 'int', false, 23, FALSE, 'Acquisition delay', NULL);
 INSERT INTO config_metadata VALUES ('processor.l2s1.copy.locally', 'Copy input products locally', 'bool', false, 23, FALSE, 'Copy input products locally', NULL);
 INSERT INTO config_metadata VALUES ('processor.l2s1.crop.nodata', 'Crop NODATA', 'bool', false, 23, FALSE, 'Crop NODATA', NULL);
@@ -588,7 +600,13 @@ INSERT INTO config_metadata VALUES ('processor.s4c_mdb1.brightness_enabled', 'Br
 INSERT INTO config_metadata VALUES ('processor.s4c_mdb1.input_l2a', 'The list of L2A products', 'select', FALSE, 26, TRUE, 'Available L2A input files', '{"name":"inputFiles_L2A[]","product_type_id":1,"satellite_ids":[1,2]}');
 INSERT INTO config_metadata VALUES ('processor.s4c_mdb1.input_amp', 'The list of AMP products', 'select', FALSE, 26, TRUE, 'Available AMP input files', '{"name":"inputFiles_AMP[]","product_type_id":10,"satellite_ids":[3]}');
 INSERT INTO config_metadata VALUES ('processor.s4c_mdb1.input_cohe', 'The list of COHE products', 'select', FALSE, 26, TRUE, 'Available COHE input files', '{"name":"inputFiles_COHE[]","product_type_id":11,"satellite_ids":[3]}');
-INSERT INTO config_metadata VALUES ('processor.s4c_mdb1.input_l3b', 'The list of L3B products', 'select', FALSE, 26, TRUE, 'Available L3B input files', '{"name":"inputFiles_L3B[]","product_type_id":3,"satellite_ids":[1,2]}');
+-- INSERT INTO config_metadata VALUES ('processor.s4c_mdb1.input_l3b', 'The list of L3B products', 'select', FALSE, 26, TRUE, 'Available L3B input files', '{"name":"inputFiles_L3B[]","product_type_id":3,"satellite_ids":[1,2]}');
+
+INSERT INTO config_metadata VALUES ('processor.s4c_mdb1.input_l3b_ndvi', 'The list of L3B NDVI products', 'select', FALSE, 26, TRUE, 'Available L3B NDVI input files', '{"name":"inputFiles_L3B_NDVI[]","product_type_id":36,"satellite_ids":[1,2]}');
+INSERT INTO config_metadata VALUES ('processor.s4c_mdb1.input_l3b_lai', 'The list of L3B LAI products', 'select', FALSE, 26, TRUE, 'Available L3B LAI input files', '{"name":"inputFiles_L3B_LAI[]","product_type_id":37,"satellite_ids":[1,2]}');
+INSERT INTO config_metadata VALUES ('processor.s4c_mdb1.input_l3b_fapar', 'The list of L3B FAPAR products', 'select', FALSE, 26, TRUE, 'Available L3B FAPAR input files', '{"name":"inputFiles_L3B_FAPAR[]","product_type_id":38,"satellite_ids":[1,2]}');
+INSERT INTO config_metadata VALUES ('processor.s4c_mdb1.input_l3b_fcover', 'The list of L3B FCOVER products', 'select', FALSE, 26, TRUE, 'Available L3B FCOVER input files', '{"name":"inputFiles_L3B_FCOVER[]","product_type_id":39,"satellite_ids":[1,2]}');
+
 INSERT INTO config_metadata VALUES ('processor.s4c_mdb1.lai_enabled', 'LAI markers extraction enabled', 'bool', true, 26, true, 'Extract LAI markers', NULL, true);
 INSERT INTO config_metadata VALUES ('processor.s4c_mdb1.ndvi_enabled', 'NDVI markers extraction enabled', 'bool', true, 26, true, 'Extract NDVI markers', NULL, true);
 INSERT INTO config_metadata VALUES ('processor.s4c_mdb1.amp_vvvh_enabled', 'AMP VV/VH markers extraction enabled', 'bool', true, 26, true, 'Extract Amplitude VV/VH markers', NULL, true);
@@ -699,8 +717,6 @@ insert into config_metadata values ('processor.s4s_crop_mapping.pix-ratio-hi', '
 insert into config_metadata values ('processor.s4s_crop_mapping.pix-ratio-lo', 'Minimum crop to total pixel ratio for strategy 2', 'float', true, 30, true, 'Minimum crop to total pixel ratio for strategy 2', null);
 insert into config_metadata values ('processor.s4s_crop_mapping.monitored-land-covers', 'Land cover class filter', 'string', true, 30, true, 'Land cover class filter', null);
 insert into config_metadata values ('processor.s4s_crop_mapping.monitored-crops', 'Crop class filter', 'string', true, 30, true, 'Crop class filter', null);
-insert into config_metadata values ('processor.s4s_crop_mapping.monitored-crops-remapped-pre', 'Pre-remapped monitored crop class filter', 'string', true, 30, true, 'Pre-remapped monitored crop class filter', null);
-insert into config_metadata values ('processor.s4s_crop_mapping.excluded-crops-remapped-pre', 'Pre-remapped excluded crop class filter', 'string', true, 30, true, 'Pre-remapped excluded crop class filter', null);
 insert into config_metadata values ('processor.s4s_crop_mapping.smote-ratio', 'Synthetic sample ratio', 'float', true, 30, true, 'Synthetic sample ratio', null);
 insert into config_metadata values ('processor.s4s_crop_mapping.sample-ratio-hi', 'Training pixel ratio for strategy 1', 'float', true, 30, true, 'Training pixel ratio for strategy 1', null);
 insert into config_metadata values ('processor.s4s_crop_mapping.sample-ratio-lo', 'Training pixel ratio for strategies 2 and 3', 'float', true, 30, true, 'Training pixel ratio for strategies 2 and 3', null);
@@ -715,12 +731,14 @@ insert into config_metadata values ('processor.s4s_crop_mapping.catboost.test-sp
 insert into config_metadata values ('processor.s4s_crop_mapping.catboost.random-state', 'Random state', 'int', true, 30, true, 'Random state for test split', null);
 insert into config_metadata values ('processor.s4s_crop_mapping.crop_remapping_set_id', 'Crop Remapping Set', 'string', true, 30, true, 'Crop Remapping Set', '{ "allowed_values_source": { "database_object": "crop_remapping_set", "value_column": "crop_remapping_set_id", "label_column": "name" } }', true);
 
-insert into config_metadata values ('processor.s4s_crop_mapping.features-filter', 'Features filter. If provided, the features are given as comma separated values. Possible values are sr10 (S2 Reflectance 10m), sr20 (S2 reflectance 20m), vi (Vegetation indices), vis (Vegetation indices Statistics), sar (S1 features), re (Red edge features), lai (Leaf Area Index), fapar, fcover', 'string', true, 30, true, 'Features filter', null);
+insert into config_metadata values ('processor.s4s_crop_mapping.features-filter', 'Features filter. If provided, the features are given as comma separated values. Possible values are sr10 (S2 Reflectance 10m), sr20 (S2 reflectance 20m), vi (Vegetation indices), vis (Vegetation indices Statistics), sar (S1 features), re (Red edge features), lai (Leaf Area Index)', 'string', true, 30, true, 'Features filter', null);
 
 -- -----------------------------------------------------------
 -- ERA5
 -- -----------------------------------------------------------
 INSERT INTO config_metadata VALUES ('processor.era5_weather.enabled', 'ERA5 processor enabled', 'bool', false, 39, FALSE, 'ERA5 processor enabled', NULL);
+INSERT INTO config_metadata VALUES ('processor.era5_weather.docker_image', 'ERA5 docker image', 'bool', false, 39, FALSE, 'ERA5 docker image', NULL);
+INSERT INTO config_metadata VALUES ('processor.era5_weather.retry_days', 'Number of days to retry download', 'bool', false, 39, FALSE, 'Number of days to retry download', NULL);
 
 
 -- -----------------------------------------------------------
@@ -752,10 +770,6 @@ INSERT INTO config_metadata VALUES ('general.scratch-path.s4s_yield_feat', 'Path
 INSERT INTO config_metadata VALUES ('executor.processor.s4s_yield_feat.keep_job_folders', 'Keep yield temporary files', 'int', false, 8);
 INSERT INTO config_metadata VALUES ('executor.processor.s4s_yield_feat.slurm_qos', 'Slurm QOS for Yield', 'string', true, 8, FALSE, 'Slurm QOS for Yield', NULL);
 
-INSERT INTO config_metadata VALUES ('processor.s4s_yield_feat.algorithm', 'Yield estimation algorithm', 'string', true, 29, true, 'Yield estimation algorithm', '{ "allowed_values": [{ "value": "rf", "display": "Random Forest" }, { "value": "lmr", "display": "Linear regression"}, { "value": "svm", "display": "Support Vector Machine"}] }', true);
-INSERT INTO config_metadata VALUES ('processor.s4s_yield_feat.selection-type',  'Yield estimation selection type', 'string', true, 29, true, 'Yield estimation selection type', '{ "allowed_values": [{ "value": "automatic", "display": "Automatic" }, { "value": "manual", "display": "Manual"}, { "value": "none", "display": "None" }] }', true);
-INSERT INTO config_metadata VALUES ('processor.s4s_yield_feat.max-automatic-features-no', 'Maximum number of automatic features', 'int', true, 29, true, 'Maximum number of automatic features', null);
-INSERT INTO config_metadata VALUES ('processor.s4s_yield_feat.manual-selection-features', 'Manual selection features', 'string', true, 29, true, 'Manual selection features', null);
 INSERT INTO config_metadata VALUES ('processor.s4s_yield_feat.input_l2a', 'The list of L2A products', 'select', FALSE, 29, FALSE, 'Available L2A input files', '{"name":"inputFiles_L2A[]","product_type_id":1,"satellite_ids":[1,2]}', FALSE);
 INSERT INTO config_metadata VALUES ('processor.s4s_yield_feat.start_date', 'Start date (YYYY-MM-DD)', 'string', FALSE, 29, TRUE, 'Start date', NULL, FALSE);
 INSERT INTO config_metadata VALUES ('processor.s4s_yield_feat.end_date', 'End date (YYYY-MM-DD)', 'string', FALSE, 29, TRUE, 'End date', NULL, FALSE);
@@ -763,28 +777,39 @@ INSERT INTO config_metadata VALUES ('processor.s4s_yield_feat.end_date', 'End da
 INSERT INTO config_metadata VALUES ('processor.s4s_yield_feat.parcel_id_col_name', 'Yield Features ID column name', 'string', TRUE, 29, FALSE, 'Yield Features ID column name', NULL, FALSE);
 INSERT INTO config_metadata VALUES ('processor.s4s_yield_feat.safy_params_path', 'SAFY Params path', 'string', TRUE, 29, FALSE, 'SAFY Params path', NULL, FALSE);
 INSERT INTO config_metadata VALUES ('processor.s4s_yield_feat.safy_params_upload_dir', 'SAFY params upload dir', 'string', TRUE, 29, FALSE, 'SAFY params upload dir', NULL, FALSE);
+INSERT INTO config_metadata VALUES ('processor.s4s_yield_feat.enable_safy', 'Enable SAFY', 'bool', FALSE, 29, TRUE, 'Enable SAFY', NULL, FALSE);
+
+INSERT INTO config_metadata VALUES ('processor.s4s_yield_feat.force_yield_su', 'Generate Yield SU', 'bool', FALSE, 29, TRUE, 'Generate Yield SU', NULL, FALSE);
+
+INSERT INTO config_metadata VALUES ('processor.s4s_yield.su_path', 'Yield SU path', 'string', TRUE, 29, FALSE, 'Yield SU path', null);
+
+INSERT INTO config_metadata VALUES ('processor.s4s_yield.historical_data_upload_dir', 'Yield SU historical data upload dir', 'string', TRUE, 29, FALSE, 'Yield SU historical data upload dir', null);
+INSERT INTO config_metadata VALUES ('processor.s4s_yield.historical_data_path', 'Yield SU historical data import location', 'string', TRUE, 29, FALSE, 'Yield SU historical data import location', null);
+INSERT INTO config_metadata VALUES ('executor.module.path.s4s_yield_su_historical_data_import', 'Yield SU historical data import script', 'string', TRUE, 29, FALSE, 'Yield SU historical data import script', null);
+
+INSERT INTO config_metadata VALUES ('processor.s4s_yield_feat.su_path', 'SU location', 'string', TRUE, 29, FALSE, 'SU location', null);
+INSERT INTO config_metadata VALUES ('processor.s4s_yield.admin_units_upload_dir', 'SU upload location', 'string', TRUE, 29, FALSE, 'SU upload location', null);
 
 -- -----------------------------------------------------------
--- S4S Yield SU Keys
+-- S4S Yield Model Keys
 -- -----------------------------------------------------------
-INSERT INTO config_metadata VALUES ('general.scratch-path.s4s_yield_su', 'Path for Yield SU temporary files', 'string', false, 1, FALSE, 'Path for Yield SU temporary files', NULL);
-INSERT INTO config_metadata VALUES ('executor.processor.s4s_yield_su.keep_job_folders', 'Keep yield temporary files', 'int', false, 8);
-INSERT INTO config_metadata VALUES ('executor.processor.s4s_yield_su.slurm_qos', 'Slurm QOS for Yield SU', 'string', true, 8, FALSE, 'Slurm QOS for Yield SU', NULL);
+INSERT INTO config_metadata VALUES ('general.scratch-path.s4s_yield', 'Path for Yield SU temporary files', 'string', false, 1, FALSE, 'Path for Yield SU temporary files', NULL);
+INSERT INTO config_metadata VALUES ('executor.processor.s4s_yield.keep_job_folders', 'Keep yield temporary files', 'int', false, 8);
+INSERT INTO config_metadata VALUES ('executor.processor.s4s_yield.slurm_qos', 'Slurm QOS for Yield SU', 'string', true, 8, FALSE, 'Slurm QOS for Yield SU', NULL);
 
-INSERT INTO config_metadata VALUES ('processor.s4s_yield_su.algorithm', 'Yield estimation algorithm', 'string', true, 38, true, 'Yield estimation algorithm', '{ "allowed_values": [{ "value": "rf", "display": "Random Forest" }, { "value": "lmr", "display": "Linear regression"}, { "value": "svm", "display": "Support Vector Machine"}] }', true);
-INSERT INTO config_metadata VALUES ('processor.s4s_yield_su.selection-type',  'Yield estimation selection type', 'string', true, 38, true, 'Yield estimation selection type', '{ "allowed_values": [{ "value": "automatic", "display": "Automatic" }, { "value": "manual", "display": "Manual"}, { "value": "none", "display": "None" }] }', true);
-INSERT INTO config_metadata VALUES ('processor.s4s_yield_su.max-automatic-features-no', 'Maximum number of automatic features', 'int', true, 38, true, 'Maximum number of automatic features', null);
-INSERT INTO config_metadata VALUES ('processor.s4s_yield_su.manual-selection-features', 'Manual selection features', 'string', true, 38, true, 'Manual selection features', null);
-INSERT INTO config_metadata VALUES ('processor.s4s_yield_su.input_l2a', 'The list of L2A products', 'select', FALSE, 38, FALSE, 'Available L2A input files', '{"name":"inputFiles_L2A[]","product_type_id":1,"satellite_ids":[1,2]}', FALSE);
-INSERT INTO config_metadata VALUES ('processor.s4s_yield_su.start_date', 'Start date (YYYY-MM-DD)', 'string', FALSE, 38, TRUE, 'Start date', NULL, FALSE);
-INSERT INTO config_metadata VALUES ('processor.s4s_yield_su.end_date', 'End date (YYYY-MM-DD)', 'string', FALSE, 38, TRUE, 'End date', NULL, FALSE);
+INSERT INTO config_metadata VALUES ('processor.s4s_yield.input_s4s_yield_feat', 'The list of Yield Features products', 'select', FALSE, 38, TRUE, 'Available Yield Features products', '{"name":"inputFiles_S4S_YIELD_FEAT[]","product_type_id":28,"satellite_ids":[1,2,3]}');
+INSERT INTO config_metadata VALUES ('processor.s4s_yield.input_s4s_yield_su_feat', 'The list of Yield SU Features products', 'select', FALSE, 38, TRUE, 'Available Yield SU Features products', '{"name":"inputFiles_S4S_YIELD_SU_FEAT[]","product_type_id":34,"satellite_ids":[1,2,3]}');
 
-INSERT INTO config_metadata VALUES ('processor.s4s_yield_su.su_path', 'Yield SU path', 'string', TRUE, 38, FALSE, 'Yield SU path', null);
-INSERT INTO config_metadata VALUES ('processor.s4s_yield_su.data_extr_dir', 'Yield SU data extraction dir', 'string', TRUE, 38, FALSE, 'Yield SU data extraction dir', null);
+INSERT INTO config_metadata VALUES ('processor.s4s_yield.algorithm', 'Yield estimation algorithm', 'string', true, 38, true, 'Yield estimation algorithm', '{ "allowed_values": [{ "value": "rf", "display": "Random Forest" }, { "value": "lmr", "display": "Linear regression"}, { "value": "svm", "display": "Support Vector Machine"}] }', true);
+INSERT INTO config_metadata VALUES ('processor.s4s_yield.selection-type',  'Yield estimation selection type', 'string', true, 38, true, 'Yield estimation selection type', '{ "allowed_values": [{ "value": "automatic", "display": "Automatic" }, { "value": "manual", "display": "Manual"}, { "value": "none", "display": "None" }] }', true);
+INSERT INTO config_metadata VALUES ('processor.s4s_yield.max-automatic-features-no', 'Maximum number of automatic features', 'int', true, 38, true, 'Maximum number of automatic features', null);
+INSERT INTO config_metadata VALUES ('processor.s4s_yield.manual-selection-features', 'Manual selection features', 'string', true, 38, true, 'Manual selection features', null);
+INSERT INTO config_metadata VALUES ('processor.s4s_yield.input_l2a', 'The list of L2A products', 'select', FALSE, 38, FALSE, 'Available L2A input files', '{"name":"inputFiles_L2A[]","product_type_id":1,"satellite_ids":[1,2]}', FALSE);
+-- INSERT INTO config_metadata VALUES ('processor.s4s_yield.start_date', 'Start date (YYYY-MM-DD)', 'string', FALSE, 38, TRUE, 'Start date', NULL, FALSE);
+-- INSERT INTO config_metadata VALUES ('processor.s4s_yield.end_date', 'End date (YYYY-MM-DD)', 'string', FALSE, 38, TRUE, 'End date', NULL, FALSE);
 
-INSERT INTO config_metadata VALUES ('processor.s4s_yield_su.historical_data_upload_dir', 'Yield SU historical data upload dir', 'string', TRUE, 38, FALSE, 'Yield SU historical data upload dir', null);
-INSERT INTO config_metadata VALUES ('processor.s4s_yield_su.historical_data_path', 'Yield SU historical data import location', 'string', TRUE, 38, FALSE, 'Yield SU historical data import location', null);
-INSERT INTO config_metadata VALUES ('executor.module.path.s4s_yield_su_historical_data_import', 'Yield SU historical data import script', 'string', TRUE, 38, FALSE, 'Yield SU historical data import script', null);
+
+INSERT INTO config_metadata VALUES ('processor.s4s_yield.force_yield_su', 'Use Yield SU', 'bool', FALSE, 29, TRUE, 'Use Yield SU', NULL, FALSE);
 
 -- -----------------------------------------------------------
 -- Zarr converter Specific Keys
@@ -877,6 +902,7 @@ INSERT INTO config_metadata VALUES ('processor.s4c_bare_soil.calib_nbs_ndwi_thr'
 INSERT INTO config_metadata VALUES ('processor.s4c_bare_soil.calib_bs_ndti_thr', 'Calibration BS NDTI Threshold', 'float', true, 37, true, 'Calibration BS NDTI Threshold', null);
 INSERT INTO config_metadata VALUES ('processor.s4c_bare_soil.calib_nbs_ndti_thr', 'Calibration NBS NDTI Threshold', 'float', true, 37, true, 'Calibration NBS NDTI Threshold', null);
 INSERT INTO config_metadata VALUES ('processor.s4c_bare_soil.calib_nbs_fcover_thr', 'Calibration NBS fCover Threshold', 'float', true, 37, true, 'Calibration NBS fCover Threshold', null);
+INSERT INTO config_metadata VALUES ('processor.s4c_bare_soil.calib_s2_pix_thr', 'Minimum parcel S2 pixels', 'int', true, 37, true, 'Minimum parcel S2 pixels', null);
 INSERT INTO config_metadata VALUES ('processor.s4c_bare_soil.model_estimator_no', 'Number of estimators for model', 'int', true, 37, true, 'Number of estimators for model', null);
 INSERT INTO config_metadata VALUES ('processor.s4c_bare_soil.markers_long_period', 'Markers Long Period', 'int', true, 37, true, 'Markers Long Period', null);
 INSERT INTO config_metadata VALUES ('processor.s4c_bare_soil.markers_short_period', 'Markers Short Period', 'int', true, 37, true, 'Markers Short Period', null);

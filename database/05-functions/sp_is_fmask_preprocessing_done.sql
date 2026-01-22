@@ -47,6 +47,7 @@ BEGIN
     RETURN (not _fmask_enabled) or (select count(*) from downloader_history where 
             status_id in (2, 5, 7) and 
             satellite_id in (1, 2) and 
+            product_name SIMILAR TO '%(MSIL1C|L1TP)%' and
             site_id = _site_id and 
             (_start_date is null or product_date >= _start_date) and 
             (_end_date is null or product_date < _end_date + interval '1 day') and 

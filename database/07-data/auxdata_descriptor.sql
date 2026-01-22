@@ -8,12 +8,12 @@ INSERT INTO auxdata_descriptor (id, name, label, unique_by) VALUES (6, 'l4c_nfc_
 INSERT INTO auxdata_descriptor (id, name, label, unique_by) VALUES (7, 'l4c_na_info', 'L4C NA practices infos', 'year') ON conflict(id) DO UPDATE SET name = 'l4c_na_info', label = 'L4C NA practices infos', unique_by = 'year';
 
 -- Sen4Stat descriptors
-INSERT INTO auxdata_descriptor (id, name, label, unique_by) VALUES (8, 'parcels', 'Parcels', 'year') ON conflict(id) DO UPDATE SET name = 'parcels', label = 'Parcels', unique_by = 'year';
--- INSERT INTO auxdata_descriptor (id, name, label, unique_by) VALUES (9, 'admin_units', 'Admin Units', 'year') ON conflict(id) DO UPDATE SET name = 'admin_units', label = 'Admin Units', unique_by = 'year';
-INSERT INTO auxdata_descriptor (id, name, label, unique_by) VALUES (10, 'safy_params', 'SAFY params', 'year') ON conflict(id) DO UPDATE SET name = 'safy_params', label = 'SAFY params', unique_by = 'year';
+INSERT INTO auxdata_descriptor (id, name, label, unique_by) VALUES (8, 'parcels', 'Parcels', 'season') ON conflict(id) DO UPDATE SET name = 'parcels', label = 'Parcels', unique_by = 'season';
+INSERT INTO auxdata_descriptor (id, name, label, unique_by) VALUES (9, 'admin_units', 'Admin Units', 'season') ON conflict(id) DO UPDATE SET name = 'admin_units', label = 'Admin Units', unique_by = 'season';
+INSERT INTO auxdata_descriptor (id, name, label, unique_by) VALUES (10, 'safy_params', 'SAFY params', 'season') ON conflict(id) DO UPDATE SET name = 'safy_params', label = 'SAFY params', unique_by = 'season';
 
 -- Sen2Agri descriptors
 INSERT INTO auxdata_descriptor (id, name, label, unique_by) VALUES (11, 'insitu', 'Insitu data', 'season') ON conflict(id) DO UPDATE SET name = 'insitu', label = 'Insitu data', unique_by = 'season';
 
 -- Sen4Stat Yield SU descriptor
-INSERT INTO auxdata_descriptor (id, name, label, unique_by) VALUES (12, 'su_yield_historical_data', 'SU Yield historical data', 'year') ON conflict(id) DO UPDATE SET name = 'su_yield_historical_data', label = 'SU Yield historical data', unique_by = 'year';
+INSERT INTO auxdata_descriptor (id, name, label, unique_by) VALUES (12, 'su_yield_historical_data', 'SU Yield historical data', 'season') ON conflict(id) DO UPDATE SET name = 'su_yield_historical_data', label = 'SU Yield historical data', unique_by = 'season';

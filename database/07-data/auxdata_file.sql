@@ -20,6 +20,7 @@ INSERT INTO auxdata_file (id, auxdata_descriptor_id, file_order, label, extensio
 INSERT INTO auxdata_file (id, auxdata_descriptor_id, file_order, label, extensions, required) VALUES (10, 8, 2, 'Parcel statistics', '{csv}', false);
 
 -- Admin Units
+INSERT INTO auxdata_file (id, auxdata_descriptor_id, file_order, label, extensions, required) VALUES (11, 9, 1, 'Admin Units', '{zip}', false);
 -- INSERT INTO auxdata_file (id, auxdata_descriptor_id, file_order, label, extensions, required) VALUES (11, 9, 1, 'Regions', '{zip}', false);
 -- INSERT INTO auxdata_file (id, auxdata_descriptor_id, file_order, label, extensions, required) VALUES (12, 9, 2, 'Provinces', '{zip}', false);
 -- INSERT INTO auxdata_file (id, auxdata_descriptor_id, file_order, label, extensions, required) VALUES (13, 9, 3, 'Municipalities', '{zip}', false);

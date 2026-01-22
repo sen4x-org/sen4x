@@ -137,7 +137,7 @@ VALUES
 INSERT INTO product_type
 (id, name, description, is_raster)
 VALUES
-(28, 's4s_yield_feat','L3 Yield', false);
+(28, 's4s_yield_feat','L3 Yield Features', false);
 
 INSERT INTO product_type
 (id, name, description, is_raster)
@@ -167,9 +167,49 @@ VALUES
 INSERT INTO product_type
 (id, name, description, is_raster)
 VALUES
-(34, 's4s_yield_su','L3 Yield SU', false);
+(34, 's4s_yield_su_feat','L3 Yield SU Features', false);
 
 INSERT INTO product_type
 (id, name, description, is_raster)
 VALUES
 (35, 's4c_change_detection','L4 Change Detection', false);
+
+INSERT INTO product_type
+(id, name, description, is_raster)
+VALUES
+(36, 'l3b_ndvi','L3B NDVI', true);
+
+INSERT INTO product_type
+(id, name, description, is_raster)
+VALUES
+(37, 'l3b_lai','L3B LAI', true);
+
+INSERT INTO product_type
+(id, name, description, is_raster)
+VALUES
+(38, 'l3b_fapar','L3B FAPAR', true);
+
+INSERT INTO product_type
+(id, name, description, is_raster)
+VALUES
+(39, 'l3b_fcover','L3B FCOVER', true);
+
+INSERT INTO product_type
+(id, name, description, is_raster)
+VALUES
+(40, 'l3b_ndwi','L3B NDWI', true);
+
+INSERT INTO product_type
+(id, name, description, is_raster)
+VALUES
+(41, 'l3b_brigh','L3B Brightness', true);
+
+INSERT INTO product_type
+(id, name, description, is_raster)
+VALUES
+(42, 's4s_yield','L4 Yield', false);
+
+INSERT INTO product_type
+(id, name, description, is_raster)
+VALUES
+(43, 's4s_yield_su','L4 Yield SU', false);
