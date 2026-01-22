@@ -1,0 +1,658 @@
+#!/usr/bin/env python3
+from __future__ import print_function
+import argparse
+import re
+import glob
+from osgeo import gdal
+from osgeo import osr
+from osgeo import ogr
+import subprocess
+import math
+import os
+from os.path import isfile, isdir, join
+import glob
+import sys
+import time
+import datetime
+from time import gmtime, strftime
+import shutil
+import psycopg2
+import psycopg2.errorcodes
+import optparse
+import subprocess, sys
+try:
+    from configparser import ConfigParser
+except ImportError:
+    from ConfigParser import ConfigParser
+
+
+SENTINEL2_SATELLITE_ID = int(1)
+LANDSAT8_SATELLITE_ID = int(2)
+UNKNOWN_SATELLITE_ID = None
+general_log_filename = "log.log"
+
+DEBUG = 1
+
+UUID_REGEX = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+
+###########################################################################
+
+
+class Config(object):
+
+    def __init__(self):
+        self.host = ""
+        self.port = ""
+        self.database = ""
+        self.user = ""
+        self.password = ""
+        self.orig_host = ""
+        
+    def loadConfig(self, configFile):
+        parser = ConfigParser()
+        parser.read([configFile])
+
+        self.host = parser.get("Database", "HostName")
+        self.orig_host = self.host
+
+        # work around Docker networking scheme
+        if self.host == "127.0.0.1" or self.host == "::1" or self.host == "localhost":
+            self.host = "172.17.0.1"
+
+        self.port = int(parser.get("Database", "Port", vars={"Port": "5432"}))
+        self.database = parser.get("Database", "DatabaseName")
+        self.user = parser.get("Database", "UserName")
+        self.password = parser.get("Database", "Password")
+        
+        return True
+
+###########################################################################
+
+
+class L2AInfo(object):
+
+    def __init__(self, server_ip, database_name, user, password, log_file=None):
+        self.server_ip = server_ip
+        self.database_name = database_name
+        self.user = user
+        self.password = password
+        self.is_connected = False
+        self.log_file = log_file
+        
+    def database_connect(self):
+        if self.is_connected:
+            return True
+        connectString = "dbname='{}' user='{}' host='{}' password='{}'".format(self.database_name, self.user, self.server_ip, self.password)
+        try:
+            self.conn = psycopg2.connect(connectString)
+            self.cursor = self.conn.cursor()
+            self.is_connected = True
+        except:
+            print("Unable to connect to the database")
+            exceptionType, exceptionValue, exceptionTraceback = sys.exc_info()
+            # Exit the script and print an error telling what happened.
+            print("Database connection failed!\n ->{}".format(exceptionValue))
+            self.is_connected = False
+            return False
+        return True
+
+    def database_disconnect(self):
+        if self.conn:
+            self.conn.close()
+            self.is_connected = False
+
+    def get_site_names(self):
+        if not self.database_connect():
+            return ""
+        try:
+            self.cursor.execute("select short_name from site")
+            rows = self.cursor.fetchall()
+        except:
+            print("Unable to execute select short_name from site")
+            self.database_disconnect()
+            return ""
+        self.database_disconnect()
+        return [item[0] for item in rows]
+
+    def create_site(self, name) :
+        if not self.database_connect():
+            return -1
+        try:
+            geog = "POLYGON((23.705476819901342 44.38221848137339,23.892244398026342 44.38221848137339,23.892244398026342 44.275139739801844,23.705476819901342 44.275139739801844,23.705476819901342 44.38221848137339))"
+            self.cursor.execute("""select * from sp_dashboard_add_site(%(name)s :: character varying,
+                           %(geog)s :: character varying,
+                           %(enabled)s :: boolean)""",
+                                {
+                                    "name": name,
+                                    "geog": geog,
+                                    "enabled": False
+                                })
+            row = self.cursor.fetchone()
+            self.conn.commit()
+            if row is None:
+                return -1
+            site_id = row[0]
+            return site_id
+                
+        except Exception as e:
+            print("Database update query failed: {}".format(e))
+            self.database_disconnect()
+            return -1
+        self.database_disconnect()
+        return -1
+        
+ 
+    def get_site_id(self, short_name):
+        if not self.database_connect():
+            return ""
+        try:
+            self.cursor.execute("select id from site where short_name='{}'".format(short_name))
+            rows = self.cursor.fetchall()
+            self.database_disconnect()
+            return rows[0][0]
+        except:
+            print("Unable to execute select id from site")
+            self.database_disconnect()
+            return ""
+
+    def get_site_short_name(self, site_id):
+        if not self.database_connect():
+            return ""
+        try:
+            self.cursor.execute("select short_name from site where id='{}'".format(site_id))
+            rows = self.cursor.fetchall()
+            self.database_disconnect()
+            return rows[0][0]
+        except:
+            print("Unable to execute select id from site")
+            self.database_disconnect()
+            return ""
+
+    def get_processor_names(self):
+        if not self.database_connect():
+            return ""
+        try:
+            self.cursor.execute("select short_name from processor")
+            rows = self.cursor.fetchall()
+            self.database_disconnect()
+            return [item[0] for item in rows]
+        except:
+            print("Unable to execute select short_name from processor")
+            self.database_disconnect()
+            return ""
+
+    def get_processor_id(self, short_name):
+        if not self.database_connect():
+            return ""
+        try:
+            self.cursor.execute("select id from processor where short_name='{}'".format(short_name))
+            rows = self.cursor.fetchall()
+            self.database_disconnect()
+            return rows[0][0]
+        except:
+            print("Unable to execute select id from processor")
+            self.database_disconnect()
+            return ""
+
+    def get_product_type_names(self):
+        if not self.database_connect():
+            return ""
+        try:
+            self.cursor.execute("select name from product_type")
+            rows = self.cursor.fetchall()
+            self.database_disconnect()
+            return [item[0] for item in rows]
+        except:
+            print("Unable to execute select name from product_type")
+            self.database_disconnect()
+            return ""
+
+    def get_product_type_id(self, short_name):
+        if not self.database_connect():
+            return ""
+        try:
+            self.cursor.execute("select id from product_type where name='{}'".format(short_name))
+            rows = self.cursor.fetchall()
+            self.database_disconnect()
+            return rows[0][0]
+        except:
+            print("Unable to execute select id from product_type")
+            self.database_disconnect()
+            return ""
+
+    def get_l2a_geog(self, name, site_id):
+        if not self.database_connect():
+            return ""
+        try:
+            self.cursor.execute("select geog from product where name='{}' and site_id = {}".format(name, site_id))
+            rows = self.cursor.fetchall()
+            self.database_disconnect()
+            count = (len(rows))
+            if count == 0 :
+                print("L2A product for site_id = {} and product name = {} does not exist in product table".format(site_id, name))
+                return ""
+            print("Extracted geography {} from product for site_id = {} and product name = {}".format(rows[0][0], site_id, name))
+            return rows[0][0]
+        except:
+            print("Unable to execute geog from product for site_id = {} and product name = {}".format(site_id, name))
+            self.database_disconnect()
+            return ""
+
+    def set_processed_product(self, processor_id, product_type_id, site_id, l2a_processed_tiles, full_path, product_name, footprint, sat_id, acquisition_date, orbit_id, mosaic_img):
+        # input params:
+        # product type by default is 1
+        # processor id
+        # site id
+        # job id has to be NULL
+        # full path is the whole path to the product including the name
+        # created timestamp NULL
+        # name product (basename from the full path)
+        # quicklook image has to be NULL
+        # footprint
+        if not self.database_connect():
+            return -1
+        try:
+            if len(l2a_processed_tiles) > 0:
+                # normally , sp_insert_product should upsert the record
+                self.cursor.execute("""select * from sp_insert_product(%(product_type_id)s :: smallint,
+                               %(processor_id)s :: smallint,
+                               %(satellite_id)s :: smallint,
+                               %(site_id)s :: smallint,
+                               %(job_id)s :: smallint,
+                               %(full_path)s :: character varying,
+                               %(created_timestamp)s :: timestamp,
+                               %(name)s :: character varying,
+                               %(quicklook_image)s :: character varying,
+                               %(footprint)s,
+                               %(orbit_id)s :: integer,
+                               %(tiles)s :: json)""",
+                                    {
+                                        "product_type_id": product_type_id,
+                                        "processor_id": processor_id,
+                                        "satellite_id": sat_id,
+                                        "site_id": site_id,
+                                        "job_id": None,
+                                        "full_path": full_path,
+                                        "created_timestamp": acquisition_date,
+                                        "name": product_name,
+                                        "quicklook_image": mosaic_img,
+                                        "footprint": footprint,
+                                        "orbit_id": orbit_id,
+                                        "tiles": '[' + ', '.join(['"' + t + '"' for t in l2a_processed_tiles]) + ']'
+                                    })
+                row = self.cursor.fetchone()
+                self.conn.commit()
+                if row is None:
+                    return -1
+                product_id = row[0]
+                return product_id
+                
+        except Exception as e:
+            print("Database update query failed: {}".format(e))
+            self.database_disconnect()
+            return -1
+        self.database_disconnect()
+        return -1
+
+def extract_uuid(path):
+    parts = path.split(os.sep)
+    for p in parts:
+        if UUID_REGEX.fullmatch(p):
+            uuid_dir = os.path.join(*(parts[:parts.index(p)+1]))
+            if os.path.isdir(uuid_dir):
+                return p
+    return None
+
+def GetExtent(gt, cols, rows):
+    ext = []
+    xarr = [0, cols]
+    yarr = [0, rows]
+
+    for px in xarr:
+        for py in yarr:
+            x = gt[0] + px * gt[1] + py * gt[2]
+            y = gt[3] + px * gt[4] + py * gt[5]
+            ext.append([x, y])
+        yarr.reverse()
+    return ext
+
+
+def ReprojectCoords(coords, src_srs, tgt_srs):
+    trans_coords = []
+    transform = osr.CoordinateTransformation(src_srs, tgt_srs)
+    for x, y in coords:
+        x, y, z = transform.TransformPoint(x, y)
+        trans_coords.append([x, y])
+    return trans_coords
+
+
+def get_footprint(image_filename):
+    dataset = gdal.Open(image_filename, gdal.gdalconst.GA_ReadOnly)
+
+    size_x = dataset.RasterXSize
+    size_y = dataset.RasterYSize
+
+    geo_transform = dataset.GetGeoTransform()
+
+    spacing_x = geo_transform[1]
+    spacing_y = geo_transform[5]
+
+    extent = GetExtent(geo_transform, size_x, size_y)
+
+    source_srs = osr.SpatialReference()
+    source_srs.ImportFromWkt(dataset.GetProjection())
+    epsg_code = source_srs.GetAttrValue("AUTHORITY", 1)
+    target_srs = osr.SpatialReference()
+    target_srs.ImportFromEPSG(4326)
+
+    wgs84_extent = ReprojectCoords(extent, source_srs, target_srs)
+    return wgs84_extent
+
+
+def get_envelope(footprints):
+    geomCol = ogr.Geometry(ogr.wkbGeometryCollection)
+
+    for footprint in footprints:
+        #ring = ogr.Geometry(ogr.wkbLinearRing)
+        for pt in footprint:
+            #ring.AddPoint(pt[0], pt[1])
+            point = ogr.Geometry(ogr.wkbPoint)
+            point.AddPoint_2D(pt[0], pt[1])
+            geomCol.AddGeometry(point)
+
+        #poly = ogr.Geometry(ogr.wkbPolygon)
+        # poly
+
+    hull = geomCol.ConvexHull()
+    return hull.ExportToWkt()
+
+
+def get_product_info(product_name):
+    acquisition_date = None
+    sat_id = UNKNOWN_SATELLITE_ID
+    if args.product_type == "l2a" or args.product_type == "l2a_msk" or args.product_type == "fmask":
+        if product_name.startswith("S2"):
+            m = re.match(r"\w+_V(\d{8}T\d{6})_\w+.SAFE", product_name)
+            if m is not None:
+                sat_id = SENTINEL2_SATELLITE_ID
+                acquisition_date = m.group(1)
+            else:
+                # Check if it is the new S2 L2A format
+                for prd_id in ["MSI.+", "L2AMSK", "FMASK"] :
+                    regex_str = r"S2[A-D]_" + prd_id + "_(\d{8}T\d{6})_\w+.SAFE"
+                    m = re.match(regex_str, product_name)
+                    if m is not None:
+                        sat_id = SENTINEL2_SATELLITE_ID
+                        acquisition_date = m.group(1)
+                        break
+        else:
+            m = re.match(r"LC8\d{6}(\d{7})[A-Z]{3}\d{2}", product_name)
+            if m is not None:
+                sat_id = LANDSAT8_SATELLITE_ID
+                acquisition_date = datetime.datetime.strptime("{} {}".format(m.group(1)[0:4], m.group(1)[4:]), '%Y %j').strftime("%Y%m%dT%H%M%S")
+                print("Acquisition date: {}".format(acquisition_date))
+            else:
+                print(product_name)
+                for prd_id in ["L2A", "L2AMSK", "FMASK"] :
+                    regex_str = r"LC08_" + prd_id + "_\d{6}_(\d{8})_\d{8}_\d{2}_(?:T1|T2|RT)"
+                    m = re.match(regex_str, product_name)
+                    if m is not None:
+                        sat_id = LANDSAT8_SATELLITE_ID
+                        acquisition_date = datetime.datetime.strptime(m.group(1), '%Y%m%d').strftime("%Y%m%dT%H%M%S")
+                        print("Acquisition date: {}".format(acquisition_date))
+    else:
+        m = re.match(r"\w+(_A|_V)(\w+)", product_name)
+        if m != None:
+            acquisition_date = m.group(2)
+            original_words = acquisition_date.split('_')
+            words = [word for word in original_words if "NOTV" not in word]
+            if len(words) == 1:
+                acquisition_date = words[0]
+            else:
+                if len(words) == 2:
+                    acquisition_date = words[1]
+                else:
+                    acquisition_date = ""
+            if (acquisition_date != ""):
+                if (not "T" in acquisition_date):
+                    acquisition_date = acquisition_date + "T000000"
+    
+    return (sat_id, acquisition_date)
+
+
+def get_product_orbit_id(product_name):
+    print("Product name is: {}".format(product_name))
+    orbit_id = re.search(r"_R(\d{3})_", product_name)
+    if orbit_id == None:
+        print("OrbitId cannot be extracted from product name {}".format(product_name))
+        return 0
+    print("OrbitId is: {}".format(int(orbit_id.group(1))))
+    return int(orbit_id.group(1))
+
+
+def insert_product(site_id, processor_id, product_type_id, product_dir):
+    l2a_processed_tiles = []
+    wkt = []
+    sat_id = 0
+    acquisition_date = ""
+    mosaic_img = "mosaic.jpg"
+
+    if not product_dir.endswith(os.path.sep):
+        product_dir += os.path.sep
+    print("Output path: {}".format(product_dir))
+
+    product_name = os.path.basename(product_dir[:len(product_dir) - 1]) if product_dir.endswith("/") else os.path.basename(product_dir)
+    print("Product dir is: {}".format(product_name))
+    wgs84_extent_list = []
+    if args.product_type == "l2a" or args.product_type == "l2a_msk" or args.product_type == "fmask":
+        if product_name.startswith("S2"):
+            satellite_id = SENTINEL2_SATELLITE_ID
+        else:
+            satellite_id = LANDSAT8_SATELLITE_ID
+        tiles_dir_list = (glob.glob("{}*.DBL.DIR".format(product_dir)))
+        tile_img = []
+        if len(tiles_dir_list) > 0 :
+            print("Creating common footprint for tiles: DBL.DIR List: {}".format(tiles_dir_list))
+            for tile_dir in tiles_dir_list:
+                if satellite_id == SENTINEL2_SATELLITE_ID:
+                    tile_img = (glob.glob("{}/*_FRE_R1.DBL.TIF".format(tile_dir)))
+                else:  # satellite_id is LANDSAT8_SATELLITE_ID:
+                    tile_img = (glob.glob("{}/*_FRE.DBL.TIF".format(tile_dir)))
+        else :
+            # Check for MAJA format
+            tiles_dir_list = (glob.glob("{}SENTINEL2*".format(product_dir)))
+            if len(tiles_dir_list) > 0 :
+                print("Creating common footprint for tiles: DBL.DIR List: {}".format(tiles_dir_list))
+                for tile_dir in tiles_dir_list:
+                    if satellite_id == SENTINEL2_SATELLITE_ID:
+                        tile_img = (glob.glob("{}/*_FRE_B2.tif".format(tile_dir)))
+            else :
+                # Check for Sen2Cor format
+                tiles_dir_list = (glob.glob("{}GRANULE/L2A_T*".format(product_dir)))
+                if len(tiles_dir_list) > 0 :
+                    print("Creating common footprint for tiles: {}".format(tiles_dir_list))
+                    for tile_dir in tiles_dir_list:
+                        if satellite_id == SENTINEL2_SATELLITE_ID:
+                            tile_img = (glob.glob("{}/IMG_DATA/R10m/T*_B08_10m.jp2".format(tile_dir)))
+                else :
+                    # check for fmask or L2A_MSK format
+                    tiles_dir_list = [product_dir]
+                    if satellite_id == SENTINEL2_SATELLITE_ID:
+                        tile_img = (glob.glob("{}/*Fmask4_10m.tif".format(product_dir)))
+                    else :
+                        if satellite_id == LANDSAT8_SATELLITE_ID:
+                            tile_img = (glob.glob("{}/*Fmask4_30m.tif".format(product_dir)))
+                        
+                    
+        if len(tile_img) > 0:
+            wgs84_extent_list.append(get_footprint(tile_img[0]))
+    else:
+        if product_name.startswith("S2AGRI_"):
+            mosaic_files_list = (glob.glob("{}*_PVI_*.jpg".format(product_dir)))
+            if len(mosaic_files_list) > 0:
+                mosaic_img = os.path.basename(mosaic_files_list[0])
+                print ("mosaic image is {}".format(mosaic_img))
+
+            tiles_dir_list = (glob.glob("{}TILES/S2AGRI_*".format(product_dir)))
+            print("Creating common footprint for tiles: {}".format(tiles_dir_list))
+            for tile_dir in tiles_dir_list:
+                tile_img = (glob.glob("{}/IMG_DATA/S2AGRI_*.TIF".format(tile_dir)))
+                if len(tile_img) > 0:
+                    wgs84_extent_list.append(get_footprint(tile_img[0]))
+
+    wkt = get_envelope(wgs84_extent_list)
+
+    orbit_id = 0
+    if len(wkt) == 0:
+        print("Could not create the footprint")
+    else:
+        sat_id, acquisition_date = get_product_info(product_name)
+        if args.product_type == "l2a" or args.product_type == "l2a_msk" or args.product_type == "fmask":
+            if satellite_id == SENTINEL2_SATELLITE_ID:
+                orbit_id = get_product_orbit_id(product_name)
+        if args.product_type == "l2a" or args.product_type == "l2a_msk" or args.product_type == "fmask":
+            if sat_id > 0 and acquisition_date != None:
+                # check for MACCS tiles output. If none was processed, only the record from
+                # product table will be updated. No l2a product will be added into product table
+                for tile_dbl_dir in tiles_dir_list:
+                    tile = None
+                    print("tile_dbl_dir {}".format(tile_dbl_dir))
+                    if satellite_id == SENTINEL2_SATELLITE_ID:
+                        tile = re.search(r"_L2VALD_(\d\d[a-zA-Z]{3})____[\w\.]+$", tile_dbl_dir)
+                        if tile is None:
+                            # Check for MAJA format
+                            tile = re.search(r"_L2A_T(\d\d[a-zA-Z]{3})_.+$", tile_dbl_dir)
+                        if tile is None:
+                            # Check for Sen2Cor format
+                            tile = re.search(r"L2A_T(\d\d[a-zA-Z]{3})_.+$", tile_dbl_dir)
+                        if tile is None:
+                            # Check for FMask format
+                            tile = re.search(r"S2[A-D]_MSIFMASK_\d{8}T\d{6}_N\d+_R\d+_T(\d{2}\w{3})_\d{8}T\d{6}(?:.SAFE)?", tile_dbl_dir)
+                    else:
+                        tile = re.search(r"_L2VALD_([\d]{6})_[\w\.]+$", tile_dbl_dir)
+                    if tile is not None and not tile.group(1) in l2a_processed_tiles:
+                        l2a_processed_tiles.append(tile.group(1))
+                print("Processed tiles: {}  to path: {}".format(l2a_processed_tiles, product_dir))
+            else:
+                print("Could not get the acquisition date from the product name {}".format(product_dir))
+        else:
+            for tile_dbl_dir in tiles_dir_list:
+                tile = re.search("\w+_T(\w+)", tile_dbl_dir)
+                if tile is not None and not tile.group(1) in l2a_processed_tiles:
+                    l2a_processed_tiles.append(tile.group(1))
+
+    if len(l2a_processed_tiles) > 0:
+        print("Insert info in product table and set state as processed in product table for product {}".format(product_dir))
+    else:
+        print("Only set the state as processed in product (no l2a tiles found after maccs) for product {}".format(product_dir))
+
+    return l2a_db.set_processed_product(processor_id, product_type_id, site_id, l2a_processed_tiles, product_dir, os.path.basename(product_dir[:len(product_dir) - 1]), wkt, sat_id, acquisition_date, orbit_id, mosaic_img)
+
+def handle_product_folders(site_name, source_dir, dest_root_dir):
+    site_short_name = site_name
+    site_id = l2a_db.get_site_id(site_short_name)
+    if(site_id == ''):
+        print("Site with name {} does not exist. Creating a new one.".format(site_short_name))    
+        site_id = l2a_db.create_site(site_short_name)
+        site_short_name = l2a_db.get_site_short_name(site_id)
+
+    processor_id = l2a_db.get_processor_id(args.processor_name)
+    product_type_id = l2a_db.get_product_type_id(args.product_type)
+
+    # Create the destination directory if it doesn't exist
+    if dest_root_dir :
+        dest_root_dir = os.path.join(dest_root_dir, site_short_name)
+        dest_root_dir = os.path.join(dest_root_dir, args.product_type)
+        print("Destination root is : {}".format(dest_root_dir))
+        if not os.path.exists(dest_root_dir):
+            os.makedirs(dest_root_dir, exist_ok=True)
+            print("Created destination directory: {}".format(dest_root_dir))
+
+    # The glob pattern matches the structure of the folder names.
+    # It looks for items starting with 'S2AGRI_L3B_PRD_S0_' followed by any characters.
+    search_pattern = os.path.join(source_dir, 'S2AGRI_*')
+    
+    # Iterate over all items matching the pattern
+    for folder_path in glob.glob(search_pattern):
+        # Check if the matched item is actually a directory
+        if os.path.isdir(folder_path):
+            folder_name = os.path.basename(folder_path)
+            dest_path = folder_path
+            if dest_root_dir:
+                dest_path = os.path.join(dest_root_dir, folder_name)
+
+                try:
+                    # Copy the entire directory (recursive copy)
+                    print("Copying {} to {}...".format(folder_name, dest_root_dir))
+                    shutil.copytree(folder_path, dest_path)
+                    print("Successfully copied {}".format(folder_name))
+                except shutil.Error as e:
+                    print("Error copying directory {} - {}".format (folder_name, e))
+                except OSError as e:
+                    print("OS error during copy of {}:{}".format(folder_name, e))
+
+            root_dir = os.path.abspath(dest_path)
+            if not root_dir.endswith(os.path.sep):
+                root_dir += os.path.sep
+
+            print("Inserting single product: {}".format(root_dir))
+            product_id = insert_product(site_id, processor_id, product_type_id, root_dir)
+            result = subprocess.run(
+                ["stac-ingest-products.py", "--dsn", "dbname={} user={} password={} host={} port={}".format(config.database, config.user, config.password, config.host, config.port), 
+                    "--stac-url", "http://" + config.host + ":8082", "--product-type-id", str(product_type_id), "--product-id", str(product_id)],
+                capture_output=True,
+                text=True
+            )
+            stac_items = result.stdout
+            stac_items = stac_items.replace(config.host, config.orig_host)
+            
+            with open(args.output_stack_entries_file, "w") as output_stack_entries_file:
+                output_stack_entries_file.write(stac_items)
+            
+            print("stac-ingest-products.py Return code:", result.returncode)
+            print("stac-ingest-products.py STDOUT:")
+            print(result.stdout)
+            print("stac-ingest-products.py STDERR:")
+            print(result.stderr)
+            print("stac items : ");
+            print(stac_items)
+            
+            
+parser = argparse.ArgumentParser(
+    description="Script for inserting products into the database")
+parser.add_argument('-d', '--dir', help="The directory of the product")
+parser.add_argument('-o', '--output-dir', help="The target directory where the product is copied", default="", required=False)
+parser.add_argument('-e', '--output-stack-entries-file', help="Output file containing the STAC entries created")
+parser.add_argument('-c', '--config', default="/mnt/tao/cfg/sen4cap/sen2agri.conf", help="configuration file")
+parser.add_argument('-p', '--processor_name', help="The processor short name of the product")
+parser.add_argument('-t', '--product_type', help="The product type")
+parser.add_argument('-s', '--site_name', help="The site name for the product", default="", required=False)
+
+args = parser.parse_args()
+
+config = Config()
+if not config.loadConfig(args.config):
+    print("Could not load the config from configuration file")
+    sys.exit(-1)
+
+l2a_db = L2AInfo(config.host, config.database, config.user, config.password)
+
+if (not args.dir):
+    sys.exit("Please provide the product directory using -d or --dir")
+if (not args.processor_name):
+    sys.exit("Please provide the processor name using -p or --processor_name. Available options: {}".format(l2a_db.get_processor_names()))
+if (not args.product_type):
+    sys.exit("Please provide the product type using -t or --product_type. Available options: {}".format(l2a_db.get_product_type_names()))
+if (not args.site_name):
+    print("Site name not provided, trying to extract it from the path ...")
+    site_name = extract_uuid(args.dir)
+    if site_name :
+        # change the folder name as site_short_name specs
+        site_name = site_name.lower()
+        site_name = site_name.replace('-', '_')
+        print("Determined site name from input directory as {}!".format(site_name))
+    else:    
+        sys.exit("Could not extract the site name from the input dir using -s or --site_name. Available options: {}".format(l2a_db.get_site_names()))
+
+handle_product_folders(site_name, args.dir, args.output_dir)
+
