@@ -1,0 +1,12 @@
+FROM sen4cap/processors:3.2.0
+
+LABEL name='processors' \
+    maintainer='Laurentiu Nicola <laurentiu.nicola@c-s.ro>'
+
+COPY sen2agri-processors-*.rpm /
+RUN yum -y install /sen2agri-*.rpm && \
+    rm /sen2agri-*.rpm && \
+    ldconfig
+COPY extract_mdb3_markers.py /usr/bin/
+
+

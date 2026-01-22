@@ -1,0 +1,1 @@
+/home/cudroiu/sen2agri/scripts/import-product-details.py

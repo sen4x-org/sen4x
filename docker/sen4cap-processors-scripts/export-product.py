@@ -1,0 +1,1 @@
+/home/cudroiu/sen2agri/scripts/export-product.py
