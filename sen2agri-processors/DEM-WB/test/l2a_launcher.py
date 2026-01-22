@@ -818,8 +818,8 @@ class Tile(object):
             return False, rejection_reason
 
         if (self.path is None) or (not os.path.exists(self.path)):
-            rejection_reason = "Aborting processing for product {} because the input path does not exist".format(
-                self.downloader_history_id
+            rejection_reason = "Aborting processing for product {} because the input path {} does not exist".format(
+                self.downloader_history_id, self.path
             )
             log.error(rejection_reason, print_msg=True)
             return False, rejection_reason

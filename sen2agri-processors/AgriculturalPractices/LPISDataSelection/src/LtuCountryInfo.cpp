@@ -118,6 +118,9 @@ std::string LtuCountryInfo::GetPEnd(const AttributeEntry &ogrFeat) {
             if (itMap != m_ccISPracticeDatesFilterMap.end()) {
                 return itMap->second.pEnd;
             }
+            if (m_pWinterEnd != "" && m_pend != m_pWinterEnd) {
+                return m_pWinterEnd;
+            }
         }
         if (m_ccSPMap.find(uid) != m_ccSPMap.end()) {
             std::map<std::string, CCPracticeDatesInfos>::const_iterator itMap = m_ccSPPracticeDatesFilterMap.find(uid);
@@ -259,13 +262,13 @@ bool LtuCountryInfo::HasUid(const std::string &fid, const std::map<std::string, 
 
 std::string LtuCountryInfo::GetGSAAUniqueId(const AttributeEntry &ogrFeat)    {
     std::string gsaaId;
-    if (m_OrigIdFieldIdx >= 0) {
-        gsaaId = ogrFeat.GetFieldAsString(m_OrigIdFieldIdx);
-    } else {
+//    if (m_OrigIdFieldIdx >= 0) {
+//        gsaaId = ogrFeat.GetFieldAsString(m_OrigIdFieldIdx);
+//    } else {
         gsaaId = std::to_string(ogrFeat.GetFieldAsInteger(m_VALDOS_NR_FieldIdx)) + "-" +
                 ogrFeat.GetFieldAsString(m_KZS_NR_FieldIdx) + "-" +
                 ogrFeat.GetFieldAsString(m_LAUKO_NR_FieldIdx);
-    }
+//    }
 
     return gsaaId;
 }

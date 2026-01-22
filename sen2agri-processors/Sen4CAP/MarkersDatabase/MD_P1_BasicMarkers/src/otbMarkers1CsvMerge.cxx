@@ -279,35 +279,40 @@ private:
         // create the buffers but will be empty
         std::vector<FileInfo> fileInfos;
         for (const std::string &filePath: files) {
-            // first iterate all files and extract the header line
-            uintmax_t newOffset;
-            const std::vector<std::string> &lines = GetLinesInFile(filePath, 2, 0, newOffset);
-            // check if we have also at least 2 lines, one for header and at least one for data
-            if (lines.size() < 2) {
-                continue;
-            }
-            const std::vector<std::string> &colItems = ExtractColumnNames(lines[0]);
-            if (colItems.size() == 0) {
-                continue;
-            }
-            // ignore files where the first line after header do not have the same size with the header
-            // We avoid in this way eventual columns in the output that will have no data
-            const std::vector<std::string> &dataItems = split(lines[1], m_CsvSeparator);
-            // In the columns extracted we do not consider the NewID column so we need to subtract 1
-            if (colItems.size() != dataItems.size() - 1) {
-                continue;
-            }
-            // skip the header for the future by computing offset after the header otherwise we loose the first line of data
-            GetLinesInFile(filePath, 1, 0, newOffset);
+            try {
+                // first iterate all files and extract the header line
+                uintmax_t newOffset;
+                const std::vector<std::string> &lines = GetLinesInFile(filePath, 2, 0, newOffset);
+                // check if we have also at least 2 lines, one for header and at least one for data
+                if (lines.size() < 2) {
+                    continue;
+                }
+                const std::vector<std::string> &colItems = ExtractColumnNames(lines[0]);
+                if (colItems.size() == 0) {
+                    continue;
+                }
+                // ignore files where the first line after header do not have the same size with the header
+                // We avoid in this way eventual columns in the output that will have no data
+                const std::vector<std::string> &dataItems = split(lines[1], m_CsvSeparator);
+                // In the columns extracted we do not consider the NewID column so we need to subtract 1
+                if (colItems.size() != dataItems.size() - 1) {
+                    continue;
+                }
+                // skip the header for the future by computing offset after the header otherwise we loose the first line of data
+                GetLinesInFile(filePath, 1, 0, newOffset);
 
-            // create the file info and initialize the buffers
-            FileInfo fileInfo;
-            fileInfo.fileName = filePath;
-            fileInfo.columns = colItems;
-            fileInfo.curPosInFile = newOffset;
-            fileInfo.bIgnore = false;
-            fileInfo.csvSep = m_CsvSeparator;
-            fileInfos.push_back(fileInfo);
+                // create the file info and initialize the buffers
+                FileInfo fileInfo;
+                fileInfo.fileName = filePath;
+                fileInfo.columns = colItems;
+                fileInfo.curPosInFile = newOffset;
+                fileInfo.bIgnore = false;
+                fileInfo.csvSep = m_CsvSeparator;
+                fileInfos.push_back(fileInfo);
+            } catch (const boost::bad_lexical_cast& e) {
+                std::cerr << "Bad cast\n";
+                throw;
+            }
         }
         return fileInfos;
     }
@@ -325,6 +330,7 @@ private:
                 time_t ttTime = GetDateFromColumnName(colName);
                 if (ttTime == 0) {
                     // ignore the column
+                    std::cerr << "Ignoring the column " + colName + " as it does not have a date on first position but the ignoredatecol is set!\n";
                     continue;
                 }
             }
@@ -336,7 +342,11 @@ private:
     time_t GetDateFromColumnName(const std::string &colName) {
         const std::vector<std::string> &items = split(colName, '_');
         if (DATE_IDX_IN_COL < items.size()) {
-            return to_time_t(boost::gregorian::from_undelimited_string(items[DATE_IDX_IN_COL]));
+            try {
+                return to_time_t(boost::gregorian::from_undelimited_string(items[DATE_IDX_IN_COL]));
+            } catch (const boost::bad_lexical_cast& e) {
+                std::cerr << "The column " + colName + " does not have a date on first position. Using it as it is ...";
+            }
         }
         return 0;
     }
