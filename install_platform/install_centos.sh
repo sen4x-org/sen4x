@@ -38,7 +38,7 @@ source ./common_functions.sh
 : ${SLURM_CONF_PATH:="/etc/slurm"}
 : ${SLURM_CLUSTER_NAME:="sen2agri"}
 : ${SLURM_MACHINE_NOCPUS:=$(cat /proc/cpuinfo | grep processor | wc -l)}
-: ${SRC_SLURM_CONFIG:="slurm_rocky.conf"}
+: ${SRC_SLURM_CONFIG:="slurm.conf"}
 : ${SLURM_CONFIG:="slurm.conf"}
 : ${SLURM_CONFIG_DB:="slurmdbd.conf"}
 
@@ -52,11 +52,10 @@ HTTP_LISTENER_SERVICE_IDENTIFIER="sen2agri-http-listener"
 MONITOR_AGENT_SERVICE_IDENTIFIER="sen2agri-monitor-agent"
 
 JAVA_VER=21
-INSTALL_JAVA_FROM_ORACLE="0"
 
 #----------------SLURM MYSQL DATABASE CREATION---------------------------------------------#
-MYSQL_DB_CREATION="create database slurm_acct_db;create user slurm;
-set password for slurm = password('sen2agri');"
+MYSQL_DB_CREATION="create database slurm_acct_db;create user slurm@localhost;
+set password for slurm@localhost = password('sen2agri');"
 MYSQL_DB_ACCESS_GRANT="grant usage on *.* to slurm;grant all privileges on slurm_acct_db.* to slurm;flush privileges;"
 MYSQL_CMD=${MYSQL_DB_CREATION}${MYSQL_DB_ACCESS_GRANT}
 #------------------------------------------------------------------------------------------#
@@ -85,7 +84,7 @@ function parse_and_update_slurm_conf_file()
 function create_slurm_data_base()
 {
    ##install expect
-   dnf -y install expect
+   yum -y install expect expectk
 
    ##install mysql (mariadb)
    yum -y install mariadb-server mariadb
@@ -198,10 +197,10 @@ function config_and_start_slurm_service()
    echo "SLURM NODE SERVICE: $(systemctl status slurmd | grep "Active")"
 
    ##start slurm service (slurm)
-   # systemctl start slurm
+   systemctl start slurm
 
    ##enable slurm service to start at boot
-   # systemctl enable slurm
+   systemctl enable slurm
 
    ##get status of slurm service service
    echo "SLURM SERVICE: $(systemctl status slurm | grep "Active")"
@@ -290,14 +289,14 @@ function create_and_config_slurm_qos()
 function config_docker()
 {
     docker pull osgeo/gdal:ubuntu-full-3.4.1
-    docker pull sen4x/fmask_extractor:0.1.6
-    docker pull sen4x/fmask:4.7-ubuntu-24.04
+    docker pull sen4x/fmask_extractor:0.1.2
+    docker pull sen4x/fmask:4.4-ubuntu-20.04
 
-    docker pull sen4x/sen4cap-processors:5.0.4
-    docker pull sen4x/sen4cap-processors-scripts:5.0.1
+    docker pull sen4x/sen4cap-processors:5.0.0
+    docker pull sen4x/sen4cap-processors-scripts:5.0.0
     docker pull sen4x/processors-new:0.1.0
-    # docker pull sen4x/era5-weather:0.0.4
-    # docker pull sen4x/sen4stat-processors:4.0.0
+    # docker pull sen4x/era5-weather:0.0.3
+    # docker pull sen4x/sen4stat-processors:3.0.0
     docker pull sen4cap/data-preparation:0.1
     docker pull sen4cap/data-preparation:0.2
     docker pull sen4cap/data-preparation:0.3
@@ -314,10 +313,10 @@ function config_docker()
     docker run --rm -u $(id -u $SYS_ACC_NAME):$(id -g $SYS_ACC_NAME) -v /etc/sen2agri/${SERVICES_CONFIGURATION_NAME}.conf:/etc/sen2agri/sen2agri.conf -v /var/lib/t-rex:/var/lib/t-rex sen4cap/data-preparation:0.2 t-rex-genconfig.py --stub /var/lib/t-rex/t-rex.toml
 
     cd docker
-    docker compose up -d
+    docker-compose up -d
 
     RETRIES=120
-    until docker compose exec db pg_isready || [ $RETRIES -eq 0 ]; do
+    until docker-compose exec db pg_isready || [ $RETRIES -eq 0 ]; do
         echo "Waiting for postgres, $RETRIES remaining attempts..."
         RETRIES=$((RETRIES-1))
         sleep 1
@@ -327,7 +326,7 @@ function config_docker()
     sleep 120
 
     RETRIES=120
-    until docker compose exec db pg_isready || [ $RETRIES -eq 0 ]; do
+    until docker-compose exec db pg_isready || [ $RETRIES -eq 0 ]; do
         echo "Waiting for postgres, $RETRIES remaining attempts..."
         RETRIES=$((RETRIES-1))
         sleep 1
@@ -459,8 +458,7 @@ function install_RPMs()
    ##########################################################
 
    ##install a couple of packages
-   dnf -y install gdal39-python3
-   yum -y install python3-psycopg2 python-dateutil gd
+   yum -y install gdal-python python2-psycopg2 python-dateutil gd
 
    ##install Orfeo ToolBox
    yum -y install ../rpm_binaries/otb-*.rpm
@@ -650,17 +648,6 @@ function updateInstalledConfigurationParams()
         psql -U admin ${CONFIGURATION_DB_NAME} -c "update config set value = '${EXECUTOR_LISTEN_PORT}' where key = 'executor.listen-port'"
         psql -U admin ${CONFIGURATION_DB_NAME} -c "update config set value = '${HTTP_LISTENER_PORT}' where key = 'http-listener.listen-port'"
     fi
-    
-    if [ -d "/eodata" ] ; then 
-        res_init=(`psql -U admin ${CONFIGURATION_DB_NAME} -tAq -c "select value from config where key = 'general.orchestrator.docker_add_mounts'"`);
-        if [ -z "${res_init}" ]; then
-            echo "Updating config key 'general.orchestrator.docker_add_mounts' with value = '/eodata:/eodata' ... "
-            psql -U admin ${CONFIGURATION_DB_NAME} -c "update config set value = '/eodata:/eodata' where key = 'general.orchestrator.docker_add_mounts';"   
-        else
-            echo "Updating config key 'general.orchestrator.docker_add_mounts' by adding '/eodata:/eodata' to value ..."
-            psql -U admin ${CONFIGURATION_DB_NAME} -c "update config set value = '${res_init},/eodata:/eodata' where key = 'general.orchestrator.docker_add_mounts';" 
-        fi
-    fi
 }
 
 function update_website()
@@ -730,13 +717,9 @@ function install_java()
     if [[ "$install_java" == "1" ]] ; then
         echo "Installing java ${JAVA_VER}"
         # installing java
-        if [ "${INSTALL_JAVA_FROM_ORACLE}" == "0" ] ; then 
-            dnf install -y java-${JAVA_VER}-openjdk
-        else 
-            wget https://download.oracle.com/java/${JAVA_VER}/latest/jdk-${JAVA_VER}_linux-x64_bin.rpm -P /tmp/
-            rpm -ivh /tmp/jdk-${JAVA_VER}_linux-x64_bin.rpm
-            rm -f /tmp/jdk-${JAVA_VER}_linux-x64_bin.rpm
-        fi
+        wget https://download.oracle.com/java/${JAVA_VER}/latest/jdk-${JAVA_VER}_linux-x64_bin.rpm -P /tmp/
+        rpm -ivh /tmp/jdk-${JAVA_VER}_linux-x64_bin.rpm
+        rm -f /tmp/jdk-${JAVA_VER}_linux-x64_bin.rpm
     fi
 }
 
@@ -843,12 +826,10 @@ disable_firewall
 
 ##install EPEL for dependencies, PGDG for the Postgres client libraries and
 yum -y install epel-release https://download.postgresql.org/pub/repos/yum/reporpms/EL-9-x86_64/pgdg-redhat-repo-latest.noarch.rpm yum-utils
-crb enable
-dnf config-manager --set-enabled crb
 dnf config-manager --disable pgdg12 pgdg13 pgdg14 pgdg15
 yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
 yum -y update epel-release pgdg-redhat-repo
-dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin unzip gdal jq wget 
+yum -y install docker-ce docker-ce-cli containerd.io docker-compose jq wget
 
 systemctl enable docker
 systemctl restart docker

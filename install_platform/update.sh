@@ -2,8 +2,10 @@
 
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 
-MAJA_VER="4.5.4"
-JAVA_VER=22
+MAJA_VER="4.10.0"
+MAJA_DOCKER_IMAGE_VER="4.8.1-rocky-8"
+
+JAVA_VER=21
 
 source ${SCRIPTPATH}/common_functions.sh
 
@@ -265,21 +267,11 @@ function setup_containers() {
     docker pull sen4x/fmask_extractor:0.1.2
     docker pull sen4x/fmask:4.4-ubuntu-20.04
 
-    # TODO : Remove this when the image is published
-    docker load < docker/images/sen4cap_data_preparation_2_0.tar.gz
-    docker load < docker/images/sen4cap_processors_3.3.0.tar.gz
-    docker pull sen4cap/processors:3.3.0
-
-    docker load < docker/images/sen4cap_processors_scripts_3.3.0.tar.gz
-    docker pull sen4cap/processors-scripts:3.3.0
-
-    docker load < docker/images/sen4x_processors_new_0.1.0.tar.gz
+    docker pull sen4x/sen4cap-processors:5.0.0
+    docker pull sen4x/sen4cap-processors-scripts:5.0.0
     docker pull sen4x/processors-new:0.1.0
-
-    docker load < docker/images/sen4x_era5_0.0.1.tar.gz
-    docker pull sen4x/era5-weather:0.0.1
-    docker load < docker/images/sen4stat_processors_1.0.0.tar.gz
-    docker pull sen4stat/processors:1.0.0
+    # docker pull sen4x/era5-weather:0.0.3
+    # docker pull sen4x/sen4stat-processors:3.0.0
     docker pull sen4cap/data-preparation:0.1
     docker pull sen4cap/data-preparation:0.2
     docker pull sen4cap/data-preparation:0.3
@@ -287,7 +279,7 @@ function setup_containers() {
     
     docker pull sen4x/l2a-processors:0.2.3
     docker pull sen4x/sen2cor:2.10.01-ubuntu-20.04
-    docker pull sen4x/maja:${MAJA_VER}-centos-7
+    docker pull sen4x/maja:${MAJA_DOCKER_IMAGE_VER}
     docker pull sen4x/l2a-l8-alignment:0.1.2
     docker pull sen4x/l2a-dem:0.1.3
 

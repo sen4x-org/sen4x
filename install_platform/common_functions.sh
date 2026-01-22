@@ -6,14 +6,15 @@
 
 : ${SLURM_QOS_LIST:="qosMaccs,qosComposite,qosCropMask,qosCropType,qosPheno,qosLai,qoss4cmdb1,qoss4cl4a,qoss4cl4b,qoss4cl4c,qosfmask,qosvaliditymsk,qostrex,qosl3gencomp,qoss1comp,qoss4spermcrops,qoss4syield,qoss4scropmap,qoszarr,qoss4cheterog,qoss4cbaresoil,qoss4cchangedet"}
 
-MAJA_VER="4.5.4"
+MAJA_VER="4.10.0"
+MAJA_DOCKER_IMAGE_VER="4.8.1-rocky-8"
 
 ALL_CFG_VALUES=""
 
 SERVICES_ARCHIVE=""
 CONFIGURATION_NAME=""
 PROJECT_NAME=""
-SERVICES_CONFIGURATION_NAME="sen2agri"
+SERVICES_CONFIGURATION_NAME="sen4cap"
 CONFIGURATION_PROFILES=""
 CONFIGURATION_DB_NAME=""
 USE_SNAP="1"
@@ -24,6 +25,12 @@ DISABLED_PRODUCT_TYPE=()
 USER_NAME=""
 USER_PASS=""
 USE_SEN2AGRI_IN_SERVICE_NAMES="0"
+
+SERVICES_PORT="8080"
+ORCHESTRATOR_HTTP_LISTEN_PORT="8082"
+EXECUTOR_HTTP_LISTEN_PORT="8083"
+EXECUTOR_LISTEN_PORT="8084"
+HTTP_LISTENER_PORT="7777"
 
 #------------------------------------------------------------------------------------------#
 function join_by { local IFS="$1"; shift; echo "$*"; }
@@ -94,6 +101,21 @@ function load_configuration()
         fi
         if [[ $element == "[GENERAL]PROJECT_NAME"* ]] ; then
             PROJECT_NAME="$(cut -d "=" -f2 <<< "$element")"
+        fi
+        if [[ $element == "[GENERAL]SERVICES_PORT"* ]] ; then
+            SERVICES_PORT="$(cut -d "=" -f2 <<< "$element")"
+        fi
+        if [[ $element == "[GENERAL]HTTP_LISTENER_PORT"* ]] ; then
+            HTTP_LISTENER_PORT="$(cut -d "=" -f2 <<< "$element")"
+        fi
+        if [[ $element == "[GENERAL]ORCHESTRATOR_HTTP_LISTEN_PORT"* ]] ; then
+            ORCHESTRATOR_HTTP_LISTEN_PORT="$(cut -d "=" -f2 <<< "$element")"
+        fi
+        if [[ $element == "[GENERAL]EXECUTOR_HTTP_LISTEN_PORT"* ]] ; then
+            EXECUTOR_HTTP_LISTEN_PORT="$(cut -d "=" -f2 <<< "$element")"
+        fi
+        if [[ $element == "[GENERAL]EXECUTOR_LISTEN_PORT"* ]] ; then
+            EXECUTOR_LISTEN_PORT="$(cut -d "=" -f2 <<< "$element")"
         fi
         
     done
@@ -197,6 +219,22 @@ function load_configuration()
             PROJECT_NAME="$(cut -d "=" -f2 <<< "$element")"
         fi
         
+        if [[ $element == "[${ACTIVE_CONFIGURATION}]SERVICES_PORT"* ]] ; then
+            SERVICES_PORT="$(cut -d "=" -f2 <<< "$element")"
+        fi
+        if [[ $element == "[${ACTIVE_CONFIGURATION}]HTTP_LISTENER_PORT"* ]] ; then
+            HTTP_LISTENER_PORT="$(cut -d "=" -f2 <<< "$element")"
+        fi
+        if [[ $element == "[${ACTIVE_CONFIGURATION}]ORCHESTRATOR_HTTP_LISTEN_PORT"* ]] ; then
+            ORCHESTRATOR_HTTP_LISTEN_PORT="$(cut -d "=" -f2 <<< "$element")"
+        fi
+        if [[ $element == "[${ACTIVE_CONFIGURATION}]EXECUTOR_HTTP_LISTEN_PORT"* ]] ; then
+            EXECUTOR_HTTP_LISTEN_PORT="$(cut -d "=" -f2 <<< "$element")"
+        fi
+        if [[ $element == "[${ACTIVE_CONFIGURATION}]EXECUTOR_LISTEN_PORT"* ]] ; then
+            EXECUTOR_LISTEN_PORT="$(cut -d "=" -f2 <<< "$element")"
+        fi
+        
     done    
     
     # Check services archive name was defined
@@ -242,16 +280,18 @@ function load_configuration()
     if [ "${CONFIGURATION_NAME}" != "sen2agri" ] ; then 
         if [ "${USE_SEN2AGRI_IN_SERVICE_NAMES}" == "0" ] ; then
             SERVICES_CONFIGURATION_NAME="${CONFIGURATION_NAME}"
-            SERVICES_IDENTIFIER="${SERVICES_CONFIGURATION_NAME}-services"
-            EXECUTOR_SERVICE_IDENTIFIER="${SERVICES_CONFIGURATION_NAME}-executor"
-            EXECUTOR_TIMER_IDENTIFIER="${SERVICES_CONFIGURATION_NAME}-executor.timer"
-            ORCHESTRATOR_SERVICE_IDENTIFIER="${SERVICES_CONFIGURATION_NAME}-orchestrator"
-            SCHEDULER_SERVICE_IDENTIFIER="${SERVICES_CONFIGURATION_NAME}-scheduler"
-            HTTP_LISTENER_SERVICE_IDENTIFIER="${SERVICES_CONFIGURATION_NAME}-http-listener"
-            MONITOR_AGENT_SERVICE_IDENTIFIER="${SERVICES_CONFIGURATION_NAME}-monitor-agent"
+            echo "Using ${SERVICES_CONFIGURATION_NAME} in services names ..."
         else 
-            echo "Using sen2agri in services names"
+            echo "Using sen2agri in services names ..."
+            SERVICES_CONFIGURATION_NAME="sen2agri"
         fi
+        SERVICES_IDENTIFIER="${SERVICES_CONFIGURATION_NAME}-services"
+        EXECUTOR_SERVICE_IDENTIFIER="${SERVICES_CONFIGURATION_NAME}-executor"
+        EXECUTOR_TIMER_IDENTIFIER="${SERVICES_CONFIGURATION_NAME}-executor.timer"
+        ORCHESTRATOR_SERVICE_IDENTIFIER="${SERVICES_CONFIGURATION_NAME}-orchestrator"
+        SCHEDULER_SERVICE_IDENTIFIER="${SERVICES_CONFIGURATION_NAME}-scheduler"
+        HTTP_LISTENER_SERVICE_IDENTIFIER="${SERVICES_CONFIGURATION_NAME}-http-listener"
+        MONITOR_AGENT_SERVICE_IDENTIFIER="${SERVICES_CONFIGURATION_NAME}-monitor-agent"
     fi
     
     echo "SUPPORTED_PROFILES = ${SUPPORTED_PROFILES[@]}"
@@ -269,6 +309,12 @@ function load_configuration()
     echo "USER_NAME = ${USER_NAME}"
     echo "USER_PASS = ${USER_PASS}"
     echo "PROJECT_NAME = ${PROJECT_NAME}"
+    
+    echo "SERVICES_PORT = ${SERVICES_PORT}"
+    echo "HTTP_LISTENER_PORT = ${HTTP_LISTENER_PORT}"
+    echo "ORCHESTRATOR_HTTP_LISTEN_PORT = ${ORCHESTRATOR_HTTP_LISTEN_PORT}"
+    echo "EXECUTOR_HTTP_LISTEN_PORT = ${EXECUTOR_HTTP_LISTEN_PORT}"
+    echo "EXECUTOR_LISTEN_PORT = ${EXECUTOR_LISTEN_PORT}"
 }
 
 function filter_required_components()
