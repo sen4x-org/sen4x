@@ -1,3 +1,7 @@
 FROM sen4cap/data-preparation:0.3
 
 RUN sed -ie 's/ST_Intersection/safe_isect/' /usr/bin/data-preparation.py
+
+
+COPY s4s-admin-units-import.py /usr/bin
+

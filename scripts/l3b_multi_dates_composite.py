@@ -65,7 +65,7 @@ def run_composite_cmd(data_dir, data_files, msk_files, no_data_val, method, zero
     cmd.append(zero_is_valid)
 
     cmd.append("-out")
-    cmd.append(out_file_tmp)
+    cmd.append(out_file_tmp + "?gdal:co:COMPRESS=DEFLATE")
     
     cmd.append("-il");
     cmd.extend(data_files)    # add all file paths as arguments
@@ -109,7 +109,7 @@ def get_files(data_dir, substr) :
     if os.path.isdir(data_dir):
         matches = [os.path.join(data_dir, f) for f in os.listdir(data_dir)
                    if substr in f]
-    return matches
+    return sorted(matches)
 
 def process_tiles(root_dir, img_substrings, qi_substrings, use_docker):
     tiles_dir = os.path.join(root_dir, "TILES")

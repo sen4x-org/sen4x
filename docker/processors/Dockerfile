@@ -57,3 +57,5 @@ COPY sen2agri-processors-*.rpm /
 RUN yum -y install /sen2agri-*.rpm && \
     rm /*.rpm && \
     ldconfig
+
+COPY extract_mdb3_markers.py /usr/bin/

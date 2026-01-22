@@ -14,3 +14,9 @@ RUN python3 -m pip install pandas~=1.1.5 numpy~=1.20.3 scipy~=1.5.3 lxml~=4.6.2 
 COPY heterogeneity/* /usr/bin/
 COPY s4c_bare_soil/*.py /usr/bin
 COPY s4c_change_detection/*.py /usr/bin
+
+COPY export-product-launcher.py /usr/bin
+COPY export-product.py /usr/bin
+COPY import-product-details.py /usr/bin
+
+

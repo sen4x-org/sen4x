@@ -113,14 +113,20 @@ def do_clustering(input_dir, tile, year, lpis_buffered_raster, period, num_imgs,
     date_l = [i + (period-1)*num_imgs for i in range(1,num_imgs+1)]
     
     n_var = 0
+    img_ds = None
     for cur_date in range(len(date_l)):
         date = date_l[cur_date]
         print(f'{input_dir}/SEN4CAP_L2A_PRD_S*_W{year}{date:02d}_T{tile}_*.tif')
         L2A_image = glob.glob(f'{input_dir}/SEN4CAP_L2A_PRD_S*_W{year}{date:02d}_T{tile}_*.tif')
         print("(1) L2_IMG = {}".format(L2A_image))
         if len(L2A_image) == 0:
-            print("No weekly composite found for date {}{} and tile {}. Ignoring it".format(year, date, tile))
+            print("No weekly composite found for date {}/{} and tile {}. Ignoring it".format(year, date, tile))
             continue
+
+        if not img_ds:
+            print("(2) L2_IMG = {}".format(L2A_image))
+            img_ds = gdal.Open(L2A_image[0],gdal.GA_ReadOnly)
+
         bands_list = [t[t.index(f'T{tile}_') + len(f'T{tile}_'):t.index(f'.tif')] for t in L2A_image]
         n_var += len(bands_list)
         print("Band_list = {}, n_var = {}".format(bands_list, n_var))
@@ -131,9 +137,9 @@ def do_clustering(input_dir, tile, year, lpis_buffered_raster, period, num_imgs,
         write_geotiff(out_file_cluster,imgR,raster)
         sys.exit(0)
     
-    L2A_image = glob.glob(f'{input_dir}/SEN4CAP_L2A_PRD_S*_W{year}{date_l[0]:02d}_T*_{bands_list[0]}.tif')
-    print("(2) L2_IMG = {}".format(L2A_image))
-    img_ds = gdal.Open(L2A_image[0],gdal.GA_ReadOnly)
+    # L2A_image = glob.glob(f'{input_dir}/SEN4CAP_L2A_PRD_S*_W{year}{date_l[0]:02d}_T*_{bands_list[0]}.tif')
+    # print("(2) L2_IMG = {}".format(L2A_image))
+    # img_ds = gdal.Open(L2A_image[0],gdal.GA_ReadOnly)
 
     img = np.zeros((img_ds.RasterYSize,img_ds.RasterXSize,n_var),
                 gdal_array.GDALTypeCodeToNumericTypeCode(img_ds.GetRasterBand(1).DataType))
