@@ -23,13 +23,12 @@ laurentiu.nicola@c-s.ro, 2019-02-18
 laurentiu.nicola@c-s.ro, 2020-05-21
   * add an optional projection parameter to work around GDAL not knowing about EPSG:3035
 """
-from __future__ import print_function
+
 import os
 import sys
 import numpy as np
 import subprocess
 from osgeo import gdal
-from gdal import gdalconst
 
 if len(sys.argv) < 2:
     print("\n{} [infile] [outfile]".format(os.path.basename(sys.argv[0])))
@@ -100,10 +99,10 @@ def crop(src_raster):
 def write_raster(template, array, transform, filename):
     """Create a new raster from an array.
 
-        template = raster dataset to copy projection info from
-        array = numpy array of a raster
-        transform = geo referencing (x,y origin and pixel dimensions)
-        filename = path to output image (will be overwritten)
+    template = raster dataset to copy projection info from
+    array = numpy array of a raster
+    transform = geo referencing (x,y origin and pixel dimensions)
+    filename = path to output image (will be overwritten)
     """
     template = gdal.Open(template)
     driver = gdal.GetDriverByName("GTiff")
@@ -112,10 +111,8 @@ def write_raster(template, array, transform, filename):
     nodata = band.GetNoDataValue() or 0
     rows, cols = array.shape
 
-    predictor = (
-        3 if band.DataType in (gdalconst.GDT_Float32, gdalconst.GDT_Float64) else 2
-    )
-    create_options = ["compress=deflate", "predictor=" + str(predictor)]
+    predictor = 3 if band.DataType in (gdal.GDT_Float32, gdal.GDT_Float64) else 2
+    create_options = ["compress=deflate", "tiled=yes", "predictor=" + str(predictor)]
 
     out_raster = driver.Create(
         filename, cols, rows, num_bands, band.DataType, create_options
