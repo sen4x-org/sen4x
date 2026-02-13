@@ -19,15 +19,11 @@ laurentiu.nicola@c-s.ro, 2018-09-24
 
 laurentiu.nicola@c-s.ro, 2019-02-18
   * use 0 as no data if unset
-
-laurentiu.nicola@c-s.ro, 2020-05-21
-  * add an optional projection parameter to work around GDAL not knowing about EPSG:3035
 """
 
 import os
 import sys
 import numpy as np
-import subprocess
 from osgeo import gdal
 
 if len(sys.argv) < 2:
@@ -36,7 +32,6 @@ if len(sys.argv) < 2:
 
 src_raster = sys.argv[1]
 out_raster = sys.argv[2]
-srs = sys.argv[3] if len(sys.argv) >= 4 else None
 
 
 def crop(src_raster):
@@ -130,8 +125,6 @@ def write_raster(template, array, transform, filename):
 if __name__ == "__main__":
     cropped_raster, cropped_transform = crop(src_raster)
     write_raster(src_raster, cropped_raster, cropped_transform, out_raster)
-    if srs is not None:
-        subprocess.call(["gdal_edit.py", "-a_srs", srs, out_raster])
 
 """ --- Postscript ---
 
