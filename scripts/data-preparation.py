@@ -18,7 +18,7 @@ from datetime import date
 
 import psycopg2
 import psycopg2.extensions
-from osgeo import ogr, osr
+from osgeo import gdal, ogr, osr
 from psycopg2.sql import SQL, Identifier, Literal
 
 import docker
@@ -1652,6 +1652,8 @@ def read_counts_csv(path):
 
 
 def main():
+    gdal.UseExceptions()
+
     parser = argparse.ArgumentParser(description="Imports an LPIS or LUT")
     parser.add_argument(
         "-c",
