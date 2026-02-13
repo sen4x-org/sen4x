@@ -9,11 +9,9 @@ import os
 import os.path
 import sys
 from configparser import ConfigParser
-from datetime import date
 
 import psycopg2
 import psycopg2.extensions
-import psycopg2.extras
 from osgeo import gdal, ogr, osr
 from psycopg2.sql import SQL, Identifier, Literal
 
