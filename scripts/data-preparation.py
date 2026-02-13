@@ -8,7 +8,7 @@ import logging
 import multiprocessing.dummy
 import os
 import os.path
-import pipes
+import shlex
 import shutil
 import subprocess
 import sys
@@ -211,7 +211,7 @@ class MergeClassCountsCommand:
 
 def run_command(args, env=None):
     args = list(map(str, args))
-    cmd_line = " ".join(map(pipes.quote, args))
+    cmd_line = " ".join(map(shlex.quote, args))
     logging.debug(cmd_line)
     subprocess.call(args, env=env)
 
