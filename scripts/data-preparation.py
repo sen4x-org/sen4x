@@ -18,7 +18,6 @@ from datetime import date
 
 import psycopg2
 import psycopg2.extensions
-import psycopg2.extras
 from osgeo import ogr, osr
 from psycopg2.sql import SQL, Identifier, Literal
 
