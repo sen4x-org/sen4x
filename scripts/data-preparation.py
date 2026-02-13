@@ -168,8 +168,8 @@ class ComputeClassCountsCommand:
         output_dir = os.path.dirname(self.output)
         client = docker.from_env()
         volumes = {
-            self.input: {"bind": self.input, "mode": "ro"},
-            output_dir: {"bind": output_dir, "mode": "rw"},
+            self.input: {"bind": self.input, "mode": "ro,z"},
+            output_dir: {"bind": output_dir, "mode": "rw,z"},
         }
         command = []
         command += ["otbcli", "ComputeClassCounts"]
@@ -194,7 +194,7 @@ class MergeClassCountsCommand:
         # inputs should be in the same directory
         output_dir = os.path.dirname(self.output)
         client = docker.from_env()
-        volumes = {output_dir: {"bind": output_dir, "mode": "rw"}}
+        volumes = {output_dir: {"bind": output_dir, "mode": "rw,z"}}
         command = []
         command += ["merge-counts"]
         command += [self.output]
