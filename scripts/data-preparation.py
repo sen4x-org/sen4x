@@ -1068,7 +1068,7 @@ where is_new;"""
                     sql = SQL(
                         """
 with transformed as (
-    select epsg_code, ST_Transform(shape_tiles_s2.geog :: geoemtry, Find_SRID('public', {}, 'wkb_geometry')) as geom
+    select epsg_code, ST_Transform(shape_tiles_s2.geog :: geometry, Find_SRID('public', {}, 'wkb_geometry')) as geom
     from shape_tiles_s2
     where tile_id = {}
 )
@@ -1452,7 +1452,7 @@ where "GeomValid"
                 query = SQL(
                     """
 with tiles as (
-    select tile_id, ST_Transform(geom, %s) as geom
+    select tile_id, ST_Transform(geog :: geometry, %s) as geom
     from shape_tiles_s2
     where tile_id = any(%s)
 )
@@ -1483,7 +1483,7 @@ from tiles;"""
                     query = SQL(
                         """
 with tile as (
-    select ST_Transform(geom, %s) as geom
+    select ST_Transform(geog :: geometry, %s) as geom
     from shape_tiles_s2
     where tile_id = %s
 )
@@ -1524,7 +1524,7 @@ and ST_Intersects(lpis.wkb_geometry, tile.geom);"""
                     query = SQL(
                         """
     with tile as (
-        select ST_Transform(geom, %s) as geom
+        select ST_Transform(geog :: geometry, %s) as geom
         from shape_tiles_s2
         where tile_id = %s
     )
