@@ -4,7 +4,8 @@ import csv
 import json
 import logging
 import math
-import multiprocessing.dummy
+import queue
+from concurrent.futures import ThreadPoolExecutor
 import os
 import os.path
 import shutil
@@ -454,7 +455,7 @@ class DataPreparation:
     def __init__(self, config, year, working_path):
         self.config = config
         self.year = year
-        self.pool = multiprocessing.dummy.Pool()
+        self.pool = ThreadPoolExecutor()
 
         with self.get_connection() as conn:
             print("Retrieving site tiles")
@@ -498,10 +499,11 @@ class DataPreparation:
             return
 
         try:
-            q = multiprocessing.dummy.Queue()
-            res = self.pool.map_async(
-                lambda t: self.get_overlapping_parcels(srid, q, t), self.tiles
-            )
+            q = queue.Queue()
+            futures = [
+                self.pool.submit(self.get_overlapping_parcels, srid, q, t)
+                for t in self.tiles
+            ]
 
             progress = 0
             sys.stdout.write("Finding overlapping parcels: 0.00%")
@@ -518,7 +520,7 @@ class DataPreparation:
             sys.stdout.write("\n")
             sys.stdout.flush()
 
-            overlaps = list(set.union(*map(set, res.get())))
+            overlaps = list(set.union(*map(set, [f.result() for f in futures])))
             logging.info("{} overlapping parcels".format(len(overlaps)))
             self.mark_overlapping_parcels(overlaps)
         except Exception as e:
@@ -530,10 +532,11 @@ class DataPreparation:
             return
 
         try:
-            q = multiprocessing.dummy.Queue()
-            res = self.pool.map_async(
-                lambda t: self.get_duplicate_parcels(srid, q, t), self.tiles
-            )
+            q = queue.Queue()
+            futures = [
+                self.pool.submit(self.get_duplicate_parcels, srid, q, t)
+                for t in self.tiles
+            ]
 
             progress = 0
             sys.stdout.write("Finding duplicate parcels: 0.00%")
@@ -550,7 +553,7 @@ class DataPreparation:
             sys.stdout.write("\n")
             sys.stdout.flush()
 
-            duplicates = list(set.union(*map(set, res.get())))
+            duplicates = list(set.union(*map(set, [f.result() for f in futures])))
             logging.info("{} duplicate parcels".format(len(duplicates)))
             self.mark_duplicate_parcels(duplicates)
         except Exception as e:
@@ -1099,7 +1102,7 @@ where "GeomValid"
                         cost = 2
                     commands.append((rasterize_dataset, cost))
 
-        q = multiprocessing.dummy.Queue()
+        q = queue.Queue()
 
         def work(w):
             (c, cost) = w
@@ -1109,7 +1112,7 @@ where "GeomValid"
                 logging.error(e)
             q.put(cost)
 
-        res = self.pool.map_async(work, commands)
+        futures = [self.pool.submit(work, w) for w in commands]
 
         total = len(self.tiles) * 7
         progress = 0
@@ -1124,7 +1127,7 @@ where "GeomValid"
         sys.stdout.write("\n")
         sys.stdout.flush()
 
-        res.get()
+        [f.result() for f in futures]
 
         commands = []
         class_counts = []
@@ -1149,7 +1152,7 @@ where "GeomValid"
             compute_class_counts = ComputeClassCountsCommand(output_20m, counts_20m)
             commands.append((compute_class_counts, 10))
 
-        q = multiprocessing.dummy.Queue()
+        q = queue.Queue()
 
         def work(w):
             (c, cost) = w
@@ -1159,7 +1162,7 @@ where "GeomValid"
                 logging.error(e)
             q.put(cost)
 
-        res = self.pool.map_async(work, commands)
+        futures = [self.pool.submit(work, w) for w in commands]
 
         total = len(self.tiles) * 29
         progress = 0
@@ -1174,7 +1177,7 @@ where "GeomValid"
         sys.stdout.write("\n")
         sys.stdout.flush()
 
-        res.get()
+        [f.result() for f in futures]
 
         commands = []
         counts = "counts.csv"
@@ -1196,7 +1199,7 @@ where "GeomValid"
                 logging.error(e)
             q.put(cost)
 
-        res = self.pool.map_async(work, commands)
+        futures = [self.pool.submit(work, w) for w in commands]
 
         total = 9
         progress = 0
@@ -1211,7 +1214,7 @@ where "GeomValid"
         sys.stdout.write("\n")
         sys.stdout.flush()
 
-        res.get()
+        [f.result() for f in futures]
 
         for f in class_counts:
             try_rm_file(f)
@@ -1276,7 +1279,7 @@ where upd.id = lpis."NewID";"""
 
                 commands.append((f, len(b)))
 
-            res = self.pool.map_async(work, commands)
+            futures = [self.pool.submit(work, w) for w in commands]
 
             for i in range(len(commands)):
                 progress += q.get()
@@ -1287,7 +1290,7 @@ where upd.id = lpis."NewID";"""
             sys.stdout.write("\n")
             sys.stdout.flush()
 
-            res.get()
+            [f.result() for f in futures]
 
             try_rm_file(counts)
             try_rm_file(counts_20m)
@@ -1406,7 +1409,7 @@ where "GeomValid"
                         )
                         commands.append((command, 23))
 
-        q = multiprocessing.dummy.Queue()
+        q = queue.Queue()
 
         def work(w):
             (c, cost) = w
@@ -1416,7 +1419,7 @@ where "GeomValid"
                 logging.error(e)
             q.put(cost)
 
-        res = self.pool.map_async(work, commands)
+        futures = [self.pool.submit(work, w) for w in commands]
 
         total = sum([cost for (_, cost) in commands])
         progress = 0
@@ -1431,7 +1434,7 @@ where "GeomValid"
         sys.stdout.write("\n")
         sys.stdout.flush()
 
-        res.get()
+        [f.result() for f in futures]
 
         if self.working_path != self.lpis_path:
             print("Moving exported table")
