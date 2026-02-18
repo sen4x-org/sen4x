@@ -1,6 +1,4 @@
-#!/usr/bin/env python
-from __future__ import print_function
-
+#!/usr/bin/env python3
 import argparse
 import csv
 import json
@@ -9,9 +7,7 @@ import math
 import multiprocessing.dummy
 import os
 import os.path
-import shlex
 import shutil
-import subprocess
 import sys
 from collections import defaultdict
 from configparser import ConfigParser
@@ -95,18 +91,22 @@ class RasterizeDatasetCommand:
         self.dst_ymax = str(dst_ymax)
 
     def run(self):
-        command = []
-        command += ["gdal_rasterize", "-q"]
-        command += ["-a", self.field]
-        command += ["-a_srs", self.srs]
-        command += ["-te", self.dst_xmin, self.dst_ymin, self.dst_xmax, self.dst_ymax]
-        command += ["-tr", self.resolution, self.resolution]
-        command += ["-sql", self.sql]
-        command += ["-ot", "Int32"]
-        command += ["-co", "COMPRESS=DEFLATE"]
-        command += ["-co", "PREDICTOR=2"]
-        command += [self.input, self.output]
-        run_command(command)
+        options = gdal.RasterizeOptions(
+            attribute=self.field,
+            outputSRS=self.srs,
+            outputBounds=[
+                self.dst_xmin,
+                self.dst_ymin,
+                self.dst_xmax,
+                self.dst_ymax,
+            ],
+            xRes=self.resolution,
+            yRes=self.resolution,
+            SQLStatement=self.sql,
+            outputType=gdal.GDT_Int32,
+            creationOptions=["COMPRESS=DEFLATE", "PREDICTOR=2"],
+        )
+        gdal.Rasterize(self.output, self.input, options=options)
 
 
 class ExportParcelsCsvCommand:
@@ -116,13 +116,11 @@ class ExportParcelsCsvCommand:
         self.source = source
 
     def run(self):
-        command = []
-        command += ["ogr2ogr"]
-        command += ["-lco", "STRING_QUOTING=IF_NEEDED"]
-        command += ["-sql", self.sql]
-        command += [self.destination]
-        command += [self.source]
-        run_command(command)
+        options = gdal.VectorTranslateOptions(
+            layerCreationOptions=["STRING_QUOTING=IF_NEEDED"],
+            SQLStatement=self.sql,
+        )
+        gdal.VectorTranslate(self.destination, self.source, options=options)
 
 
 class ExportParcelsGpkgCommand:
@@ -133,14 +131,12 @@ class ExportParcelsGpkgCommand:
         self.source = source
 
     def run(self):
-        command = []
-        command += ["ogr2ogr"]
-        command += ["-a_srs", self.srs]
-        command += ["-fieldTypeToString", "DateTime"]
-        command += ["-sql", self.sql]
-        command += [self.destination]
-        command += [self.source]
-        run_command(command)
+        options = gdal.VectorTranslateOptions(
+            dstSRS=self.srs,
+            mapFieldType="DateTime=String",
+            SQLStatement=self.sql,
+        )
+        gdal.VectorTranslate(self.destination, self.source, options=options)
 
 
 class ExportParcelsShpCommand:
@@ -150,13 +146,10 @@ class ExportParcelsShpCommand:
         self.source = source
 
     def run(self):
-        command = []
-        command += ["ogr2ogr"]
-        command += ["-overwrite"]
-        command += ["-sql", self.sql]
-        command += [self.destination]
-        command += [self.source]
-        run_command(command)
+        options = gdal.VectorTranslateOptions(
+            accessMode="overwrite", SQLStatement=self.sql
+        )
+        gdal.VectorTranslate(self.destination, self.source, options=options)
 
 
 class ComputeClassCountsCommand:
@@ -207,13 +200,6 @@ class MergeClassCountsCommand:
             command=command,
         )
         client.close()
-
-
-def run_command(args, env=None):
-    args = list(map(str, args))
-    cmd_line = " ".join(map(shlex.quote, args))
-    logging.debug(cmd_line)
-    subprocess.call(args, env=env)
 
 
 def get_esri_wkt(epsg_code):
@@ -574,17 +560,16 @@ class DataPreparation:
     def prepare_lut(self, lut_path):
         with self.get_connection() as conn:
             print("Importing LUT")
-            command = []
-            command += ["ogr2ogr"]
-            command += [
-                "-nln",
-                self.lut_table,
-                "-overwrite",
-                "-oo",
-                "AUTODETECT_TYPE=YES",
-            ]
-            command += [self.get_ogr_connection_string(), lut_path]
-            run_command(command)
+            options = gdal.VectorTranslateOptions(
+                layerName=self.lut_table,
+                accessMode="overwrite",
+            )
+            lut_ds = gdal.OpenEx(
+                lut_path, gdal.OF_VECTOR, open_options=["AUTODETECT_TYPE=YES"]
+            )
+            gdal.VectorTranslate(
+                self.get_ogr_connection_string(), lut_ds, options=options
+            )
 
             print("Preparing LUT")
             with conn.cursor() as cursor:
@@ -650,21 +635,15 @@ add constraint {} unique(ori_crop);"""
         crop_code_col = crop_code_col.lower()
 
         print("Importing LPIS")
-        command = []
-        command += ["ogr2ogr"]
-        command += [
-            "-lco",
-            "UNLOGGED=YES",
-            "-lco",
-            "SPATIAL_INDEX=NONE",
-            "-nlt",
-            "MULTIPOLYGON",
-            "-nln",
-            self.lpis_table_staging,
-            "-overwrite",
-        ]
-        command += [self.get_ogr_connection_string(), lpis_adj]
-        run_command(command)
+        options = gdal.VectorTranslateOptions(
+            layerCreationOptions=["UNLOGGED=YES", "SPATIAL_INDEX=NONE"],
+            geometryType="MULTIPOLYGON",
+            layerName=self.lpis_table_staging,
+            accessMode="overwrite",
+        )
+        gdal.VectorTranslate(
+            self.get_ogr_connection_string(), lpis_adj, options=options
+        )
 
         print("Preparing LPIS")
         with self.get_connection() as conn:
@@ -1197,7 +1176,6 @@ where "GeomValid"
 
         res.get()
 
-        print("Merging pixel counts")
         commands = []
         counts = "counts.csv"
         counts = os.path.join(self.working_path, counts)
