@@ -5,6 +5,7 @@ import argparse
 import csv
 import json
 import logging
+import math
 import multiprocessing.dummy
 import os
 import os.path
@@ -16,12 +17,11 @@ from collections import defaultdict
 from configparser import ConfigParser
 from datetime import date
 
+import docker
 import psycopg2
 import psycopg2.extensions
 from osgeo import gdal, ogr, osr
 from psycopg2.sql import SQL, Identifier, Literal
-
-import docker
 
 OTB_IMAGE_NAME = "sen4cap/processors:2.0.0"
 
@@ -386,13 +386,23 @@ def create_primary_key(conn, table, columns):
             cursor.execute(query)
 
 
-def get_site_name(conn, site_id):
+def get_site_info(conn, site_id):
     with conn.cursor() as cursor:
-        query = SQL("select short_name from site where id = %s")
+        query = SQL(
+            "select short_name, ST_AsBinary(geog::geometry) from site where id = %s"
+        )
         cursor.execute(query, (site_id,))
-        rows = cursor.fetchall()
+        row = cursor.fetchone()
         conn.commit()
-        return rows[0][0]
+        if row:
+            name, wkb = row
+            geom = ogr.CreateGeometryFromWkb(wkb)
+            srs = osr.SpatialReference()
+            srs.ImportFromEPSG(4326)
+            srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+            geom.AssignSpatialReference(srs)
+            return name, geom
+    return None, None
 
 
 def get_site_srid(conn, lpis_table):
@@ -442,7 +452,11 @@ inner join shape_tiles_s2 on shape_tiles_s2.tile_id = site_tiles.tile_id;"""
 
         result = []
         for tile_id, epsg_code, tile_extent in rows:
-            tile_extent = ogr.CreateGeometryFromWkb(bytes(tile_extent))
+            tile_extent = ogr.CreateGeometryFromWkb(tile_extent)
+            srs = osr.SpatialReference()
+            srs.ImportFromEPSG(epsg_code)
+            srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+            tile_extent.AssignSpatialReference(srs)
             result.append(Tile(tile_id, epsg_code, tile_extent))
 
         return result
@@ -458,7 +472,7 @@ class DataPreparation:
 
         with self.get_connection() as conn:
             print("Retrieving site tiles")
-            site_name = get_site_name(conn, config.site_id)
+            site_name, self.site_geom = get_site_info(conn, config.site_id)
             self.tiles = get_site_tiles(conn, config.site_id)
             # self.srid = get_site_srid(conn, lpis_table)
 
@@ -1612,6 +1626,79 @@ and ST_Intersects(lpis.wkb_geometry, tile.geom);"""
             logging.error(e)
             sys.exit(1)
 
+    def compute_tile_bounds(self):
+        output_path = os.path.join(self.working_path, "tile_bounds.json")
+
+        site_srs = self.site_geom.GetSpatialReference()
+        transforms = {}
+
+        tile_intersections = []
+        for tile in self.tiles:
+            tile_srs = tile.tile_extent.GetSpatialReference()
+            epsg_code = tile.epsg_code
+
+            tile_geom = tile.tile_extent.Clone()
+            tile_env = tile_geom.GetEnvelope()
+
+            same_srs = site_srs.IsSame(tile_srs)
+
+            if not same_srs:
+                if epsg_code not in transforms:
+                    transforms[epsg_code] = (
+                        osr.CoordinateTransformation(tile_srs, site_srs),
+                        osr.CoordinateTransformation(site_srs, tile_srs),
+                    )
+                tile_to_site, site_to_tile = transforms[epsg_code]
+                tile_geom.Transform(tile_to_site)
+
+            if self.site_geom.Contains(tile_geom):
+                intersection_env = None
+            else:
+                intersection = self.site_geom.Intersection(tile_geom)
+                if intersection.IsEmpty():
+                    continue
+
+                if not same_srs:
+                    intersection.Transform(site_to_tile)
+                intersection_env = intersection.GetEnvelope()
+
+            tile_intersections.append((tile.tile_id, tile_env, intersection_env))
+
+        all_results = {}
+        for resolution, size in [(10, 10980), (20, 5490)]:
+            results = []
+            for tile_id, tile_env, intersection_env in tile_intersections:
+                if intersection_env is None:
+                    bbox = None
+                else:
+                    tile_min_x, tile_max_x, tile_min_y, tile_max_y = tile_env
+                    min_x, max_x, min_y, max_y = intersection_env
+
+                    start_x = int(math.floor((min_x - tile_min_x) / resolution))
+                    end_x = int(math.ceil((max_x - tile_min_x) / resolution))
+                    start_y = int(math.floor((tile_max_y - max_y) / resolution))
+                    end_y = int(math.ceil((tile_max_y - min_y) / resolution))
+
+                    start_x, start_y = max(0, start_x), max(0, start_y)
+                    end_x, end_y = min(size, end_x), min(size, end_y)
+                    width, height = end_x - start_x, end_y - start_y
+
+                    if (
+                        start_x == 0
+                        and start_y == 0
+                        and width == size
+                        and height == size
+                    ):
+                        bbox = None
+                    else:
+                        bbox = [start_x, start_y, width, height]
+
+                results.append({"id": tile_id, "bbox": bbox})
+            all_results[str(resolution)] = results
+
+        with open(output_path, "w") as f:
+            json.dump(all_results, f, indent=2)
+
 
 def batch(iterable, n=1):
     count = len(iterable)
@@ -1727,6 +1814,7 @@ def main():
             args.holding_id_offset,
         )
         data_preparation.prepare_lpis()
+        data_preparation.compute_tile_bounds()
 
     if args.lpis or args.lut or args.export:
         data_preparation.export_lpis()
