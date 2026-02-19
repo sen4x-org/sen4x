@@ -1,1 +1,1 @@
-/home/cudroiu/sen2agri/scripts/export-product-launcher.py
+../../scripts/export-product-launcher.py
