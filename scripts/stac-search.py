@@ -5,6 +5,8 @@ import json
 from datetime import datetime, timedelta
 from osgeo import ogr
 from pystac_client import Client
+from pystac_client.stac_api_io import StacApiIO
+from urllib3 import Retry
 from urllib.parse import urlparse, urlunparse
 from pathlib import PurePosixPath
 
@@ -59,7 +61,14 @@ def main():
         input_geom = ogr.CreateGeometryFromWkt(args.geom)
         search_kwargs["intersects"] = json.loads(input_geom.ExportToJson())
 
-    client = Client.open(CDSE_API_URL)
+    retry = Retry(
+        total=20,
+        backoff_factor=1,
+        status_forcelist=[429, 502, 503, 504],
+        allowed_methods=None,
+    )
+    stac_api_io = StacApiIO(max_retries=retry)
+    client = Client.open(CDSE_API_URL, stac_io=stac_api_io)
     search = client.search(**search_kwargs)
 
     if args.output:
