@@ -4,21 +4,22 @@ import csv
 import json
 import logging
 import math
-import queue
-from concurrent.futures import ThreadPoolExecutor
 import os
 import os.path
+import queue
 import shutil
 import sys
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from configparser import ConfigParser
 from datetime import date
 
-import docker
 import psycopg2
 import psycopg2.extensions
 from osgeo import gdal, ogr, osr
 from psycopg2.sql import SQL, Identifier, Literal
+
+import docker
 
 OTB_IMAGE_NAME = "sen4cap/processors:2.0.0"
 
@@ -837,11 +838,19 @@ where new.ogc_fid = t.id;"""
 
                 print("Copying old holding identifiers")
                 query = SQL(
-                    """update {} new
+                    """
+with old as (
+    select distinct on (ori_hold)
+            ori_hold,
+            "HoldID"
+    from {lpis}
+    order by ori_hold, "HoldID"
+)
+update {lpis_staging} new
 set "HoldID" = old."HoldID"
-from {} old
-where old.ori_hold = new.ori_hold;"""
-                ).format(lpis_table_staging_id, lpis_table_id)
+from old
+where new.ori_hold = old.ori_hold;"""
+                ).format(lpis=lpis_table_id, lpis_staging=lpis_table_staging_id)
                 logging.debug(query.as_string(conn))
                 cursor.execute(query)
                 # conn.commit()
