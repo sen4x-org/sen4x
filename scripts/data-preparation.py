@@ -10,7 +10,6 @@ import os.path
 import queue
 import shutil
 import sys
-from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from configparser import ConfigParser
 from datetime import date
@@ -22,7 +21,7 @@ from psycopg2.sql import SQL, Identifier, Literal
 
 import docker
 
-OTB_IMAGE_NAME = "sen4cap/processors:2.0.0"
+ERDY_IMAGE_NAME = "ghcr.io/lnicola/erdy:0.3.0"
 
 PRODUCT_TYPE_LPIS = 14
 PROCESSOR_LPIS = 8
@@ -156,23 +155,32 @@ class ExportParcelsShpCommand:
 
 
 class ComputeClassCountsCommand:
-    def __init__(self, input, output):
-        self.input = input
+    def __init__(self, inputs, output):
+        self.inputs = inputs
         self.output = output
 
     def run(self):
         output_dir = os.path.dirname(self.output)
         client = docker.from_env()
         volumes = {
-            self.input: {"bind": self.input, "mode": "ro,z"},
             output_dir: {"bind": output_dir, "mode": "rw,z"},
         }
-        command = []
-        command += ["otbcli", "ComputeClassCounts"]
-        command += ["-in", self.input]
-        command += ["-out", self.output]
+        for inp in self.inputs:
+            dir_name = os.path.dirname(inp)
+            if dir_name not in volumes:
+                volumes[dir_name] = {
+                    "bind": dir_name,
+                    "mode": "ro,z",
+                }
+        command = [
+            "erdy",
+            "compute-class-counts",
+            "--output",
+            self.output,
+            "--inputs",
+        ] + self.inputs
         client.containers.run(
-            image=OTB_IMAGE_NAME,
+            image=ERDY_IMAGE_NAME,
             remove=True,
             user=f"{os.getuid()}:{os.getgid()}",
             volumes=volumes,
@@ -187,16 +195,19 @@ class MergeClassCountsCommand:
         self.output = output
 
     def run(self):
-        # inputs should be in the same directory
         output_dir = os.path.dirname(self.output)
         client = docker.from_env()
         volumes = {output_dir: {"bind": output_dir, "mode": "rw,z"}}
-        command = []
-        command += ["merge-counts"]
-        command += [self.output]
-        command += self.inputs
+        for inp in self.inputs:
+            dir_name = os.path.dirname(inp)
+            if dir_name not in volumes:
+                volumes[dir_name] = {
+                    "bind": dir_name,
+                    "mode": "ro,z",
+                }
+        command = ["erdy", "merge-class-counts", "--output", self.output] + self.inputs
         client.containers.run(
-            image=OTB_IMAGE_NAME,
+            image=ERDY_IMAGE_NAME,
             remove=True,
             user=f"{os.getuid()}:{os.getgid()}",
             volumes=volumes,
@@ -1139,108 +1150,45 @@ where "GeomValid"
 
         [f.result() for f in futures]
 
-        commands = []
-        class_counts = []
-        class_counts_20m = []
+        inputs_s2 = []
+        inputs_s1 = []
         for tile in self.tiles:
             output = "{}_{}_S2.tif".format(base, tile.tile_id)
-            output = os.path.join(self.lpis_path, output)
+            inputs_s2.append(os.path.join(self.lpis_path, output))
 
-            counts = "counts_{}.csv".format(tile.tile_id)
-            counts = os.path.join(self.working_path, counts)
-            class_counts.append(counts)
+            output_s1 = "{}_{}_S1.tif".format(base, tile.tile_id)
+            inputs_s1.append(os.path.join(self.lpis_path, output_s1))
 
-            output_20m = "{}_{}_S1.tif".format(base, tile.tile_id)
-            output_20m = os.path.join(self.lpis_path, output_20m)
+        counts_10m = os.path.join(self.working_path, "counts_10m.csv")
+        counts_20m = os.path.join(self.working_path, "counts_20m.csv")
 
-            counts_20m = "counts_{}_20m.csv".format(tile.tile_id)
-            counts_20m = os.path.join(self.working_path, counts_20m)
-            class_counts_20m.append(counts_20m)
+        commands = [
+            ComputeClassCountsCommand(inputs_s2, counts_10m),
+            ComputeClassCountsCommand(inputs_s1, counts_20m),
+        ]
 
-            compute_class_counts = ComputeClassCountsCommand(output, counts)
-            commands.append((compute_class_counts, 19))
-            compute_class_counts = ComputeClassCountsCommand(output_20m, counts_20m)
-            commands.append((compute_class_counts, 10))
-
-        q = queue.Queue()
-
-        def work(w):
-            (c, cost) = w
-            try:
-                c.run()
-            except Exception as e:
-                logging.error(e)
-            q.put(cost)
-
-        futures = [self.pool.submit(work, w) for w in commands]
-
-        total = len(self.tiles) * 29
-        progress = 0
-        sys.stdout.write("Counting pixels: 0.00%")
+        sys.stdout.write("Counting pixels...\n")
         sys.stdout.flush()
-        for i in range(len(commands)):
-            progress += q.get()
-            sys.stdout.write(
-                "\rCounting pixels: {0:.2f}%".format(100.0 * progress / total)
-            )
-            sys.stdout.flush()
-        sys.stdout.write("\n")
-        sys.stdout.flush()
-
+        futures = [self.pool.submit(c.run) for c in commands]
         [f.result() for f in futures]
 
-        commands = []
-        counts = "counts.csv"
-        counts = os.path.join(self.working_path, counts)
+        counts = os.path.join(self.working_path, "counts.csv")
+        MergeClassCountsCommand([counts_10m, counts_20m], counts).run()
 
-        counts_20m = "counts_20m.csv"
-        counts_20m = os.path.join(self.working_path, counts_20m)
+        try_rm_file(counts_10m)
+        try_rm_file(counts_20m)
 
-        merge_class_counts = MergeClassCountsCommand(class_counts, counts)
-        commands.append((merge_class_counts, 5))
-        merge_class_counts = MergeClassCountsCommand(class_counts_20m, counts_20m)
-        commands.append((merge_class_counts, 4))
-
-        def work(w):
-            (c, cost) = w
-            try:
-                c.run()
-            except Exception as e:
-                logging.error(e)
-            q.put(cost)
-
-        futures = [self.pool.submit(work, w) for w in commands]
-
-        total = 9
-        progress = 0
-        sys.stdout.write("Merging pixel counts: 0.00%")
+        sys.stdout.write("Reading pixel counts...\n")
         sys.stdout.flush()
-        for i in range(len(commands)):
-            progress += q.get()
-            sys.stdout.write(
-                "\rMerging pixel counts: {0:.2f}%".format(100.0 * progress / total)
-            )
-            sys.stdout.flush()
-        sys.stdout.write("\n")
-        sys.stdout.flush()
-
-        [f.result() for f in futures]
-
-        for f in class_counts:
-            try_rm_file(f)
-        for f in class_counts_20m:
-            try_rm_file(f)
-
-        print("Reading pixel counts")
-        class_counts = read_counts_csv(counts)
-        class_counts_20m = read_counts_csv(counts_20m)
-
-        c = defaultdict(lambda: (0, 0))
-        for id, count in class_counts.items():
-            c[id] = (count, c[id][1])
-        for id, count in class_counts_20m.items():
-            c[id] = (c[id][0], count)
-        del c[0]
+        c = {}
+        with open(counts, "r") as file:
+            for row in csv.reader(file):
+                seq_id = int(row[0])
+                if seq_id == 0:
+                    continue
+                s2pix = int(row[1])
+                s1pix = int(row[2])
+                c[seq_id] = (s2pix, s1pix)
 
         if c:
             updates = [(id, s2pix, s1pix) for (id, (s2pix, s1pix)) in c.items()]
@@ -1287,7 +1235,6 @@ when not matched by source and (
                     conn.commit()
 
             try_rm_file(counts)
-            try_rm_file(counts_20m)
 
             with conn.cursor() as cursor:
                 print("Cleaning up")
@@ -1334,16 +1281,16 @@ where site_id = %s
 
                 commands = []
 
-                csv = "{}.csv".format(self.lpis_table)
-                csv = os.path.join(self.lpis_path, csv)
+                lpis_csv = "{}.csv".format(self.lpis_table)
+                lpis_csv = os.path.join(self.lpis_path, lpis_csv)
 
-                try_rm_file(csv)
+                try_rm_file(lpis_csv)
 
-                gpkg = "{}.gpkg".format(self.lpis_table)
-                gpkg_working = os.path.join(self.working_path, gpkg)
-                gpkg = os.path.join(self.lpis_path, gpkg)
+                lpis_gpkg = "{}.gpkg".format(self.lpis_table)
+                lpis_gpkg_working = os.path.join(self.working_path, lpis_gpkg)
+                lpis_gpkg = os.path.join(self.lpis_path, lpis_gpkg)
 
-                try_rm_file(gpkg_working)
+                try_rm_file(lpis_gpkg_working)
 
                 sql = SQL(
                     """
@@ -1356,14 +1303,14 @@ where "GeomValid"
                 sql = sql.as_string(conn)
 
                 command = ExportParcelsCsvCommand(
-                    sql, csv, self.get_ogr_connection_string()
+                    sql, lpis_csv, self.get_ogr_connection_string()
                 )
                 commands.append((command, 5))
 
                 srid = get_site_srid(conn, self.lpis_table)
                 srs = f"EPSG:{srid}"
                 command = ExportParcelsGpkgCommand(
-                    srs, sql, gpkg_working, self.get_ogr_connection_string()
+                    srs, sql, lpis_gpkg_working, self.get_ogr_connection_string()
                 )
                 commands.append((command, 12))
 
@@ -1697,21 +1644,6 @@ order by site_id;"""
         conn.commit()
 
         return path
-
-
-def read_counts_csv(path):
-    counts = {}
-
-    with open(path, "r") as file:
-        reader = csv.reader(file)
-
-        for row in reader:
-            seq_id = int(row[0])
-            count = int(row[1])
-
-            counts[seq_id] = count
-
-    return counts
 
 
 def main():
