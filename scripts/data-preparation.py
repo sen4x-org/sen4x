@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import csv
+import io
 import json
 import logging
 import math
@@ -1245,61 +1246,45 @@ where "GeomValid"
             updates = [(id, s2pix, s1pix) for (id, (s2pix, s1pix)) in c.items()]
             del c
 
-            def update_batch(b):
-                id = [e[0] for e in b]
-                s2_pix = [e[1] for e in b]
-                s1_pix = [e[2] for e in b]
-
-                sql = SQL(
-                    """update {} lpis
-set "S2Pix" = s2_pix,
-    "S1Pix" = s1_pix
-from (select unnest(%s) as id,
-                unnest(%s) as s2_pix,
-                unnest(%s) as s1_pix) upd
-where upd.id = lpis."NewID";"""
-                )
-                sql = sql.format(Identifier(self.lpis_table))
-
-                with self.get_connection() as conn:
-                    with conn.cursor() as cursor:
-                        logging.debug(sql.as_string(conn))
-                        cursor.execute(sql, (id, s2_pix, s1_pix))
-                        conn.commit()
-
-            def work(w):
-                (c, cost) = w
-                try:
-                    c()
-                except Exception as e:
-                    logging.error(e)
-                q.put(cost)
-
-            total = len(updates)
-            progress = 0
-            sys.stdout.write("Updating pixel counts: 0.00%")
+            sys.stdout.write("Updating pixel counts...\n")
             sys.stdout.flush()
 
-            commands = []
-            for b in batch(updates, self.DB_UPDATE_BATCH_SIZE):
+            f = io.StringIO()
+            for e in updates:
+                f.write(f"{e[0]}\t{e[1]}\t{e[2]}\n")
+            f.seek(0)
 
-                def f(b=b):
-                    update_batch(b)
+            sql = SQL(
+                """
+merge into {} as lpis
+using updates
+on lpis."NewID" = updates.id
+when matched and (
+    lpis."S2Pix" is distinct from updates.s2_pix or
+    lpis."S1Pix" is distinct from updates.s1_pix
+) then
+    update set "S2Pix" = updates.s2_pix,
+               "S1Pix" = updates.s1_pix
+when not matched by source and (
+    lpis."S2Pix" != 0 or
+    lpis."S1Pix" != 0
+) then
+    update set
+        "S2Pix" = 0,
+        "S1Pix" = 0;"""
+            ).format(Identifier(self.lpis_table))
 
-                commands.append((f, len(b)))
+            with self.get_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        "create temp table updates(id int, s2_pix int, s1_pix int) on commit drop;"
+                    )
+                    cursor.copy_expert("copy updates from stdin with (freeze)", f)
 
-            futures = [self.pool.submit(work, w) for w in commands]
+                    logging.debug(sql.as_string(conn))
+                    cursor.execute(sql)
 
-            for i in range(len(commands)):
-                progress += q.get()
-                sys.stdout.write(
-                    "\rUpdating pixel counts: {0:.2f}%".format(100.0 * progress / total)
-                )
-                sys.stdout.flush()
-            sys.stdout.write("\n")
-            sys.stdout.flush()
-
-            [f.result() for f in futures]
+                    conn.commit()
 
             try_rm_file(counts)
             try_rm_file(counts_20m)
@@ -1316,11 +1301,12 @@ where upd.id = lpis."NewID";"""
                 name = "SEN4CAP_LPIS_S{}_{}".format(self.config.site_id, self.year)
                 dt = date(self.year, 1, 1)
                 sql = SQL(
-                    """delete
+                    """
+delete
 from product
 where site_id = %s
-and product_type_id = %s
-and created_timestamp = %s;"""
+ and product_type_id = %s
+ and created_timestamp = %s;"""
                 )
                 logging.debug(sql.as_string(conn))
                 cursor.execute(sql, (self.config.site_id, PRODUCT_TYPE_LPIS, dt))
@@ -1402,7 +1388,7 @@ where "GeomValid"
                             f.write(wkt)
 
                         sql = SQL(
-                            'select "NewID", ST_Buffer(ST_Transform(wkb_geometry, {}), -{}) from {} where "GeomValid" and not is_deleted'
+                            'select "NewID", ST_Buffer(ST_Transform(wkb_geometry, {}), -{}) from {} where "GeomValid" and not is_deleted order by "NewID"'
                         )
                         sql = sql.format(
                             Literal(epsg_code),
