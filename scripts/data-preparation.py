@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
+from pathlib import Path
 import argparse
 import csv
 import io
 import json
 import logging
-import math
 import os
 import os.path
 import queue
 import shutil
+import subprocess
 import sys
+import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from configparser import ConfigParser
 from datetime import date
@@ -1490,77 +1492,31 @@ and ST_Intersects(lpis.wkb_geometry, tile.geom);"""
             sys.exit(1)
 
     def compute_tile_bounds(self):
+        print("Computing tile bounds")
         output_path = os.path.join(self.working_path, "tile_bounds.json")
 
-        site_srs = self.site_geom.GetSpatialReference()
-        transforms = {}
+        site_epsg = self.site_geom.GetSpatialReference().GetAuthorityCode(None)
+        site_wkt = f"SRID={site_epsg};{self.site_geom.ExportToWkt()}"
 
-        tile_intersections = []
-        for tile in self.tiles:
-            tile_srs = tile.tile_extent.GetSpatialReference()
-            epsg_code = tile.epsg_code
+        with tempfile.NamedTemporaryFile(mode="wt", suffix=".csv") as f:
+            writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
+            for tile in self.tiles:
+                writer.writerow(
+                    [tile.tile_id, tile.epsg_code, tile.tile_extent.ExportToWkt()]
+                )
+            f.flush()
 
-            tile_geom = tile.tile_extent.Clone()
-            tile_env = tile_geom.GetEnvelope()
-
-            same_srs = site_srs.IsSame(tile_srs)
-
-            if not same_srs:
-                if epsg_code not in transforms:
-                    transforms[epsg_code] = (
-                        osr.CoordinateTransformation(tile_srs, site_srs),
-                        osr.CoordinateTransformation(site_srs, tile_srs),
-                    )
-                tile_to_site, site_to_tile = transforms[epsg_code]
-                tile_geom.Transform(tile_to_site)
-
-            if self.site_geom.Contains(tile_geom):
-                intersection_env = None
-            else:
-                intersection = self.site_geom.Intersection(tile_geom)
-                if intersection.IsEmpty():
-                    continue
-
-                if not same_srs:
-                    intersection.Transform(site_to_tile)
-                intersection_env = intersection.GetEnvelope()
-
-            tile_intersections.append((tile.tile_id, tile_env, intersection_env))
-
-        all_results = {}
-        for resolution, size in [(10, 10980), (20, 5490)]:
-            results = []
-            for tile_id, tile_env, intersection_env in tile_intersections:
-                if intersection_env is None:
-                    bbox = None
-                else:
-                    tile_min_x, tile_max_x, tile_min_y, tile_max_y = tile_env
-                    min_x, max_x, min_y, max_y = intersection_env
-
-                    start_x = int(math.floor((min_x - tile_min_x) / resolution))
-                    end_x = int(math.ceil((max_x - tile_min_x) / resolution))
-                    start_y = int(math.floor((tile_max_y - max_y) / resolution))
-                    end_y = int(math.ceil((tile_max_y - min_y) / resolution))
-
-                    start_x, start_y = max(0, start_x), max(0, start_y)
-                    end_x, end_y = min(size, end_x), min(size, end_y)
-                    width, height = end_x - start_x, end_y - start_y
-
-                    if (
-                        start_x == 0
-                        and start_y == 0
-                        and width == size
-                        and height == size
-                    ):
-                        bbox = None
-                    else:
-                        bbox = [start_x, start_y, width, height]
-
-                results.append({"id": tile_id, "bbox": bbox})
-            all_results[str(resolution)] = results
-
-        with open(output_path, "w") as f:
-            json.dump(all_results, f, indent=2)
+            subprocess.check_call(
+                [
+                    str(Path(__file__).parent / "compute-tile-bounds.py"),
+                    "--site-geom",
+                    site_wkt,
+                    "--tiles",
+                    f.name,
+                    "--output",
+                    output_path,
+                ]
+            )
 
 
 def batch(iterable, n=1):
