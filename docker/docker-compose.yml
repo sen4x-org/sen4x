@@ -1,14 +1,13 @@
-version: '3.0'
 services:
     db:
-        image: postgis/postgis:16-3.4
+        image: postgis/postgis:18-3.6
         shm_size: 1g
         environment:
             POSTGRES_PASSWORD: sen2agri
         ports:
             - "5432:5432"
         volumes:
-            - /var/lib/postgresql/data:/var/lib/postgresql/data
+            - /var/lib/postgresql:/var/lib/postgresql
             - /var/run/postgresql:/var/run/postgresql
         restart: unless-stopped
     t-rex:
