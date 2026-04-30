@@ -7,3 +7,4 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 COPY data-preparation.py /usr/bin
+COPY compute-tile-bounds.py /usr/bin
