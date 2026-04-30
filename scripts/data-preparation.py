@@ -19,10 +19,6 @@ import psycopg2.extensions
 from osgeo import gdal, ogr, osr
 from psycopg2.sql import SQL, Identifier, Literal
 
-import docker
-
-ERDY_IMAGE_NAME = "ghcr.io/lnicola/erdy:0.3.0"
-
 PRODUCT_TYPE_LPIS = 14
 PROCESSOR_LPIS = 8
 
@@ -152,68 +148,6 @@ class ExportParcelsShpCommand:
             accessMode="overwrite", SQLStatement=self.sql
         )
         gdal.VectorTranslate(self.destination, self.source, options=options)
-
-
-class ComputeClassCountsCommand:
-    def __init__(self, inputs, output):
-        self.inputs = inputs
-        self.output = output
-
-    def run(self):
-        output_dir = os.path.dirname(self.output)
-        client = docker.from_env()
-        volumes = {
-            output_dir: {"bind": output_dir, "mode": "rw,z"},
-        }
-        for inp in self.inputs:
-            dir_name = os.path.dirname(inp)
-            if dir_name not in volumes:
-                volumes[dir_name] = {
-                    "bind": dir_name,
-                    "mode": "ro,z",
-                }
-        command = [
-            "erdy",
-            "compute-class-counts",
-            "--output",
-            self.output,
-            "--inputs",
-        ] + self.inputs
-        client.containers.run(
-            image=ERDY_IMAGE_NAME,
-            remove=True,
-            user=f"{os.getuid()}:{os.getgid()}",
-            volumes=volumes,
-            command=command,
-        )
-        client.close()
-
-
-class MergeClassCountsCommand:
-    def __init__(self, inputs, output):
-        self.inputs = inputs
-        self.output = output
-
-    def run(self):
-        output_dir = os.path.dirname(self.output)
-        client = docker.from_env()
-        volumes = {output_dir: {"bind": output_dir, "mode": "rw,z"}}
-        for inp in self.inputs:
-            dir_name = os.path.dirname(inp)
-            if dir_name not in volumes:
-                volumes[dir_name] = {
-                    "bind": dir_name,
-                    "mode": "ro,z",
-                }
-        command = ["erdy", "merge-class-counts", "--output", self.output] + self.inputs
-        client.containers.run(
-            image=ERDY_IMAGE_NAME,
-            remove=True,
-            user=f"{os.getuid()}:{os.getgid()}",
-            volumes=volumes,
-            command=command,
-        )
-        client.close()
 
 
 def get_esri_wkt(epsg_code):
@@ -763,18 +697,18 @@ alter column ori_crop set not null;"""
                 print("Making sure destination table exists")
                 query = SQL(
                     """create table if not exists {} (
-like {},
-"GeomValid" boolean not null,
-"Duplic" boolean,
-"Overlap" boolean not null,
-"Area_meters" real not null,
-"ShapeInd" real,
-"S1Pix" int not null default 0,
-"S2Pix" int not null default 0,
-is_deleted boolean default false,
-inserted_timestamp timestamp with time zone not null default now(),
-updated_timestamp timestamp with time zone,
-geom_change_ratio real
+    like {},
+    "GeomValid" boolean not null,
+    "Duplic" boolean,
+    "Overlap" boolean not null,
+    "Area_meters" real not null,
+    "ShapeInd" real,
+    "S1Pix" int not null default 0,
+    "S2Pix" int not null default 0,
+    is_deleted boolean default false,
+    inserted_timestamp timestamp with time zone not null default now(),
+    updated_timestamp timestamp with time zone,
+    geom_change_ratio real
 );"""
                 ).format(lpis_table_id, lpis_table_staging_id)
                 logging.debug(query.as_string(conn))
@@ -1162,18 +1096,24 @@ where "GeomValid"
         counts_10m = os.path.join(self.working_path, "counts_10m.csv")
         counts_20m = os.path.join(self.working_path, "counts_20m.csv")
 
-        commands = [
-            ComputeClassCountsCommand(inputs_s2, counts_10m),
-            ComputeClassCountsCommand(inputs_s1, counts_20m),
-        ]
+        def compute_counts(inputs, output):
+            subprocess.check_call(
+                ["erdy", "compute-class-counts", "--output", output, "--inputs"]
+                + inputs
+            )
 
         sys.stdout.write("Counting pixels...\n")
         sys.stdout.flush()
-        futures = [self.pool.submit(c.run) for c in commands]
-        [f.result() for f in futures]
+        list(
+            self.pool.map(
+                compute_counts, [inputs_s2, inputs_s1], [counts_10m, counts_20m]
+            )
+        )
 
         counts = os.path.join(self.working_path, "counts.csv")
-        MergeClassCountsCommand([counts_10m, counts_20m], counts).run()
+        subprocess.check_call(
+            ["erdy", "merge-class-counts", "--output", counts, counts_10m, counts_20m]
+        )
 
         try_rm_file(counts_10m)
         try_rm_file(counts_20m)
