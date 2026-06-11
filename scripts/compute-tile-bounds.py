@@ -1,10 +1,40 @@
 #!/usr/bin/env python3
 
 import argparse
-import csv
 import json
 import math
+
 from osgeo import ogr, osr
+
+
+class Config:
+    def __init__(self, args):
+        from configparser import ConfigParser
+
+        parser = ConfigParser()
+        parser.read([args.config_file])
+
+        self.host = parser.get("Database", "HostName")
+
+        # work around Docker networking scheme
+        if self.host == "127.0.0.1" or self.host == "::1" or self.host == "localhost":
+            self.host = "172.17.0.1"
+
+        self.port = int(parser.get("Database", "Port", vars={"Port": "5432"}))
+        self.dbname = parser.get("Database", "DatabaseName")
+        self.user = parser.get("Database", "UserName")
+        self.password = parser.get("Database", "Password")
+
+    def get_connection(self):
+        import psycopg2
+
+        return psycopg2.connect(
+            host=self.host,
+            port=self.port,
+            dbname=self.dbname,
+            user=self.user,
+            password=self.password,
+        )
 
 
 def geom_from_ewkt(ewkt):
@@ -29,6 +59,32 @@ def get_geometry(site):
     return feat.GetGeometryRef().Clone()
 
 
+def get_tiles_for_geometry(conn, geom):
+    with conn.cursor() as cursor:
+        query = """
+select shape_tiles_s2.tile_id,
+        shape_tiles_s2.epsg_code,
+        ST_AsBinary(ST_SnapToGrid(ST_Transform(shape_tiles_s2.geog :: geometry, shape_tiles_s2.epsg_code), 1)) as tile_extent
+from shape_tiles_s2
+where ST_Intersects(shape_tiles_s2.geog, ST_GeogFromWKB(%s));
+        """
+        cursor.execute(query, (geom.ExportToWkb(),))
+
+        result = []
+        srs_cache = {}
+        for tile_id, epsg_code, tile_extent_wkb in cursor:
+            tile_extent = ogr.CreateGeometryFromWkb(tile_extent_wkb)
+            srs = srs_cache.get(epsg_code)
+            if not srs:
+                srs = osr.SpatialReference()
+                srs.ImportFromEPSG(epsg_code)
+                srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+                srs_cache[epsg_code] = srs
+            tile_extent.AssignSpatialReference(srs)
+            result.append((tile_id, epsg_code, tile_extent))
+        return result
+
+
 def main():
     ogr.UseExceptions()
 
@@ -40,8 +96,13 @@ def main():
     )
     parser.add_argument(
         "--tiles",
-        required=True,
         help="Input tile CSV path (tile_id, epsg_code, wkt)",
+    )
+    parser.add_argument(
+        "-c",
+        "--config-file",
+        default="/etc/sen2agri/sen2agri.conf",
+        help="Configuration file location",
     )
     parser.add_argument("--output", required=True, help="Output JSON path")
     args = parser.parse_args()
@@ -50,18 +111,38 @@ def main():
     site_srs = site_geom.GetSpatialReference()
 
     tiles = []
-    with open(args.tiles) as f:
-        reader = csv.reader(f)
+    if args.tiles is not None:
+        with open(args.tiles) as f:
+            import csv
 
-        for row in reader:
-            tile_id, epsg_str, wkt_str = row
-            epsg_code = int(epsg_str)
-            srs = osr.SpatialReference()
-            srs.ImportFromEPSG(epsg_code)
-            srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
-            geom = ogr.CreateGeometryFromWkt(wkt_str)
-            geom.AssignSpatialReference(srs)
-            tiles.append((tile_id, epsg_code, geom))
+            reader = csv.reader(f)
+
+            srs_cache = {}
+            for tile_id, epsg_str, wkt_str in reader:
+                epsg_code = int(epsg_str)
+                srs = srs_cache.get(epsg_code)
+                if not srs:
+                    srs = osr.SpatialReference()
+                    srs.ImportFromEPSG(epsg_code)
+                    srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+                    srs_cache[epsg_code] = srs
+                geom = ogr.CreateGeometryFromWkt(wkt_str)
+                geom.AssignSpatialReference(srs)
+                tiles.append((tile_id, epsg_code, geom))
+    else:
+        config = Config(args)
+
+        wgs84_srs = osr.SpatialReference()
+        wgs84_srs.ImportFromEPSG(4326)
+        wgs84_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+
+        db_geom = site_geom.Clone()
+        if not site_srs.IsSame(wgs84_srs):
+            transform = osr.CoordinateTransformation(site_srs, wgs84_srs)
+            db_geom.Transform(transform)
+
+        with config.get_connection() as conn:
+            tiles = get_tiles_for_geometry(conn, db_geom)
 
     transforms = {}
     tile_intersections = []
@@ -112,6 +193,9 @@ def main():
                 start_x, start_y = max(0, start_x), max(0, start_y)
                 end_x, end_y = min(size, end_x), min(size, end_y)
                 width, height = end_x - start_x, end_y - start_y
+
+                if width == 0 or height == 0:
+                    continue
 
                 if start_x == 0 and start_y == 0 and width == size and height == size:
                     bbox = None
