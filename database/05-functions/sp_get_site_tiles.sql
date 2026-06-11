@@ -19,7 +19,7 @@ BEGIN
                 SELECT unnest(COALESCE(site_tiles.tiles, geog_tiles.tiles))
                 from geog_tiles
                 LEFT OUTER JOIN site_tiles ON site_tiles.site_id = _site_id
-                                          AND site_tiles.satellite_id = 1; -- landsat8
+                                          AND site_tiles.satellite_id = 1; -- sentinel2
         WHEN 2 THEN -- landsat8
             RETURN QUERY
                 WITH geog_tiles AS (
