@@ -1,2 +1,2 @@
 #!/bin/bash
-tar -czh . | docker build -t sen4cap/grassland_mowing:3.0.0 -
+tar -czh . | docker build -t sen4x/sen4cap-grassland-mowing:5.0.0 -
