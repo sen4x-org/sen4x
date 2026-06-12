@@ -5,7 +5,7 @@
 
 #include "ndvihandler.hpp"
 #include "lairetrievalhandler_l3b.hpp"
-//#include "lairetrievalhandler_l3b_new.hpp"
+#include "lairetrievalhandler_l3b_new.hpp"
 #include "lairetrievalhandler_l3b_individual.hpp"
 
 class LaiRetrievalHandler : public ProcessorHandler
@@ -21,12 +21,13 @@ private:
                                                 const ConfigurationParameterValueMap &requestOverrideCfgValues) override;
 
     bool IsNewLaiMonoDateVersion(const std::map<QString, QString> &configParameters);
+    bool IsIndividualIndicatorVersion(const std::map<QString, QString> &configParameters);
 
 private:
     // TODO add the subhandlers here
     LaiRetrievalHandlerL3B m_l3bHandler;
-    // LaiRetrievalHandlerL3BNew m_l3bHandlerNew;
-    LaiRetrievalHandlerL3BIndividual m_l3bHandlerNew;
+    LaiRetrievalHandlerL3BNew m_l3bHandlerNew;
+    LaiRetrievalHandlerL3BIndividual m_l3bHandlerIndividual;
 };
 
 #endif // LAIRETRIEVALHANDLERNEW_HPP

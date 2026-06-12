@@ -22,6 +22,7 @@ void LaiRetrievalHandler::SetProcessorDescription(const ProcessorDescription &pr
     this->processorDescr = procDescr;
     m_l3bHandler.SetProcessorDescription(procDescr);
     m_l3bHandlerNew.SetProcessorDescription(procDescr);
+    m_l3bHandlerIndividual.SetProcessorDescription(procDescr);
 }
 
 void LaiRetrievalHandler::HandleJobSubmittedImpl(EventProcessingContext &ctx,
@@ -30,7 +31,11 @@ void LaiRetrievalHandler::HandleJobSubmittedImpl(EventProcessingContext &ctx,
     const std::map<QString, QString> &configParameters = ctx.GetJobConfigurationParameters(event.jobId, "processor.l3b.");
 
     if (IsNewLaiMonoDateVersion(configParameters)) {
-        m_l3bHandlerNew.HandleJobSubmitted(ctx, event);
+        if (IsIndividualIndicatorVersion(configParameters)) {
+            m_l3bHandlerIndividual.HandleJobSubmitted(ctx, event);
+        } else {
+            m_l3bHandlerNew.HandleJobSubmitted(ctx, event);
+        }
     } else {
         m_l3bHandler.HandleJobSubmitted(ctx, event);
     }
@@ -39,8 +44,16 @@ void LaiRetrievalHandler::HandleJobSubmittedImpl(EventProcessingContext &ctx,
 void LaiRetrievalHandler::HandleTaskFinishedImpl(EventProcessingContext &ctx,
                                              const TaskFinishedEvent &event)
 {
-    this->m_l3bHandler.HandleTaskFinished(ctx, event);
-    this->m_l3bHandlerNew.HandleTaskFinished(ctx, event);
+    const std::map<QString, QString> &configParameters = ctx.GetJobConfigurationParameters(event.jobId, "processor.l3b.");
+    if (IsNewLaiMonoDateVersion(configParameters)) {
+        if (IsIndividualIndicatorVersion(configParameters)) {
+            this->m_l3bHandlerIndividual.HandleTaskFinished(ctx, event);
+        } else {
+            this->m_l3bHandler.HandleTaskFinished(ctx, event);
+        }
+    } else {
+        this->m_l3bHandlerNew.HandleTaskFinished(ctx, event);
+    }
 }
 
 ProcessorJobDefinitionParams LaiRetrievalHandler::GetProcessingDefinitionImpl(SchedulingContext &ctx, int siteId, int scheduledDate,
@@ -50,7 +63,11 @@ ProcessorJobDefinitionParams LaiRetrievalHandler::GetProcessingDefinitionImpl(Sc
 
     std::map<QString, QString> configParameters = ctx.GetConfigurationParameterValues("processor.l3b.");
     if (IsNewLaiMonoDateVersion(configParameters)) {
-        return m_l3bHandlerNew.GetProcessingDefinition(ctx, siteId, scheduledDate, requestOverrideCfgValues);
+        if (IsIndividualIndicatorVersion(configParameters)) {
+            return m_l3bHandlerIndividual.GetProcessingDefinition(ctx, siteId, scheduledDate, requestOverrideCfgValues);
+        } else {
+            return m_l3bHandlerNew.GetProcessingDefinition(ctx, siteId, scheduledDate, requestOverrideCfgValues);
+        }
     } else {
         return this->m_l3bHandler.GetProcessingDefinition(ctx, siteId, scheduledDate, requestOverrideCfgValues);
     }
@@ -65,3 +82,10 @@ bool LaiRetrievalHandler::IsNewLaiMonoDateVersion(const std::map<QString, QStrin
     return false;
 }
 
+bool LaiRetrievalHandler::IsIndividualIndicatorVersion(const std::map<QString, QString> &configParameters) {
+    std::map<QString, QString>::const_iterator it = configParameters.find("processor.l3b.create_individual_indicators");
+    if(it != configParameters.end()) {
+        return (it->second.toInt() != 0);
+    }
+    return false;
+}

@@ -10,7 +10,7 @@
 #include "CommonDefs.h"
 
 // Optical L3B product regex
-#define L3B_REGEX          R"(S2AGRI_L3B.*_S(NDVI|LAI|FAPAR|FCOVER)(?:MONO)?_A(\d{8})T.*\.TIF)"
+#define L3B_REGEX          R"(S2AGRI_L3B.*_S(NDVI|LAI|FAPAR|FCOVER|NDWI|BRIGHT)(?:MONO)?_A(\d{8})T.*\.TIF)"
 // 2017 naming format for coherence and amplitude
 #define S1_REGEX_OLD        R"((\d{8})(-(\d{8}))?_.*(cohe|amp).*_(\d{3})_(VH|VV)_.*\.tiff)"
 // 2018 naming format for coherence and amplitude

@@ -78,17 +78,17 @@ QString ProductHelper::GetProductTypeShortName(ProductType prdType)
     case ProductType::L3BProductTypeId:
         return "L3B";
     case ProductType::L3BNdviProductTypeId:
-        return "L3B_NDVI";
+        return "L3BNDVI";
     case ProductType::L3BLaiProductTypeId:
-        return "L3B_LAI";
+        return "L3BLAI";
     case ProductType::L3BFaparProductTypeId:
-        return "L3B_FAPAR";
+        return "L3BFAPAR";
     case ProductType::L3BFcoverProductTypeId:
-        return "L3B_FCOVER";
+        return "L3BFCOVER";
     case ProductType::L3BNdwiProductTypeId:
-        return "L3B_NDWI";
+        return "L3BNDWI";
     case ProductType::L3BBrightnessProductTypeId:
-        return "L3B_BRIGHT";
+        return "L3BBRIGHT";
     case ProductType::L3EProductTypeId:
         return "L3E";
     case ProductType::L4AProductTypeId:
