@@ -33,6 +33,11 @@ class Config(object):
         parser.read([args.config_file])
 
         self.host = parser.get("Database", "HostName")
+        
+        # work around Docker networking scheme
+        if self.host == "127.0.0.1" or self.host == "::1" or self.host == "localhost":
+            self.host = "172.17.0.1"
+
         self.port = int(parser.get("Database", "Port", vars={"Port": "5432"}))
         self.dbname = parser.get("Database", "DatabaseName")
         self.user = parser.get("Database", "UserName")
@@ -91,7 +96,9 @@ def main():
                 NewFieldDef("proc", ogr.OFTInteger, "0"), 
                 NewFieldDef("compl", ogr.OFTInteger, "0")]
 
-    parser = argparse.ArgumentParser(description="Creates the grassland mowing input shapefile")
+    parser = argparse.ArgumentParser(
+        description="Creates the grassland mowing input shapefile",
+    )
     parser.add_argument('-c', '--config-file', default='/etc/sen2agri/sen2agri.conf', help="configuration file location")
     parser.add_argument('-s', '--site-id', type=int, help="site ID to filter by")
     parser.add_argument('-p', '--path', default='.', help="working path")
@@ -102,9 +109,24 @@ def main():
     parser.add_argument('--filter-ids-table', help="A table name containing filter ids")
     parser.add_argument('--srid', help="EPSG projection to be used for the output shapefile")
     #parser.add_argument('--dynamic-srid', default=False, help="Compute dynamically the srid from the NDVI products")
+
+    parser.add_argument("--params-file", help="Input JSON parameters file overriding default values for the above parameters, if not provided")
     
     args = parser.parse_args()
-
+    
+    if args.params_file:
+        with open(path, "r") as f:
+            data = json.load(f)
+        parser.set_defaults(**data)
+        args = parser.parse_args()
+        
+        # Alternative to have the json values in priority
+        # for key, value in data.items():
+        #     attr = key.replace("-", "_")
+        #     if hasattr(args, attr):
+        #         setattr(args, attr, value)
+        # 
+    
     config = Config(args)
     pool = multiprocessing.dummy.Pool(1)
 
@@ -119,6 +141,9 @@ def main():
 
         commands = []
         shp = args.path
+        if os.path.exists(shp) and os.path.isdir(shp):
+            shp = os.path.join(args.path, "GeneratedGrasslandMowingInputShp.shp")
+            
         ctnumFilter = ""
        
         if not os.path.exists(os.path.dirname(shp)):
@@ -156,8 +181,13 @@ def main():
                 sql = sql.format(SQL(str_add_col_names), Identifier(lpis_table))
             sql = sql.as_string(conn)
 
+
+        ext = os.path.splitext(shp)[1].lower()
         command = []
         command += ["ogr2ogr"]
+        if ext == ".gpkg":
+            command += ["-f", "GPKG"]
+            command += ["-lco", "SPATIAL_INDEX=YES"]
         command += ["-sql", sql]
         command += [shp]
         command += [pg_path]

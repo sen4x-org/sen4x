@@ -378,7 +378,7 @@ def spt_interpolate_cube(in_data_cube, dst_shape, interpolation_degree=1, smooth
     return out_fullRES_cube
 
 
-def layer2mask(layerFile, rasterFile, outputFile, layer_type='ROI', class_attribute = None, options=['ALL_TOUCHED=False']):
+def layer2mask(layerFile, rasterFile, outputFile, layer_type='ROI', class_attribute = None, options=None):
 # This function rasterizes the input layer file into a raster image having the map info derived from the input raster file
 # Input:
 #  layerFile: file name of the shape file containing geometries
@@ -388,6 +388,10 @@ def layer2mask(layerFile, rasterFile, outputFile, layer_type='ROI', class_attrib
 #  ii) with the FID of the geometries and finally iii) with the values of the attribute defined by the class_attribute
 # Output:
 #  None: results written on file
+    if options is None:
+        options = ['ALL_TOUCHED=False']
+    else:
+        options = list(options)  # copy to avoid side effects
 
     # read raster projection and extension
     gdal_data = gdal.Open(rasterFile)
@@ -409,13 +413,29 @@ def layer2mask(layerFile, rasterFile, outputFile, layer_type='ROI', class_attrib
     Layer = ogr_data.GetLayer(0)
     LayerName = Layer.GetName()
 
-    # create spatial index if not available
-    print("Spatial index file:", layerFile[:-3]+'qix')
-    if not os.path.exists(layerFile[:-3]+'qix'):
-        ogr_data.ExecuteSQL('CREATE SPATIAL INDEX ON %s' % LayerName)
+    ext = os.path.splitext(layerFile)[1].lower()
+    if ext == ".shp":
+        print("Shapefile: assuming optional spatial index")
+        # create spatial index if not available
+        qix_path = layerFile[:-4] + '.qix'
+        print("Spatial index file:", qix_path)
+        if not os.path.exists(qix_path):
+            ogr_data.ExecuteSQL('CREATE SPATIAL INDEX ON %s' % LayerName)
+    elif ext == ".gpkg":
+        print("GeoPackage: spatial index already handled")
 
     if layer_type=='segments':
-        Layer = ogr_data.ExecuteSQL('SELECT FID, * FROM "%s" ORDER BY OGR_GEOM_AREA DESC' % LayerName)
+        if ext == ".shp":
+            Layer = ogr_data.ExecuteSQL('SELECT FID, * FROM "%s" ORDER BY OGR_GEOM_AREA DESC' % LayerName)
+        elif ext == ".gpkg":
+            geom_col = Layer.GetGeometryColumn() or "geom"
+            sql = 'SELECT * FROM "{layer}" ORDER BY ST_Area("{geom}") DESC'.format(
+                layer=LayerName,
+                geom=geom_col
+            )
+
+            sql_layer = ogr_data.ExecuteSQL(sql)
+            Layer = sql_layer
         wkt = 'POLYGON(({xmin} {ymin}, {xmin} {ymax}, {xmax} {ymax}, {xmax} {ymin}, {xmin} {ymin}))'.format(xmin=rasterImgExtent[0],
                                                                                                             xmax=rasterImgExtent[1],
                                                                                                             ymin=rasterImgExtent[2],
@@ -439,17 +459,18 @@ def layer2mask(layerFile, rasterFile, outputFile, layer_type='ROI', class_attrib
     outband.Fill(fill_val)
     outMask.FlushCache()
 
+    opts = list(options)
     # rasterize ROI layer over SAR data
     if layer_type=='ROI':
-        gdal.RasterizeLayer(outMask, [1], Layer, burn_values=[1], options=options)
+        gdal.RasterizeLayer(outMask, [1], Layer, burn_values=[1], options=opts)
         attributes = {1: {}}
     elif layer_type=='segments':
-        options.append('ATTRIBUTE=FID')
-        gdal.RasterizeLayer(outMask, [1], Layer, options=options)
+        opts.append('ATTRIBUTE=FID')
+        gdal.RasterizeLayer(outMask, [1], Layer, options=opts)
         attributes = {f.GetFID(): f.items() for f in Layer}
     elif layer_type=='classes':
-        options.append('ATTRIBUTE='+class_attribute)
-        gdal.RasterizeLayer(outMask, [1], Layer, options=options)
+        opts.append('ATTRIBUTE='+class_attribute)
+        gdal.RasterizeLayer(outMask, [1], Layer, options=opts)
         attributes = {f[class_attribute]: f.items() for f in Layer}
 
     burned_pixels = np.count_nonzero(outMask.ReadAsArray())
@@ -458,6 +479,9 @@ def layer2mask(layerFile, rasterFile, outputFile, layer_type='ROI', class_attrib
         print("Intersection between raster and layer is empty!")
     outband=None
     outMask=None
+
+    # if layer_type=='segments':
+    #     ogr_data.ReleaseResultSet(Layer)
 
     return burned_pixels, attributes
 

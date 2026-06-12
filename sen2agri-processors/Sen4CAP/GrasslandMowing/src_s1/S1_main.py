@@ -621,6 +621,12 @@ class S4CConfig(object):
         self.output_shapefile = args.output_shapefile
         self.do_cmpl = args.do_cmpl
         self.test = args.test
+        
+        if not self.output_data_dir: 
+            output_shapefile_path = Path(self.output_shapefile)
+            self.output_data_dir = output_shapefile_path.parent / "working_dir"
+            self.output_data_dir.mkdir(exist_ok=True)
+
 
 def getPathsAndOrbits(s4cConfig, products) :
 
@@ -698,7 +704,7 @@ def read_s1_products(file):
 def main() :
     parser = argparse.ArgumentParser(description="Executes grassland mowing S1 detection")
     parser.add_argument('-p', "--s1-products-file", help="File containing the S1 products tiff files")
-    parser.add_argument('-f', '--config-file', default = "/usr/share/sen2agri/S4C_L4B_GrasslandMowing/config.ini", help="Grassland mowing parameters configuration file location")
+    parser.add_argument('-f', '--config-file', default = "/usr/share/sen2agri/S4C_L4B_GrasslandMowing/Bin/src_ini/S4C_L4B_Default_Config.cfg", help="Grassland mowing parameters configuration file location")
     parser.add_argument('-i', '--input-shape-file', help="The input shapefile GSAA")
     parser.add_argument('-o', '--output-data-dir', help="Output data directory")
     parser.add_argument('-e', '--end-date', help="The new acquisition date")
@@ -709,7 +715,15 @@ def main() :
     parser.add_argument('-m', '--do-cmpl', help="Run compliancy")
     parser.add_argument('-t', '--test', help="Run test")
     
+    parser.add_argument("--params-file", help="Input JSON parameters file overriding default values for the above parameters, if not provided")
+    
     args = parser.parse_args()
+    
+    if args.params_file:
+        with open(path, "r") as f:
+            data = json.load(f)
+        parser.set_defaults(**data)
+        args = parser.parse_args()
     
     s4cConfig = S4CConfig(args)
     

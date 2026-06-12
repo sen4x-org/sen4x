@@ -3,15 +3,14 @@ from __future__ import print_function
 
 import argparse
 import csv
-import dateutil.parser
 import os.path
-from osgeo import gdal, ogr
 import psycopg2
 from psycopg2.sql import SQL, Literal, Identifier
 import psycopg2.extras
 import sys
 import re
 import fnmatch
+from datetime import datetime
 
 try:
     from configparser import ConfigParser
@@ -25,6 +24,11 @@ class Config(object):
         parser.read([args.config_file])
 
         self.host = parser.get("Database", "HostName")
+
+        # work around Docker networking scheme
+        if self.host == "127.0.0.1" or self.host == "::1" or self.host == "localhost":
+            self.host = "172.17.0.1"
+
         self.port = int(parser.get("Database", "Port", vars={"Port": "5432"}))
         self.dbname = parser.get("Database", "DatabaseName")
         self.user = parser.get("Database", "UserName")
@@ -55,9 +59,11 @@ class L3BProductFile(object):
         return [self.tile_id, self.path]
 
 def save_to_csv(products, path, headers):
-    with open(path, "wb") as csvfile:
-        print("Writing to file {} a number of {} entries ... ".format(path, len(products)))
+    with open(path, "w", newline="", encoding="utf-8") as csvfile:
+    # with open(path, "wb") as csvfile:
+        print("Writing to file {} a number of {} entries, having headers {} ... ".format(path, len(products), headers))
         writer = csv.writer(csvfile, quoting=csv.QUOTE_MINIMAL)
+        # writer = csv.writer(csvfile)
         writer.writerow(headers)
         # writer.writerows(products)
         for row in products:
@@ -174,8 +180,23 @@ def get_s2_products_from_tiffs(input_products_list):
     
     return products
 
-def extract_l3b_products_files(conn, site_id, season_start, season_end, prds_are_tif, input_products_list):
+def get_l3b_product_type_id(cursor, l3b_product_type):
+    name = "l3b_" + l3b_product_type.lower()
+
+    cursor.execute(
+        "SELECT id FROM product_type WHERE name = %s",
+        (name,)
+    )
+    row = cursor.fetchone()
+
+    if row:
+        return row[0]
+    else:
+        raise ValueError("Unknown product type: {}".format(l3b_product_type))
+        
+def extract_l3b_products_files(conn, site_id, season_start, season_end, prds_are_tif, input_products_list, l3b_product_type):
     with conn.cursor() as cursor:
+        l3b_product_type_id = get_l3b_product_type_id(cursor, l3b_product_type)
         if input_products_list is not None and len(input_products_list) > 0 :
             print ("prds_are_tif = {}".format(prds_are_tif))
             print ("Extracting NDVI infos from the database only for the list of products!!!")
@@ -203,7 +224,7 @@ def extract_l3b_products_files(conn, site_id, season_start, season_end, prds_are
                     product.full_path,
                     product.tiles
                 from product
-                where product.site_id = {} and product.product_type_id = 3 {}
+                where product.site_id = {} and product.product_type_id = {} {}
             )
             select products.date,
                     products.tiles,
@@ -230,7 +251,7 @@ def extract_l3b_products_files(conn, site_id, season_start, season_end, prds_are
             
             season_filter = SQL("")
             
-        query = query.format(Literal(site_id), product_filter, season_filter)
+        query = query.format(Literal(site_id), Literal(l3b_product_type_id), product_filter, season_filter)
         # print(query.as_string(conn))
         
         # execute the query
@@ -257,7 +278,7 @@ def extract_l3b_products_files(conn, site_id, season_start, season_end, prds_are
                 if re.match("\d{6}", tile) :
                     print ("Ignoring L8 tile {}".format(tile))
                     continue
-                tilePaths = fnmatch.filter(tilesDirs, "S2AGRI_L3B_A*_T{}".format(tile))
+                tilePaths = fnmatch.filter(tilesDirs, "S2AGRI_L3B*_A*_T{}".format(tile))
                 if len(tilePaths) == 1:
                     subPath = tilePaths[0]
                     fullTilePath = os.path.join(tilesPath, subPath)
@@ -267,7 +288,7 @@ def extract_l3b_products_files(conn, site_id, season_start, season_end, prds_are
                     except:
                         print("Expected L3B product structure found but the path {} does not exists".format(tileImgDataPath))
                         continue
-                    prdFiles = fnmatch.filter(tileDirFiles, "S2AGRI_L3B_S*_A*_T{}.TIF".format(tile))
+                    prdFiles = fnmatch.filter(tileDirFiles, "S2AGRI_L3B*_S*_A*_T{}.TIF".format(tile))
                     for prdFile in prdFiles:
                         # print ("Using product tif: {} ...".format(os.path.join(tileImgDataPath, prdFile)))
                         products.append(L3BProductFile(tile, os.path.join(tileImgDataPath, prdFile)))
@@ -289,11 +310,20 @@ def main():
     parser.add_argument("--season-end", help="season end date")
     parser.add_argument("--s1-products", nargs="+", help="S1 product filter")
     parser.add_argument("--l3b-products", nargs="+", help="L3B product filter")
+    parser.add_argument("--l3b-product-type", help="The type of the optical products", default="NDVI")
     parser.add_argument("--out-l3b-products-file", help="output optical products", default="")
     parser.add_argument("--out-s1-products-file", help="output radar products", default="")
     parser.add_argument('--l3b-prds-are-tif', help="Specify that the L3B products in the l3b-products are actually the TIF files", type=int, default="0")
 
+    parser.add_argument("--params-file", help="Input JSON parameters file overriding default values for the above parameters, if not provided")
+    
     args = parser.parse_args()
+    
+    if args.params_file:
+        with open(path, "r") as f:
+            data = json.load(f)
+        parser.set_defaults(**data)
+        args = parser.parse_args()
 
     if args.out_s1_products_file == "" and args.out_l3b_products_file == "" :
         print("Please provide at least one of the parameters out_l3b_products_file or out_s1_products_file")
@@ -302,8 +332,8 @@ def main():
     season_start = None
     season_end = None
     if args.season_start and args.season_end : 
-        season_start = dateutil.parser.parse(args.season_start)
-        season_end = dateutil.parser.parse(args.season_end)
+        season_start = datetime.strptime(args.season_start, "%Y-%m-%d")
+        season_end = datetime.strptime(args.season_end, "%Y-%m-%d")
 
     config = Config(args)
 
@@ -329,7 +359,7 @@ def main():
                     ],
                 )
         if args.out_l3b_products_file != "" :
-            products = extract_l3b_products_files(conn, config.site_id, season_start, season_end, args.l3b_prds_are_tif, args.l3b_products)
+            products = extract_l3b_products_files(conn, config.site_id, season_start, season_end, args.l3b_prds_are_tif, args.l3b_products, args.l3b_product_type)
             save_to_csv(
                     products,
                     args.out_l3b_products_file, 

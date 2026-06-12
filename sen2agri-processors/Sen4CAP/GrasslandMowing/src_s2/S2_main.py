@@ -18,6 +18,7 @@ import model_lib
 import fusion
 import compliancy
 import S2_gmd
+import json
 
 import csv
 
@@ -29,6 +30,11 @@ gdal.UseExceptions()
 osr.UseExceptions()
 ogr.UseExceptions()
 
+try:
+    from pathlib import Path
+except ImportError:
+    from pathlib2 import Path
+    
 try:
     from configparser import ConfigParser
 except ImportError:
@@ -107,7 +113,7 @@ def run_proc(tile_number, S2DataGlob, re_compile, segmentsFile,
         validity_temporal_range_str = [new_acq_date+"T000000", new_acq_date+"T235959"]
 
     validity_temporal_range_str = [dateutil.parser.parse(date_str, yearfirst=True, dayfirst=False) for date_str in validity_temporal_range_str]
-    select_date_interval = [validity_temporal_range_str[0] - datetime.timedelta(days=S2_time_interval*stat_smpl_n), validity_temporal_range_str[1]]
+    select_date_interval = [validity_temporal_range_str[0] - datetime.timedelta(days=int(S2_time_interval * stat_smpl_n)), validity_temporal_range_str[1]]
     print("validity_temporal_range_str", validity_temporal_range_str)
     print("select_date_interval",select_date_interval)
     valid_date_mask = (df['acq_date_time'] >= select_date_interval[0]) & (df['acq_date_time'] <= select_date_interval[1])
@@ -583,7 +589,7 @@ def main_run(configFile, segmentsFile, data_x_detection, data_x_model, outputDir
     config = configparser.ConfigParser()
     config.read(configFile)
 
-    re_compile = "(S2AGRI_L3B_([A-Z]{5,11})_A([0-9]{8})T([0-9]{6})_T([0-9]{2}[A-Z]{3})\.)"
+    re_compile = "(S2AGRI_L3B[A-Z]*_([A-Z]{5,11})_A([0-9]{8})T([0-9]{6})_T([0-9]{2}[A-Z]{3})\.)"
     # [S2_input_data]
     # re_compile = config['S2_input_data']['re_compile']
     # data_x_detection = list(map(str.strip, config['S2_input_data']['data_x_detection'].split(',')))
@@ -592,7 +598,7 @@ def main_run(configFile, segmentsFile, data_x_detection, data_x_model, outputDir
     print("data_x_model", data_x_model)
 
     # [constants]
-    S2_time_interval = np.int(config['S2_constants']['S2_time_interval'])
+    S2_time_interval = np.int32(config['S2_constants']['S2_time_interval'])
     locAcqTime = config['S2_constants']['locAcqTime']
     print("S2_time_interval", S2_time_interval)
     print("locAcqTime", locAcqTime)
@@ -606,9 +612,9 @@ def main_run(configFile, segmentsFile, data_x_detection, data_x_model, outputDir
     else:
         print("apply_model par invalid")
     modelDir = config['S2_model']['modelDir']
-    NDVI_nomow_model_perc = np.float(config['S2_model']['NDVI_nomow_model_perc'])  # 95.
-    sampling_days = np.float(config['S2_model']['sampling_days'])  # 1
-    p_n_th = np.int(config['S2_model']['minimum_parcels_th'])  # 20
+    NDVI_nomow_model_perc = np.float32(config['S2_model']['NDVI_nomow_model_perc'])  # 95.
+    sampling_days = np.float32(config['S2_model']['sampling_days'])  # 1
+    p_n_th = np.int32(config['S2_model']['minimum_parcels_th'])  # 20
     model_temporal_range_str = list(ast.literal_eval(config['S2_model']['model_temporal_range_str']))
 #    start_params = [float(s) for s in config['S2_model']['start_params'].split(',')]
     start_params = ast.literal_eval(config['S2_model']['start_params'])
@@ -624,19 +630,19 @@ def main_run(configFile, segmentsFile, data_x_detection, data_x_model, outputDir
 
     # [processing]
     prod_type_list = list(map(str.strip, config['S2_processing']['prod_type_list'].split(','))) # ['SNDVI']  # NDVI
-    sc_fact = [np.float(s) for s in config['S2_processing']['sc_fact'].split(',')] # [1000]
-    corrupted_th = [np.float(s) for s in config['S2_processing']['corrupted_th'].split(',')] # [1000] [0.1]
-    decreasing_abs_th = [np.float(s) for s in config['S2_processing']['decreasing_abs_th'].split(',')]
-    decreasing_rate_th = [np.float(s) for s in config['S2_processing']['decreasing_rate_th'].split(',')]
-    increasing_rate_th = [np.float(s) for s in config['S2_processing']['increasing_rate_th'].split(',')]
-    low_abs_th = [np.float(s) for s in config['S2_processing']['low_abs_th'].split(',')]
-    high_abs_th = [np.float(s) for s in config['S2_processing']['high_abs_th'].split(',')]
-    invalid_data = [np.float(s) for s in config['S2_processing']['invalid_data'].split(',')]
-    no_mowing_after_det = np.int(config['S2_processing']['no_mowing_after_det'])
-    non_overlap_interval_days = np.int(config['S2_processing']['non_overlap_interval_days'])
+    sc_fact = [np.float32(s) for s in config['S2_processing']['sc_fact'].split(',')] # [1000]
+    corrupted_th = [np.float32(s) for s in config['S2_processing']['corrupted_th'].split(',')] # [1000] [0.1]
+    decreasing_abs_th = [np.float32(s) for s in config['S2_processing']['decreasing_abs_th'].split(',')]
+    decreasing_rate_th = [np.float32(s) for s in config['S2_processing']['decreasing_rate_th'].split(',')]
+    increasing_rate_th = [np.float32(s) for s in config['S2_processing']['increasing_rate_th'].split(',')]
+    low_abs_th = [np.float32(s) for s in config['S2_processing']['low_abs_th'].split(',')]
+    high_abs_th = [np.float32(s) for s in config['S2_processing']['high_abs_th'].split(',')]
+    invalid_data = [np.float32(s) for s in config['S2_processing']['invalid_data'].split(',')]
+    no_mowing_after_det = np.int32(config['S2_processing']['no_mowing_after_det'])
+    non_overlap_interval_days = np.int32(config['S2_processing']['non_overlap_interval_days'])
     options_layer_burning = list(map(str.strip, config['S2_processing']['options_layer_burning'].split(',')))
-    erode_pixels = np.int(config['S2_processing']['erode_pixels'])
-    stat_smpl_n = np.int(config['S2_processing']['stat_smpl_n'])
+    erode_pixels = np.int32(config['S2_processing']['erode_pixels'])
+    stat_smpl_n = np.int32(config['S2_processing']['stat_smpl_n'])
     print("prod_type_list",prod_type_list)
     print("sc_fact",sc_fact)
     print("corrupted_th",corrupted_th)
@@ -656,7 +662,7 @@ def main_run(configFile, segmentsFile, data_x_detection, data_x_model, outputDir
     if do_cmpl:
         cnt_crop_code = list(map(str.strip, config['compliancy']['crop_codes'].split(',')))
         cnt_crop_TR = list(ast.literal_eval(config['compliancy']['crop_time_intervals']))
-        cnt_crop_rule = [np.int(s) for s in config['compliancy']['crop_rule'].split(',')]
+        cnt_crop_rule = [np.int32(s) for s in config['compliancy']['crop_rule'].split(',')]
     else:
         cnt_crop_code = None
         cnt_crop_TR = None
@@ -775,6 +781,11 @@ class S4CConfig(object):
         self.do_cmpl = args.do_cmpl
         self.test = args.test
         
+        if not self.output_data_dir: 
+            output_shapefile_path = Path(self.output_shapefile)
+            self.output_data_dir = output_shapefile_path.parent / "working_dir"
+            self.output_data_dir.mkdir(exist_ok=True)
+        
 def read_l3b_products(file):
     products = []
     with open(file, 'r') as file:
@@ -786,9 +797,20 @@ def read_l3b_products(file):
             products.append(NdviProduct(row[0], row[1]))
     return products
 
+def read_request_context_file(request_context_file):
+
+    with open(request_context_file) as f:
+        data = json.load(f)
+
+    # "site_info" contains : "site_id", "season_id", "season_start", "season_end", "wkt"
+    return {
+        "site_info": data.get("site_info", {}),
+        "request_parameters": data.get("request_parameters", {})
+    }
+
 def main() :
     parser = argparse.ArgumentParser(description="Executes grassland mowing S2 detection")
-    parser.add_argument('-f', '--config-file', default = "/usr/share/sen2agri/S4C_L4B_GrasslandMowing/config.ini", help="Grassland mowing parameters configuration file location")
+    parser.add_argument('-f', '--config-file', default = "/usr/share/sen2agri/S4C_L4B_GrasslandMowing/Bin/src_ini/S4C_L4B_Default_Config.cfg", help="Grassland mowing parameters configuration file location")
     parser.add_argument('-p', "--l3b-products-file", help="File containing the L3B products tiff files")
     parser.add_argument('-i', '--input-shape-file', help="The input shapefile GSAA")
     parser.add_argument('-o', '--output-data-dir', help="Output data directory")
@@ -798,11 +820,37 @@ def main() :
     parser.add_argument('-x', '--output-shapefile', help="Output shapefile")
     parser.add_argument('-m', '--do-cmpl', help="Run compliancy")
     parser.add_argument('-t', '--test', help="Run test")
+    parser.add_argument("--request-context-file", required=False,
+                    help="JSON containing the information about the execution context (site, request parameters etc.)")
+
+    # parser.add_argument("--params-file", help="Input JSON parameters file overriding default values for the above parameters, if not provided")
     
     args = parser.parse_args()
     
+    #if args.params_file:
+    #    with open(path, "r") as f:
+    #        data = json.load(f)
+    #    parser.set_defaults(**data)
+    #    args = parser.parse_args()
+    
+    if args.request_context_file:
+        result = read_request_context_file(args.request_context_file)
+        site_info = result["site_info"]
+        season_start = site_info["season_start"]
+        season_end = site_info["season_end"]
+        if season_start:
+            args.start_date = season_start
+        if season_start:
+            args.end_date = season_end
+
     s4cConfig = S4CConfig(args)
     
+    if os.path.exists(args.input_shape_file) and os.path.isdir(args.input_shape_file):
+        for f in os.listdir(args.input_shape_file):
+                if f.lower().endswith(".shp"):
+                    shp_path = os.path.join(args.input_shape_file, f)        
+                    args.input_shape_file = shp_path
+        
     if not os.path.isfile(args.input_shape_file) : 
         print("ERROR: the file for input-shape-file does not exists!!! Exiting ... ")
         sys.exit(1)
