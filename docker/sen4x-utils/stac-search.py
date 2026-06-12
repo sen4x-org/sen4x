@@ -1,0 +1,1 @@
+../../scripts/stac-search.py
