@@ -3,6 +3,7 @@
 import argparse
 import itertools
 import json
+import sys
 from enum import Enum
 from pathlib import Path
 from urllib.parse import urljoin
@@ -35,8 +36,13 @@ class ProductType(Enum):
     L2A_MSK = 26
     S4C_BARE_SOIL = 33
     S4C_CHANGE_DETECTION = 35
+    L3B_NDVI = 36
+    L3B_LAI = 37
+    L3B_FAPAR = 38
+    L3B_FCOVER = 39
+    L3B_NDWI = 40
+    L3B_BRIGH = 41 
     DUMMY = 99
-
 
 def read_l2a(root: Path):
     entries = list(root.glob("*"))
@@ -99,10 +105,11 @@ def build_item(row):
     assets = {}
     product_assets = None
     preview = None
+    metadata = None
     full_path = Path(row["full_path"])
     if product_type == ProductType.L2A:
         metadata = read_l2a(full_path)
-    elif product_type == ProductType.L3B:
+    elif product_type == ProductType.L3B or product_type == ProductType.L3B_NDVI or product_type == ProductType.L3B_LAI or product_type == ProductType.L3B_FAPAR or product_type == ProductType.L3B_FCOVER or product_type == ProductType.L3B_NDWI or product_type == ProductType.L3B_BRIGH :
         metadata, product_assets, preview = read_l3b(full_path)
     if metadata:
         assets["metadata"] = {
@@ -110,14 +117,27 @@ def build_item(row):
             "title": "Product manifest",
             "type": "application/xml",
             "roles": ["metadata"],
+            "alternate": {
+                "s3": {
+                    "href": f"http://s3.waw4-1.cloudferro.com{str(metadata).replace('SEN4CAP', 'Sen4CAP')}"
+                }
+            },
         }
     if product_assets:
         for kind, image in product_assets.items():
-            assets[kind] = {
+            asset = {
                 "href": str(image),
                 "type": "image/tiff",
                 "roles": ["data"],
             }
+
+            # TODO
+            asset["alternate"] = {
+                "s3": {
+                    "href": f"http://s3.waw4-1.cloudferro.com{image.replace('SEN4CAP', 'Sen4CAP')}"
+                }
+            }
+            assets[kind] = asset
 
     quicklook_image = row.get("quicklook_image") or ""
     if preview:
@@ -179,6 +199,7 @@ def main():
         params,
     )
 
+    ok = True
     for r in cur:
         item = build_item(r)
 
@@ -187,10 +208,16 @@ def main():
             url = urljoin(args.stac_url, f"collections/{collection}/items")
             response = requests.post(f"{url}", json=item)
             if not response:
-                print(f"{item['id']}: {response.text}")
+                print(f"{item['id']}: {response.text}", file=sys.stderr)
+                ok = False
+            else:
+                print(f"{url}/{item['id']}")
         else:
             with open(f"{item['id']}.json", "w") as file:
                 json.dump(item, file)
+
+    if not ok:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

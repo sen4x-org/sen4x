@@ -1,13 +1,12 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 from __future__ import print_function
 import argparse
 import re
 import glob
 from osgeo import gdal
 from osgeo import osr
+from osgeo import ogr
 import subprocess
-import lxml.etree
-from lxml.builder import E
 import math
 import os
 from os.path import isfile, isdir, join
@@ -16,12 +15,11 @@ import sys
 import time
 import datetime
 from time import gmtime, strftime
-import pipes
 import shutil
 import psycopg2
 import psycopg2.errorcodes
 import optparse
-from osgeo import ogr
+import subprocess, sys
 try:
     from configparser import ConfigParser
 except ImportError:
@@ -35,23 +33,275 @@ general_log_filename = "log.log"
 
 DEBUG = 1
 
+UUID_REGEX = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
 
-def log(location, info, log_filename=None):
-    if log_filename == None:
-        log_filename = "log.txt"
-    try:
-        logfile = os.path.join(location, log_filename)
-        if DEBUG:
-            #print("logfile: {}".format(logfile))
-            print("{}:{}".format(str(datetime.datetime.now()), str(info)))
-            sys.stdout.flush()
-        log = open(logfile, 'a')
-        log.write("{}:{}\n".format(str(datetime.datetime.now()), str(info)))
-        log.close()
-    except:
-        print("Could NOT write inside the log file {}".format(logfile))
-        sys.stdout.flush()
+###########################################################################
 
+
+class Config(object):
+
+    def __init__(self):
+        self.host = ""
+        self.port = ""
+        self.database = ""
+        self.user = ""
+        self.password = ""
+        self.orig_host = ""
+        
+    def loadConfig(self, configFile):
+        parser = ConfigParser()
+        parser.read([configFile])
+
+        self.host = parser.get("Database", "HostName")
+        self.orig_host = self.host
+
+        # work around Docker networking scheme
+        if self.host == "127.0.0.1" or self.host == "::1" or self.host == "localhost":
+            self.host = "172.17.0.1"
+
+        self.port = int(parser.get("Database", "Port", vars={"Port": "5432"}))
+        self.database = parser.get("Database", "DatabaseName")
+        self.user = parser.get("Database", "UserName")
+        self.password = parser.get("Database", "Password")
+        
+        return True
+
+###########################################################################
+
+
+class L2AInfo(object):
+
+    def __init__(self, server_ip, database_name, user, password, log_file=None):
+        self.server_ip = server_ip
+        self.database_name = database_name
+        self.user = user
+        self.password = password
+        self.is_connected = False
+        self.log_file = log_file
+        
+    def database_connect(self):
+        if self.is_connected:
+            return True
+        connectString = "dbname='{}' user='{}' host='{}' password='{}'".format(self.database_name, self.user, self.server_ip, self.password)
+        try:
+            self.conn = psycopg2.connect(connectString)
+            self.cursor = self.conn.cursor()
+            self.is_connected = True
+        except:
+            print("Unable to connect to the database")
+            exceptionType, exceptionValue, exceptionTraceback = sys.exc_info()
+            # Exit the script and print an error telling what happened.
+            print("Database connection failed!\n ->{}".format(exceptionValue))
+            self.is_connected = False
+            return False
+        return True
+
+    def database_disconnect(self):
+        if self.conn:
+            self.conn.close()
+            self.is_connected = False
+
+    def get_site_names(self):
+        if not self.database_connect():
+            return ""
+        try:
+            self.cursor.execute("select short_name from site")
+            rows = self.cursor.fetchall()
+        except:
+            print("Unable to execute select short_name from site")
+            self.database_disconnect()
+            return ""
+        self.database_disconnect()
+        return [item[0] for item in rows]
+
+    def create_site(self, name) :
+        if not self.database_connect():
+            return -1
+        try:
+            geog = "POLYGON((23.705476819901342 44.38221848137339,23.892244398026342 44.38221848137339,23.892244398026342 44.275139739801844,23.705476819901342 44.275139739801844,23.705476819901342 44.38221848137339))"
+            self.cursor.execute("""select * from sp_dashboard_add_site(%(name)s :: character varying,
+                           %(geog)s :: character varying,
+                           %(enabled)s :: boolean)""",
+                                {
+                                    "name": name,
+                                    "geog": geog,
+                                    "enabled": False
+                                })
+            row = self.cursor.fetchone()
+            self.conn.commit()
+            if row is None:
+                return -1
+            site_id = row[0]
+            return site_id
+                
+        except Exception as e:
+            print("Database update query failed: {}".format(e))
+            self.database_disconnect()
+            return -1
+        self.database_disconnect()
+        return -1
+        
+ 
+    def get_site_id(self, short_name):
+        if not self.database_connect():
+            return ""
+        try:
+            self.cursor.execute("select id from site where short_name='{}'".format(short_name))
+            rows = self.cursor.fetchall()
+            self.database_disconnect()
+            return rows[0][0]
+        except:
+            print("Unable to execute select id from site")
+            self.database_disconnect()
+            return ""
+
+    def get_site_short_name(self, site_id):
+        if not self.database_connect():
+            return ""
+        try:
+            self.cursor.execute("select short_name from site where id='{}'".format(site_id))
+            rows = self.cursor.fetchall()
+            self.database_disconnect()
+            return rows[0][0]
+        except:
+            print("Unable to execute select id from site")
+            self.database_disconnect()
+            return ""
+
+    def get_processor_names(self):
+        if not self.database_connect():
+            return ""
+        try:
+            self.cursor.execute("select short_name from processor")
+            rows = self.cursor.fetchall()
+            self.database_disconnect()
+            return [item[0] for item in rows]
+        except:
+            print("Unable to execute select short_name from processor")
+            self.database_disconnect()
+            return ""
+
+    def get_processor_id(self, short_name):
+        if not self.database_connect():
+            return ""
+        try:
+            self.cursor.execute("select id from processor where short_name='{}'".format(short_name))
+            rows = self.cursor.fetchall()
+            self.database_disconnect()
+            return rows[0][0]
+        except:
+            print("Unable to execute select id from processor")
+            self.database_disconnect()
+            return ""
+
+    def get_product_type_names(self):
+        if not self.database_connect():
+            return ""
+        try:
+            self.cursor.execute("select name from product_type")
+            rows = self.cursor.fetchall()
+            self.database_disconnect()
+            return [item[0] for item in rows]
+        except:
+            print("Unable to execute select name from product_type")
+            self.database_disconnect()
+            return ""
+
+    def get_product_type_id(self, short_name):
+        if not self.database_connect():
+            return ""
+        try:
+            self.cursor.execute("select id from product_type where name='{}'".format(short_name))
+            rows = self.cursor.fetchall()
+            self.database_disconnect()
+            return rows[0][0]
+        except:
+            print("Unable to execute select id from product_type")
+            self.database_disconnect()
+            return ""
+
+    def get_l2a_geog(self, name, site_id):
+        if not self.database_connect():
+            return ""
+        try:
+            self.cursor.execute("select geog from product where name='{}' and site_id = {}".format(name, site_id))
+            rows = self.cursor.fetchall()
+            self.database_disconnect()
+            count = (len(rows))
+            if count == 0 :
+                print("L2A product for site_id = {} and product name = {} does not exist in product table".format(site_id, name))
+                return ""
+            print("Extracted geography {} from product for site_id = {} and product name = {}".format(rows[0][0], site_id, name))
+            return rows[0][0]
+        except:
+            print("Unable to execute geog from product for site_id = {} and product name = {}".format(site_id, name))
+            self.database_disconnect()
+            return ""
+
+    def set_processed_product(self, processor_id, product_type_id, site_id, l2a_processed_tiles, full_path, product_name, footprint, sat_id, acquisition_date, orbit_id, mosaic_img):
+        # input params:
+        # product type by default is 1
+        # processor id
+        # site id
+        # job id has to be NULL
+        # full path is the whole path to the product including the name
+        # created timestamp NULL
+        # name product (basename from the full path)
+        # quicklook image has to be NULL
+        # footprint
+        if not self.database_connect():
+            return -1
+        try:
+            if len(l2a_processed_tiles) > 0:
+                # normally , sp_insert_product should upsert the record
+                self.cursor.execute("""select * from sp_insert_product(%(product_type_id)s :: smallint,
+                               %(processor_id)s :: smallint,
+                               %(satellite_id)s :: smallint,
+                               %(site_id)s :: smallint,
+                               %(job_id)s :: smallint,
+                               %(full_path)s :: character varying,
+                               %(created_timestamp)s :: timestamp,
+                               %(name)s :: character varying,
+                               %(quicklook_image)s :: character varying,
+                               %(footprint)s,
+                               %(orbit_id)s :: integer,
+                               %(tiles)s :: json)""",
+                                    {
+                                        "product_type_id": product_type_id,
+                                        "processor_id": processor_id,
+                                        "satellite_id": sat_id,
+                                        "site_id": site_id,
+                                        "job_id": None,
+                                        "full_path": full_path,
+                                        "created_timestamp": acquisition_date,
+                                        "name": product_name,
+                                        "quicklook_image": mosaic_img,
+                                        "footprint": footprint,
+                                        "orbit_id": orbit_id,
+                                        "tiles": '[' + ', '.join(['"' + t + '"' for t in l2a_processed_tiles]) + ']'
+                                    })
+                row = self.cursor.fetchone()
+                self.conn.commit()
+                if row is None:
+                    return -1
+                product_id = row[0]
+                return product_id
+                
+        except Exception as e:
+            print("Database update query failed: {}".format(e))
+            self.database_disconnect()
+            return -1
+        self.database_disconnect()
+        return -1
+
+def extract_uuid(path):
+    parts = path.split(os.sep)
+    for p in parts:
+        if UUID_REGEX.fullmatch(p):
+            uuid_dir = os.path.join(*(parts[:parts.index(p)+1]))
+            if os.path.isdir(uuid_dir):
+                return p
+    return None
 
 def GetExtent(gt, cols, rows):
     ext = []
@@ -180,7 +430,7 @@ def get_product_orbit_id(product_name):
     return int(orbit_id.group(1))
 
 
-def insert_product(product_dir):
+def insert_product(site_id, processor_id, product_type_id, product_dir):
     l2a_processed_tiles = []
     wkt = []
     sat_id = 0
@@ -202,7 +452,7 @@ def insert_product(product_dir):
         tiles_dir_list = (glob.glob("{}*.DBL.DIR".format(product_dir)))
         tile_img = []
         if len(tiles_dir_list) > 0 :
-            log(product_dir, "Creating common footprint for tiles: DBL.DIR List: {}".format(tiles_dir_list), general_log_filename)
+            print("Creating common footprint for tiles: DBL.DIR List: {}".format(tiles_dir_list))
             for tile_dir in tiles_dir_list:
                 if satellite_id == SENTINEL2_SATELLITE_ID:
                     tile_img = (glob.glob("{}/*_FRE_R1.DBL.TIF".format(tile_dir)))
@@ -212,7 +462,7 @@ def insert_product(product_dir):
             # Check for MAJA format
             tiles_dir_list = (glob.glob("{}SENTINEL2*".format(product_dir)))
             if len(tiles_dir_list) > 0 :
-                log(product_dir, "Creating common footprint for tiles: DBL.DIR List: {}".format(tiles_dir_list), general_log_filename)
+                print("Creating common footprint for tiles: DBL.DIR List: {}".format(tiles_dir_list))
                 for tile_dir in tiles_dir_list:
                     if satellite_id == SENTINEL2_SATELLITE_ID:
                         tile_img = (glob.glob("{}/*_FRE_B2.tif".format(tile_dir)))
@@ -220,7 +470,7 @@ def insert_product(product_dir):
                 # Check for Sen2Cor format
                 tiles_dir_list = (glob.glob("{}GRANULE/L2A_T*".format(product_dir)))
                 if len(tiles_dir_list) > 0 :
-                    log(product_dir, "Creating common footprint for tiles: {}".format(tiles_dir_list), general_log_filename)
+                    print("Creating common footprint for tiles: {}".format(tiles_dir_list))
                     for tile_dir in tiles_dir_list:
                         if satellite_id == SENTINEL2_SATELLITE_ID:
                             tile_img = (glob.glob("{}/IMG_DATA/R10m/T*_B08_10m.jp2".format(tile_dir)))
@@ -244,7 +494,7 @@ def insert_product(product_dir):
                 print ("mosaic image is {}".format(mosaic_img))
 
             tiles_dir_list = (glob.glob("{}TILES/S2AGRI_*".format(product_dir)))
-            log(product_dir, "Creating common footprint for tiles: {}".format(tiles_dir_list), general_log_filename)
+            print("Creating common footprint for tiles: {}".format(tiles_dir_list))
             for tile_dir in tiles_dir_list:
                 tile_img = (glob.glob("{}/IMG_DATA/S2AGRI_*.TIF".format(tile_dir)))
                 if len(tile_img) > 0:
@@ -254,7 +504,7 @@ def insert_product(product_dir):
 
     orbit_id = 0
     if len(wkt) == 0:
-        log(product_dir, "Could not create the footprint", general_log_filename)
+        print("Could not create the footprint")
     else:
         sat_id, acquisition_date = get_product_info(product_name)
         if args.product_type == "l2a" or args.product_type == "l2a_msk" or args.product_type == "fmask":
@@ -282,9 +532,9 @@ def insert_product(product_dir):
                         tile = re.search(r"_L2VALD_([\d]{6})_[\w\.]+$", tile_dbl_dir)
                     if tile is not None and not tile.group(1) in l2a_processed_tiles:
                         l2a_processed_tiles.append(tile.group(1))
-                log(product_dir, "Processed tiles: {}  to path: {}".format(l2a_processed_tiles, product_dir), general_log_filename)
+                print("Processed tiles: {}  to path: {}".format(l2a_processed_tiles, product_dir))
             else:
-                log(product_dir, "Could not get the acquisition date from the product name {}".format(product_dir), general_log_filename)
+                print("Could not get the acquisition date from the product name {}".format(product_dir))
         else:
             for tile_dbl_dir in tiles_dir_list:
                 tile = re.search("\w+_T(\w+)", tile_dbl_dir)
@@ -292,268 +542,31 @@ def insert_product(product_dir):
                     l2a_processed_tiles.append(tile.group(1))
 
     if len(l2a_processed_tiles) > 0:
-        log(product_dir, "Insert info in product table and set state as processed in product table for product {}".format(product_dir), general_log_filename)
+        print("Insert info in product table and set state as processed in product table for product {}".format(product_dir))
     else:
-        log(product_dir, "Only set the state as processed in product (no l2a tiles found after maccs) for product {}".format(product_dir), general_log_filename)
+        print("Only set the state as processed in product (no l2a tiles found after maccs) for product {}".format(product_dir))
+
+    return l2a_db.set_processed_product(processor_id, product_type_id, site_id, l2a_processed_tiles, product_dir, os.path.basename(product_dir[:len(product_dir) - 1]), wkt, sat_id, acquisition_date, orbit_id, mosaic_img)
+
+def handle_product_folders(site_name, source_dir, dest_root_dir):
+    site_short_name = site_name
+    site_id = l2a_db.get_site_id(site_short_name)
+    if(site_id == ''):
+        print("Site with name {} does not exist. Creating a new one.".format(site_short_name))    
+        site_id = l2a_db.create_site(site_short_name)
+        site_short_name = l2a_db.get_site_short_name(site_id)
 
     processor_id = l2a_db.get_processor_id(args.processor_name)
     product_type_id = l2a_db.get_product_type_id(args.product_type)
-    site_id = l2a_db.get_site_id(args.site_name)
-    if(site_id == ''):
-        sys.exit('Cannot find in the database the provided site name!!!')
 
-    l1c_prd_id = ''
-
-    l2a_db.set_processed_product(processor_id, product_type_id, site_id, l2a_processed_tiles, product_dir, os.path.basename(product_dir[:len(product_dir) - 1]), wkt, sat_id, acquisition_date, orbit_id, mosaic_img, l1c_prd_id)
-
-###########################################################################
-
-
-class Config(object):
-
-    def __init__(self):
-        self.host = ""
-        self.port = ""
-        self.database = ""
-        self.user = ""
-        self.password = ""
-
-    def loadConfig(self, configFile):
-        parser = ConfigParser()
-        parser.read([configFile])
-
-        self.host = parser.get("Database", "HostName")
-
-        # work around Docker networking scheme
-        if self.host == "127.0.0.1" or self.host == "::1" or self.host == "localhost":
-            self.host = "172.17.0.1"
-
-        self.port = int(parser.get("Database", "Port", vars={"Port": "5432"}))
-        self.database = parser.get("Database", "DatabaseName")
-        self.user = parser.get("Database", "UserName")
-        self.password = parser.get("Database", "Password")
-        
-        print("host = {}, port = {}, database = {}, user = {}, password = {}".format(self.host, self.port, self.database, self.user, self.password))
-        
-        return True
-
-###########################################################################
-
-
-class L2AInfo(object):
-
-    def __init__(self, server_ip, database_name, user, password, log_file=None):
-        self.server_ip = server_ip
-        self.database_name = database_name
-        self.user = user
-        self.password = password
-        self.is_connected = False
-        self.log_file = log_file
-        
-        print("host = {}, dbname = {}, user = {}, password = {}".format(self.server_ip, self.database_name, self.user, self.password))
-
-    def database_connect(self):
-        if self.is_connected:
-            return True
-        connectString = "dbname='{}' user='{}' host='{}' password='{}'".format(self.database_name, self.user, self.server_ip, self.password)
-        try:
-            self.conn = psycopg2.connect(connectString)
-            self.cursor = self.conn.cursor()
-            self.is_connected = True
-        except:
-            print("Unable to connect to the database")
-            exceptionType, exceptionValue, exceptionTraceback = sys.exc_info()
-            # Exit the script and print an error telling what happened.
-            print("Database connection failed!\n ->{}".format(exceptionValue))
-            self.is_connected = False
-            return False
-        return True
-
-    def database_disconnect(self):
-        if self.conn:
-            self.conn.close()
-            self.is_connected = False
-
-    def get_site_names(self):
-        if not self.database_connect():
-            return ""
-        try:
-            self.cursor.execute("select short_name from site")
-            rows = self.cursor.fetchall()
-        except:
-            print("Unable to execute select short_name from site")
-            self.database_disconnect()
-            return ""
-        self.database_disconnect()
-        return [item[0] for item in rows]
-
-    def get_site_id(self, short_name):
-        if not self.database_connect():
-            return ""
-        try:
-            self.cursor.execute("select id from site where short_name='{}'".format(short_name))
-            rows = self.cursor.fetchall()
-        except:
-            print("Unable to execute select id from site")
-            self.database_disconnect()
-            return ""
-        self.database_disconnect()
-        return rows[0][0]
-
-    def get_processor_names(self):
-        if not self.database_connect():
-            return ""
-        try:
-            self.cursor.execute("select short_name from processor")
-            rows = self.cursor.fetchall()
-        except:
-            print("Unable to execute select short_name from processor")
-            self.database_disconnect()
-            return ""
-        self.database_disconnect()
-        return [item[0] for item in rows]
-
-    def get_processor_id(self, short_name):
-        if not self.database_connect():
-            return ""
-        try:
-            self.cursor.execute("select id from processor where short_name='{}'".format(short_name))
-            rows = self.cursor.fetchall()
-        except:
-            print("Unable to execute select id from processor")
-            self.database_disconnect()
-            return ""
-        self.database_disconnect()
-        return rows[0][0]
-
-    def get_product_type_names(self):
-        if not self.database_connect():
-            return ""
-        try:
-            self.cursor.execute("select name from product_type")
-            rows = self.cursor.fetchall()
-        except:
-            print("Unable to execute select name from product_type")
-            self.database_disconnect()
-            return ""
-        self.database_disconnect()
-        return [item[0] for item in rows]
-
-    def get_product_type_id(self, short_name):
-        if not self.database_connect():
-            return ""
-        try:
-            self.cursor.execute("select id from product_type where name='{}'".format(short_name))
-            rows = self.cursor.fetchall()
-        except:
-            print("Unable to execute select id from product_type")
-            self.database_disconnect()
-            return ""
-        self.database_disconnect()
-        return rows[0][0]
-
-    def get_l1c_product_id(self, name, site_id):
-        if not self.database_connect():
-            return ""
-        try:
-            self.cursor.execute("select id from downloader_history where product_name='{}' and site_id = {}".format(name, site_id))
-            rows = self.cursor.fetchall()
-        except:
-            print("Unable to execute id from downloader_history for site_id = {} and product name = {}".format(site_id, name))
-            self.database_disconnect()
-            return ""
-        self.database_disconnect()
-        count = (len(rows))
-        if count == 0 :
-            print("Product for site_id = {} and product name = {} does not exist in downloader_history table".format(site_id, name))
-            return ""
-        print("Extracted id {} from downloader_history for site_id = {} and product name = {}".format(rows[0][0], site_id, name))
-        return rows[0][0]
-
-    def get_l2a_geog(self, name, site_id):
-        if not self.database_connect():
-            return ""
-        try:
-            self.cursor.execute("select geog from product where name='{}' and site_id = {}".format(name, site_id))
-            rows = self.cursor.fetchall()
-        except:
-            print("Unable to execute geog from product for site_id = {} and product name = {}".format(site_id, name))
-            self.database_disconnect()
-            return ""
-        self.database_disconnect()
-        count = (len(rows))
-        if count == 0 :
-            print("L2A product for site_id = {} and product name = {} does not exist in product table".format(site_id, name))
-            return ""
-        print("Extracted geography {} from product for site_id = {} and product name = {}".format(rows[0][0], site_id, name))
-        return rows[0][0]
-
-    def set_processed_product(self, processor_id, product_type_id, site_id, l2a_processed_tiles, full_path, product_name, footprint, sat_id, acquisition_date, orbit_id, mosaic_img, l1c_prd_id):
-        # input params:
-        # product type by default is 1
-        # processor id
-        # site id
-        # job id has to be NULL
-        # full path is the whole path to the product including the name
-        # created timestamp NULL
-        # name product (basename from the full path)
-        # quicklook image has to be NULL
-        # footprint
-        if not self.database_connect():
-            return False
-        try:
-            if len(l2a_processed_tiles) > 0:
-                # normally , sp_insert_product should upsert the record
-                self.cursor.execute("""select * from sp_insert_product(%(product_type_id)s :: smallint,
-                               %(processor_id)s :: smallint,
-                               %(satellite_id)s :: smallint,
-                               %(site_id)s :: smallint,
-                               %(job_id)s :: smallint,
-                               %(full_path)s :: character varying,
-                               %(created_timestamp)s :: timestamp,
-                               %(name)s :: character varying,
-                               %(quicklook_image)s :: character varying,
-                               %(footprint)s,
-                               %(orbit_id)s :: integer,
-                               %(tiles)s :: json)""",
-                                    {
-                                        "product_type_id": product_type_id,
-                                        "processor_id": processor_id,
-                                        "satellite_id": sat_id,
-                                        "site_id": site_id,
-                                        "job_id": None,
-                                        "full_path": full_path,
-                                        "created_timestamp": acquisition_date,
-                                        "name": product_name,
-                                        "quicklook_image": mosaic_img,
-                                        "footprint": footprint,
-                                        "orbit_id": orbit_id,
-                                        "tiles": '[' + ', '.join(['"' + t + '"' for t in l2a_processed_tiles]) + ']'
-                                    })
-                self.conn.commit()
-
-        except Exception, e:
-            print("Database update query failed: {}".format(e))
-            self.database_disconnect()
-            return False
-        self.database_disconnect()
-        return True
-
-def handle_product_folders(source_dir, destination_dir):
-    """
-    Iterates through folders in source_dir with a specific naming convention
-    and copies them to the destination_dir.
-
-    Args:
-        source_dir (str): The path to the source directory (e.g., '/mnt/xxx/').
-        destination_dir (str): The path to the destination directory (e.g., '/mnt/yyyy/').
-    """
     # Create the destination directory if it doesn't exist
-    if destination_dir :
-        if not os.path.exists(destination_dir):
-            os.makedirs(destination_dir)
-            os.makedirs(destination_dir, exist_ok=True)
-            print("Created destination directory: {}",format(destination_dir))
+    if dest_root_dir :
+        dest_root_dir = os.path.join(dest_root_dir, site_short_name)
+        dest_root_dir = os.path.join(dest_root_dir, args.product_type)
+        print("Destination root is : {}".format(dest_root_dir))
+        if not os.path.exists(dest_root_dir):
+            os.makedirs(dest_root_dir, exist_ok=True)
+            print("Created destination directory: {}".format(dest_root_dir))
 
     # The glob pattern matches the structure of the folder names.
     # It looks for items starting with 'S2AGRI_L3B_PRD_S0_' followed by any characters.
@@ -565,12 +578,12 @@ def handle_product_folders(source_dir, destination_dir):
         if os.path.isdir(folder_path):
             folder_name = os.path.basename(folder_path)
             dest_path = folder_path
-            if destination_dir:
-                dest_path = os.path.join(destination_dir, folder_name)
+            if dest_root_dir:
+                dest_path = os.path.join(dest_root_dir, folder_name)
 
                 try:
                     # Copy the entire directory (recursive copy)
-                    print("Copying {} to {}...".format(folder_name, destination_dir))
+                    print("Copying {} to {}...".format(folder_name, dest_root_dir))
                     shutil.copytree(folder_path, dest_path)
                     print("Successfully copied {}".format(folder_name))
                 except shutil.Error as e:
@@ -583,17 +596,37 @@ def handle_product_folders(source_dir, destination_dir):
                 root_dir += os.path.sep
 
             print("Inserting single product: {}".format(root_dir))
-            insert_product(root_dir)
-
-                
+            product_id = insert_product(site_id, processor_id, product_type_id, root_dir)
+            result = subprocess.run(
+                ["stac-ingest-products.py", "--dsn", "dbname={} user={} password={} host={} port={}".format(config.database, config.user, config.password, config.host, config.port), 
+                    "--stac-url", "http://" + config.host + ":8082", "--product-type-id", str(product_type_id), "--product-id", str(product_id)],
+                capture_output=True,
+                text=True
+            )
+            stac_items = result.stdout
+            stac_items = stac_items.replace(config.host, config.orig_host)
+            
+            with open(args.output_stack_entries_file, "w") as output_stack_entries_file:
+                output_stack_entries_file.write(stac_items)
+            
+            print("stac-ingest-products.py Return code:", result.returncode)
+            print("stac-ingest-products.py STDOUT:")
+            print(result.stdout)
+            print("stac-ingest-products.py STDERR:")
+            print(result.stderr)
+            print("stac items : ");
+            print(stac_items)
+            
+            
 parser = argparse.ArgumentParser(
     description="Script for inserting products into the database")
 parser.add_argument('-d', '--dir', help="The directory of the product")
 parser.add_argument('-o', '--output-dir', help="The target directory where the product is copied", default="", required=False)
+parser.add_argument('-e', '--output-stack-entries-file', help="Output file containing the STAC entries created")
 parser.add_argument('-c', '--config', default="/mnt/tao/cfg/sen4cap/sen2agri.conf", help="configuration file")
 parser.add_argument('-p', '--processor_name', help="The processor short name of the product")
 parser.add_argument('-t', '--product_type', help="The product type")
-parser.add_argument('-s', '--site_name', help="The site name for the product")
+parser.add_argument('-s', '--site_name', help="The site name for the product", default="", required=False)
 
 args = parser.parse_args()
 
@@ -611,8 +644,15 @@ if (not args.processor_name):
 if (not args.product_type):
     sys.exit("Please provide the product type using -t or --product_type. Available options: {}".format(l2a_db.get_product_type_names()))
 if (not args.site_name):
-    sys.exit("Please provide the site short name using -s or --site_name. Available options: {}".format(l2a_db.get_site_names()))
+    print("Site name not provided, trying to extract it from the path ...")
+    site_name = extract_uuid(args.dir)
+    if site_name :
+        # change the folder name as site_short_name specs
+        site_name = site_name.lower()
+        site_name = site_name.replace('-', '_')
+        print("Determined site name from input directory as {}!".format(site_name))
+    else:    
+        sys.exit("Could not extract the site name from the input dir using -s or --site_name. Available options: {}".format(l2a_db.get_site_names()))
 
-
-handle_product_folders(args.dir, args.output_dir)
+handle_product_folders(site_name, args.dir, args.output_dir)
 
