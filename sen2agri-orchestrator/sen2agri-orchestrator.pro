@@ -71,7 +71,6 @@ SOURCES += main.cpp \
     processor/products/producthelper.cpp \
     processor/products/producthelperfactory.cpp \
     processor/products/productdetails.cpp \
-    processor/products/productfilesextractor.cpp \
     processor/products/generichighlevelproducthelper.cpp \
     processor/products/l2aproducthelper.cpp \
     processor/products/l3bproducthelper.cpp \
@@ -94,7 +93,8 @@ SOURCES += main.cpp \
     executorclient/executorproxy.cpp \
     executorclient/dbusexecutorproxy.cpp \
     executorclient/httpexecutorproxy.cpp \
-    executorclient/executorproxyfactory.cpp
+    executorclient/executorproxyfactory.cpp \
+    processor/s4c_tillage_handler.cpp
 
 HEADERS += \
     pch.hpp \
@@ -145,7 +145,6 @@ HEADERS += \
     processor/products/producthelper.h \
     processor/products/producthelperfactory.h \
     processor/products/productdetails.h \
-    processor/products/productfilesextractor.h \
     processor/products/generichighlevelproducthelper.h \
     processor/products/l2aproducthelper.h \
     processor/products/l3bproducthelper.h \
@@ -169,7 +168,8 @@ HEADERS += \
     executorclient/dbusexecutorproxy.hpp \
     executorclient/httpexecutorproxy.hpp \
     executorclient/executorproxyfactory.h \
-    processor/yield/s4s_yield_common.h
+    processor/yield/s4s_yield_common.h \
+    processor/s4c_tillage_handler.hpp
 
 DISTFILES += \
     ../dbus-interfaces/org.esa.sen2agri.orchestrator.xml \

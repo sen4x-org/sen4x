@@ -256,7 +256,8 @@ enum class ProductType {
     L3BNdwiProductTypeId = 40,
     L3BBrightnessProductTypeId = 41,
     S4SYieldProductTypeId = 42,
-    S4SYieldSUProductTypeId = 43
+    S4SYieldSUProductTypeId = 43,
+    S4CTillageDetectionProductTypeId = 44
 };
 
 enum class Processor {
@@ -287,7 +288,8 @@ enum class Processor {
     S4CHeterogeneityProcessorId = 25,
     S4CBareSoilProcessorId = 26,
     S4SYieldProcessorId = 27,
-    S4CChangeDetectionProcessorId = 28
+    S4CChangeDetectionProcessorId = 28,
+    S4CTillageDetectionProcessorId = 29
 };
 
 

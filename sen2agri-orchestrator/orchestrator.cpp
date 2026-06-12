@@ -34,6 +34,7 @@
 #include "processor/s4c_heterogeneity_handler.hpp"
 #include "processor/s4c_baresoil_handler.hpp"
 #include "processor/s4c_change_detection_handler.hpp"
+#include "processor/s4c_tillage_handler.hpp"
 #include "json_conversions.hpp"
 #include "schedulingcontext.h"
 #include "logger.hpp"
@@ -93,6 +94,8 @@ std::map<int, std::unique_ptr<ProcessorHandler>> & GetHandlersMap(PersistenceMan
              handlersMap.emplace(procDescr.processorId, std::make_unique<S4CBareSoilHandler>());
         } else if(procDescr.processorId == (int)Processor::S4CChangeDetectionProcessorId) {
              handlersMap.emplace(procDescr.processorId, std::make_unique<S4CChangeDetectionHandler>());
+        } else if(procDescr.processorId == (int)Processor::S4CTillageDetectionProcessorId) {
+             handlersMap.emplace(procDescr.processorId, std::make_unique<S4CTillageHandler>());
 
         } else {
             bAdded = false;
