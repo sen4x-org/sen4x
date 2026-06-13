@@ -72,9 +72,9 @@ OTHER_FILES += \
 #target.path = ../dist
 #INSTALLS += target
 
-LIBS += -L$$OUT_PWD/../sen2agri-common/ -lsen2agri-common
+LIBS += -L$$OUT_PWD/../sen4x-common/ -lsen4x-common
 
-INCLUDEPATH += $$PWD/../sen2agri-common
-DEPENDPATH += $$PWD/../sen2agri-common
+INCLUDEPATH += $$PWD/../sen4x-common
+DEPENDPATH += $$PWD/../sen4x-common
 
-PRE_TARGETDEPS += $$OUT_PWD/../sen2agri-common/libsen2agri-common.a
+PRE_TARGETDEPS += $$OUT_PWD/../sen4x-common/libsen4x-common.a

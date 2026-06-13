@@ -3,7 +3,7 @@ include(../common.pri)
 QT -= gui
 QT += core dbus sql network
 
-TARGET = sen2agri-orchestrator
+TARGET = sen4x-orchestrator
 
 DESTDIR = bin
 
@@ -227,9 +227,9 @@ CONFIG(release, debug|release) {
 PRE_TARGETDEPS += $$LIBQTWEBAPP
 
 
-LIBS += -L$$OUT_PWD/../sen2agri-http-server-common/ -lsen2agri-http-server-common
+LIBS += -L$$OUT_PWD/../sen4x-http-server-common/ -lsen4x-http-server-common
 
-INCLUDEPATH += $$PWD/../sen2agri-http-server-common
-DEPENDPATH += $$PWD/../sen2agri-http-server-common
+INCLUDEPATH += $$PWD/../sen4x-http-server-common
+DEPENDPATH += $$PWD/../sen4x-http-server-common
 
-PRE_TARGETDEPS += $$OUT_PWD/../sen2agri-http-server-common/libsen2agri-http-server-common.a
+PRE_TARGETDEPS += $$OUT_PWD/../sen4x-http-server-common/libsen4x-http-server-common.a

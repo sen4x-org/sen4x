@@ -36,15 +36,15 @@ function load_configuration_names()
         echo "The config file ${INSTAL_CONFIG_FILE} does not exist! Exiting ..."
         exit 1
     fi
-    
+
     ALL_CFG_VALUES=($(awk '/\[/{prefix=$0; next} $1{print prefix $0}' ${INSTAL_CONFIG_FILE}))
     if [ ${#ALL_CFG_VALUES[@]} -eq 0 ] ; then
         echo "Couldn't load the config file ${INSTAL_CONFIG_FILE}! Exiting ..."
         exit 1
     fi
-    
+
     CONFIGURATION_NAMES=()
-    # now check the profile and the configuration keys from the active configuration 
+    # now check the profile and the configuration keys from the active configuration
     for element in "${ALL_CFG_VALUES[@]}"
     do
         if [[ $element == "["*"]CONFIGURATION_NAME"* ]] ; then
@@ -54,8 +54,8 @@ function load_configuration_names()
                 CONFIGURATION_NAMES+=(${CONFIGURATION_NAME})
             fi
         fi
-    done    
-    
+    done
+
     # TODO : Forcing to only Sen2Agri for faster build
     CONFIGURATION_NAMES=()
     # Check services archive name was defined
@@ -63,7 +63,7 @@ function load_configuration_names()
         echo "No configuration names found ... defaulting to sen2agri ..."
         CONFIGURATION_NAMES+=("sen2agri")
     fi
-    
+
     echo "CONFIGURATION_NAMES = ${CONFIGURATION_NAMES[@]}"
 }
 
@@ -100,20 +100,20 @@ function compile_SEN2AGRI_app()
 #-----------------------------------------------------------#
 function build_SEN2AGRI_app_RPM_Package()
 {
-   if [ -d ${APP_INSTALL_PATH}/usr_sen2agri ] ; then 
+   if [ -d ${APP_INSTALL_PATH}/usr_sen2agri ] ; then
       rm -fR ${APP_INSTALL_PATH}/usr_sen2agri
    fi
-   if [ -d ${APP_INSTALL_PATH}/etc_sen2agri ] ; then 
+   if [ -d ${APP_INSTALL_PATH}/etc_sen2agri ] ; then
       rm -fR ${APP_INSTALL_PATH}/etc_sen2agri
    fi
    mv ${APP_INSTALL_PATH}/usr ${APP_INSTALL_PATH}/usr_sen2agri
    mv ${APP_INSTALL_PATH}/etc ${APP_INSTALL_PATH}/etc_sen2agri
-   
-   
+
+
    for CONFIGURATION_NAME in ${CONFIGURATION_NAMES[@]} ; do
        cp -fR ${APP_INSTALL_PATH}/usr_sen2agri ${APP_INSTALL_PATH}/usr
        cp -fR ${APP_INSTALL_PATH}/etc_sen2agri ${APP_INSTALL_PATH}/etc
-       
+
        ##create a temporary dir
        mkdir -p ${DEFAULT_DIR}/${WORKING_DIR_RPM}/tmp_app
 
@@ -129,8 +129,8 @@ function build_SEN2AGRI_app_RPM_Package()
        mkdir -p ${APP_INSTALL_PATH}/usr/share/sen2agri/era5-downloader
        cp -f ${SOURCES_DIR_PATH}/era5-downloader/weather_launcher.py ${APP_INSTALL_PATH}/usr/share/sen2agri/era5-downloader
        cp -f ${SOURCES_DIR_PATH}/era5-downloader/dist/* ${APP_INSTALL_PATH}/usr/lib/systemd/system
-       
-       if [ "$CONFIGURATION_NAME" != "sen2agri" ] ; then 
+
+       if [ "$CONFIGURATION_NAME" != "sen2agri" ] ; then
            # We just rename the files but do not fill them, leaving this in the charge of the installer
            find ${APP_INSTALL_PATH}/etc/sen2agri/ -name "sen2agri*.conf" -exec basename {} ';' | while read name
            do

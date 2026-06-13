@@ -3,7 +3,7 @@ include(../common.pri)
 QT += core network dbus sql
 QT -= gui
 
-TARGET = sen2agri-http-listener
+TARGET = sen4x-http-listener
 
 DESTDIR = bin
 
@@ -48,24 +48,24 @@ CONFIG(release, debug|release) {
 
 PRE_TARGETDEPS += $$LIBQTWEBAPP
 
-LIBS += -L$$OUT_PWD/../sen2agri-persistence/ -lsen2agri-persistence
+LIBS += -L$$OUT_PWD/../sen4x-persistence/ -lsen4x-persistence
 
-INCLUDEPATH += $$PWD/../sen2agri-persistence
-DEPENDPATH += $$PWD/../sen2agri-persistence
+INCLUDEPATH += $$PWD/../sen4x-persistence
+DEPENDPATH += $$PWD/../sen4x-persistence
 
-PRE_TARGETDEPS += $$OUT_PWD/../sen2agri-persistence/libsen2agri-persistence.a
+PRE_TARGETDEPS += $$OUT_PWD/../sen4x-persistence/libsen4x-persistence.a
 
-LIBS += -L$$OUT_PWD/../sen2agri-common/ -lsen2agri-common
+LIBS += -L$$OUT_PWD/../sen4x-common/ -lsen4x-common
 
-INCLUDEPATH += $$PWD/../sen2agri-common
-DEPENDPATH += $$PWD/../sen2agri-common
+INCLUDEPATH += $$PWD/../sen4x-common
+DEPENDPATH += $$PWD/../sen4x-common
 
-PRE_TARGETDEPS += $$OUT_PWD/../sen2agri-common/libsen2agri-common.a
+PRE_TARGETDEPS += $$OUT_PWD/../sen4x-common/libsen4x-common.a
 
 target.path = /usr/bin
 
 systemd-service.path = /usr/lib/systemd/system
-systemd-service.files = dist/sen2agri-http-listener.service
+systemd-service.files = dist/sen4x-http-listener.service
 
 INSTALLS += target systemd-service
 

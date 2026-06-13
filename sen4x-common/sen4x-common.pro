@@ -3,7 +3,7 @@ include(../common.pri)
 QT -= gui
 QT += dbus
 
-TARGET = sen2agri-common
+TARGET = sen4x-common
 TEMPLATE = lib
 
 CONFIG += staticlib

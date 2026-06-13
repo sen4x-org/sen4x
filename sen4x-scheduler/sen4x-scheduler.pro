@@ -12,7 +12,7 @@ INCLUDEPATH += ../Optional
 
 TEMPLATE = app
 
-TARGET = sen2agri-scheduler
+TARGET = sen4x-scheduler
 
 SOURCES += main.cpp \
     taskloader.cpp \
@@ -38,17 +38,17 @@ DBUS_INTERFACES += orchestrator_interface
 DISTFILES += \
     dist/sen2agri-scheduler.service
 
-LIBS += -L$$OUT_PWD/../sen2agri-persistence/ -lsen2agri-persistence
-LIBS += -L$$OUT_PWD/../sen2agri-common/ -lsen2agri-common
+LIBS += -L$$OUT_PWD/../sen4x-persistence/ -lsen4x-persistence
+LIBS += -L$$OUT_PWD/../sen4x-common/ -lsen4x-common
 
 
-INCLUDEPATH += $$PWD/../sen2agri-common
-INCLUDEPATH += $$PWD/../sen2agri-persistence
-DEPENDPATH += $$PWD/../sen2agri-common
-DEPENDPATH += $$PWD/../sen2agri-persistence
+INCLUDEPATH += $$PWD/../sen4x-common
+INCLUDEPATH += $$PWD/../sen4x-persistence
+DEPENDPATH += $$PWD/../sen4x-common
+DEPENDPATH += $$PWD/../sen4x-persistence
 
-PRE_TARGETDEPS += $$OUT_PWD/../sen2agri-common/libsen2agri-common.a
-PRE_TARGETDEPS += $$OUT_PWD/../sen2agri-persistence/libsen2agri-persistence.a
+PRE_TARGETDEPS += $$OUT_PWD/../sen4x-common/libsen4x-common.a
+PRE_TARGETDEPS += $$OUT_PWD/../sen4x-persistence/libsen4x-persistence.a
 
 target.path = /usr/bin
 

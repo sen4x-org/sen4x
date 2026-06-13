@@ -1,6 +1,6 @@
 FROM almalinux:9
 
-LABEL name="sen2agri-app-build" \
+LABEL name="sen4x-app-build" \
     maintainer="Laurentiu Nicola <laurentiu.nicola@c-s.ro>"
 
 RUN dnf -y --setopt=install_weak_deps=False update && \

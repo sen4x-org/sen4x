@@ -3,7 +3,7 @@ include(../common.pri)
 QT += core network
 QT -= gui
 
-TARGET = sen2agri-monitor-agent
+TARGET = sen4x-monitor-agent
 
 DESTDIR = bin
 
@@ -22,15 +22,15 @@ HEADERS += \
     monitor.hpp \
     settings.hpp
 
-DISTFILES += dist/sen2agri-monitor-agent.conf \
-    dist/sen2agri-monitor-agent.service
+DISTFILES += dist/sen4x-monitor-agent.conf \
+    dist/sen4x-monitor-agent.service
 
-LIBS += -L$$OUT_PWD/../sen2agri-common/ -lsen2agri-common
+LIBS += -L$$OUT_PWD/../sen4x-common/ -lsen4x-common
 
-INCLUDEPATH += $$PWD/../sen2agri-common
-DEPENDPATH += $$PWD/../sen2agri-common
+INCLUDEPATH += $$PWD/../sen4x-common
+DEPENDPATH += $$PWD/../sen4x-common
 
-PRE_TARGETDEPS += $$OUT_PWD/../sen2agri-common/libsen2agri-common.a
+PRE_TARGETDEPS += $$OUT_PWD/../sen4x-common/libsen4x-common.a
 
 target.path = /usr/bin
 
