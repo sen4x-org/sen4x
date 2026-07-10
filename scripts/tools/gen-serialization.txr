@@ -4,7 +4,7 @@
        (list
          (downcase-str (sub-str in 0 1))
          (sub-str in 1)))))
-@(next "../sen2agri-common/model.hpp")
+@(next "../sen4x-common/model.hpp")
 @(collect)
 @  (some)
 Q_DECLARE_METATYPE(@class)@(maybe);@(end)

@@ -14,7 +14,7 @@ INCLUDEPATH += ../Optional
 TEMPLATE = app
 
 orchestrator_interface.files = ../dbus-interfaces/org.esa.sen2agri.orchestrator.xml
-orchestrator_interface.header_flags = -i ../sen2agri-common/model.hpp
+orchestrator_interface.header_flags = -i ../sen4x-common/model.hpp
 
 DBUS_INTERFACES += orchestrator_interface
 

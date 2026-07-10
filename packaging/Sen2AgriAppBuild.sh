@@ -124,7 +124,7 @@ function build_SEN2AGRI_app_RPM_Package()
        mkdir -p ${APP_INSTALL_PATH}/usr/share/sen2agri/${CONFIGURATION_NAME}-services
        ##sen2agri-services services will be installed in folder : usr/lib/systemd/system
        mkdir -p ${APP_INSTALL_PATH}/usr/lib/systemd/system
-       cp -f ${SOURCES_DIR_PATH}/sen2agri-services/dist/* ${APP_INSTALL_PATH}/usr/lib/systemd/system
+       cp -f ${SOURCES_DIR_PATH}/sen4x-services/dist/* ${APP_INSTALL_PATH}/usr/lib/systemd/system
        ## Added era5 downloader services
        mkdir -p ${APP_INSTALL_PATH}/usr/share/sen2agri/era5-downloader
        cp -f ${SOURCES_DIR_PATH}/era5-downloader/weather_launcher.py ${APP_INSTALL_PATH}/usr/share/sen2agri/era5-downloader

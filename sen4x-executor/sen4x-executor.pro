@@ -17,12 +17,12 @@ TEMPLATE = app
 INCLUDEPATH += ../Optional
 
 dbus_interface.files = ../dbus-interfaces/org.esa.sen2agri.processorsExecutor.xml
-dbus_interface.header_flags = -i ../sen2agri-common/model.hpp
+dbus_interface.header_flags = -i ../sen4x-common/model.hpp
 
 DBUS_ADAPTORS += dbus_interface
 
 dbus_interface3.files = ../dbus-interfaces/org.esa.sen2agri.orchestrator.xml
-dbus_interface3.header_flags = -i ../sen2agri-common/model.hpp
+dbus_interface3.header_flags = -i ../sen4x-common/model.hpp
 
 DBUS_INTERFACES += dbus_interface3
 

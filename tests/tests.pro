@@ -24,44 +24,44 @@ SOURCES += main.cpp \
     producthandlertests.cpp
 
 # cannot link to scheduler app, the files will be included in this project
-SOURCES += ../sen2agri-scheduler/taskloader.cpp \
-    ../sen2agri-scheduler/schedulerapp.cpp \
-    ../sen2agri-scheduler/taskplanner.cpp \
-    ../sen2agri-scheduler/orchestratorproxy.cpp \
-    ../sen2agri-scheduler/resourcereader.cpp \
-    ../sen2agri-scheduler/runestimator.cpp \
-    ../sen2agri-orchestrator/processor/products/l2aproducthelper.cpp \
-    ../sen2agri-orchestrator/processor/products/generichighlevelproducthelper.cpp \
-    ../sen2agri-orchestrator/processor/products/l3bproducthelper.cpp \
-    ../sen2agri-orchestrator/processor/products/s1l2producthelper.cpp \
-    ../sen2agri-orchestrator/processor/products/productdetails.cpp \
-    ../sen2agri-orchestrator/processor/products/producthelper.cpp \
-    ../sen2agri-orchestrator/processor/products/producthelperfactory.cpp \
-    ../sen2agri-orchestrator/processor/products/maskedl2aproducthelper.cpp
+SOURCES += ../sen4x-scheduler/taskloader.cpp \
+    ../sen4x-scheduler/schedulerapp.cpp \
+    ../sen4x-scheduler/taskplanner.cpp \
+    ../sen4x-scheduler/orchestratorproxy.cpp \
+    ../sen4x-scheduler/resourcereader.cpp \
+    ../sen4x-scheduler/runestimator.cpp \
+    ../sen4x-orchestrator/processor/products/l2aproducthelper.cpp \
+    ../sen4x-orchestrator/processor/products/generichighlevelproducthelper.cpp \
+    ../sen4x-orchestrator/processor/products/l3bproducthelper.cpp \
+    ../sen4x-orchestrator/processor/products/s1l2producthelper.cpp \
+    ../sen4x-orchestrator/processor/products/productdetails.cpp \
+    ../sen4x-orchestrator/processor/products/producthelper.cpp \
+    ../sen4x-orchestrator/processor/products/producthelperfactory.cpp \
+    ../sen4x-orchestrator/processor/products/maskedl2aproducthelper.cpp
 
-LIBS += -L$$OUT_PWD/../sen2agri-common/ -lsen2agri-common
+LIBS += -L$$OUT_PWD/../sen4x-common/ -lsen4x-common
 
-INCLUDEPATH += $$PWD/../sen2agri-common
-INCLUDEPATH += $$PWD/../sen2agri-scheduler
-INCLUDEPATH += $$PWD/../sen2agri-orchestrator
-DEPENDPATH += $$PWD/../sen2agri-common
-DEPENDPATH += $$PWD/../sen2agri-scheduler
-DEPENDPATH += $$PWD/../sen2agri-orchestrator
+INCLUDEPATH += $$PWD/../sen4x-common
+INCLUDEPATH += $$PWD/../sen4x-scheduler
+INCLUDEPATH += $$PWD/../sen4x-orchestrator
+DEPENDPATH += $$PWD/../sen4x-common
+DEPENDPATH += $$PWD/../sen4x-scheduler
+DEPENDPATH += $$PWD/../sen4x-orchestrator
 
-PRE_TARGETDEPS += $$OUT_PWD/../sen2agri-common/libsen2agri-common.a
+PRE_TARGETDEPS += $$OUT_PWD/../sen4x-common/libsen4x-common.a
 
 adaptor.files = reflector.xml
-adaptor.header_flags = -i ../sen2agri-common/model.hpp
+adaptor.header_flags = -i ../sen4x-common/model.hpp
 
 DBUS_ADAPTORS += adaptor
 
 interface.files = reflector.xml
-interface.header_flags = -i ../sen2agri-common/model.hpp
+interface.header_flags = -i ../sen4x-common/model.hpp
 
 DBUS_INTERFACES += interface
 
 orchestrator_interface.files = ../dbus-interfaces/org.esa.sen2agri.orchestrator.xml
-orchestrator_interface.header_flags = -i ../sen2agri-common/model.hpp
+orchestrator_interface.header_flags = -i ../sen4x-common/model.hpp
 
 DBUS_INTERFACES += orchestrator_interface
 
@@ -77,20 +77,20 @@ HEADERS += \
     producthandlertests.h
 
 HEADERS += \
-    ../sen2agri-scheduler/scheduledtask.hpp \
-    ../sen2agri-scheduler/taskloader.hpp \
-    ../sen2agri-scheduler/schedulerapp.hpp \
-    ../sen2agri-scheduler/taskplanner.hpp \
-    ../sen2agri-scheduler/resourcereader.hpp \
-    ../sen2agri-scheduler/orchestratorproxy.hpp \
-    ../sen2agri-scheduler/runestimator.hpp \
-    ../sen2agri-orchestrator/processor/products/l2aproducthelper.h \
-    ../sen2agri-orchestrator/processor/products/generichighlevelproducthelper.h \
-    ../sen2agri-orchestrator/processor/products/l3bproducthelper.h \
-    ../sen2agri-orchestrator/processor/products/s1l2producthelper.h \
-    ../sen2agri-orchestrator/processor/products/producthelper.h \
-    ../sen2agri-orchestrator/processor/products/producthelperfactory.h \
-    ../sen2agri-orchestrator/processor/products/maskedl2aproducthelper.h
+    ../sen4x-scheduler/scheduledtask.hpp \
+    ../sen4x-scheduler/taskloader.hpp \
+    ../sen4x-scheduler/schedulerapp.hpp \
+    ../sen4x-scheduler/taskplanner.hpp \
+    ../sen4x-scheduler/resourcereader.hpp \
+    ../sen4x-scheduler/orchestratorproxy.hpp \
+    ../sen4x-scheduler/runestimator.hpp \
+    ../sen4x-orchestrator/processor/products/l2aproducthelper.h \
+    ../sen4x-orchestrator/processor/products/generichighlevelproducthelper.h \
+    ../sen4x-orchestrator/processor/products/l3bproducthelper.h \
+    ../sen4x-orchestrator/processor/products/s1l2producthelper.h \
+    ../sen4x-orchestrator/processor/products/producthelper.h \
+    ../sen4x-orchestrator/processor/products/producthelperfactory.h \
+    ../sen4x-orchestrator/processor/products/maskedl2aproducthelper.h
 
 
 DISTFILES += \
