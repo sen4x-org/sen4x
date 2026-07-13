@@ -8,11 +8,20 @@ on:
   workflow_dispatch:
 
 jobs:
+  app:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+      - name: Build
+        run: |
+          cd docker/app
+          ./docker-run.sh
   processors-new:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Build
         run: |
           cd docker/processors-new
