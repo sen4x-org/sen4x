@@ -1,11 +1,11 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import argparse
 import csv
 import multiprocessing
 import multiprocessing.dummy
 import os
 import os.path
-import pipes
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -13,7 +13,6 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from glob import glob
 
-import dateutil.parser
 from lxml import etree
 from lxml.builder import E
 from osgeo import gdal, ogr, osr
@@ -173,7 +172,7 @@ def save_dates_file(path, site_id, satellite_id, dates):
 
 def run_command(args, env=None, retry=False):
     args = list(map(str, args))
-    cmd_line = " ".join(map(pipes.quote, args))
+    cmd_line = " ".join(map(shlex.quote, args))
 
     retries = 5 if retry else 1
     while retries > 0:
@@ -276,8 +275,7 @@ def process_optical(args, pool, satellite_id):
         next(reader, None)
         for site_id, full_path, tile, created_timestamp in reader:
             site_id = int(site_id)
-            # created_timestamp = datetime.fromisoformat(created_timestamp)
-            created_timestamp = dateutil.parser.parse(created_timestamp)
+            created_timestamp = datetime.fromisoformat(created_timestamp)
 
             product = OpticalProduct(site_id, tile, created_timestamp.date(), full_path)
             product_map[site_id][tile].append(product)
@@ -739,8 +737,7 @@ def get_radar_products(file):
             radar_product_type,
             full_path,
         ) in reader:
-            # dt = datetime.fromisoformat(dt)
-            dt = dateutil.parser.parse(dt)
+            dt = datetime.fromisoformat(dt)
             orbit_type_id = int(orbit_type_id)
             radar_product_type = int(radar_product_type)
             products.append(

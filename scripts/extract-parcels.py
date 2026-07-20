@@ -1,21 +1,15 @@
-#!/usr/bin/env python
-from __future__ import print_function
-
+#!/usr/bin/env python3
 import argparse
 import csv
 import os.path
 import sys
+from configparser import ConfigParser
 
-import dateutil.parser
+import datetime
 import psycopg2
 import psycopg2.extras
 from osgeo import gdal, ogr
 from psycopg2.sql import SQL, Identifier, Literal
-
-try:
-    from configparser import ConfigParser
-except ImportError:
-    from ConfigParser import ConfigParser
 
 
 def get_year(start, end):
@@ -402,8 +396,8 @@ def main():
         password=config.password,
     ) as conn:
         site_name = get_site_name(conn, config.site_id)
-        season_start = dateutil.parser.parse(args.season_start)
-        season_end = dateutil.parser.parse(args.season_end)
+        season_start = datetime.fromisoformat(args.season_start)
+        season_end = datetime.fromisoformat(args.season_end)
 
         year = get_year(season_start, season_end)
         lpis_table = "decl_{}_{}".format(site_name, year)

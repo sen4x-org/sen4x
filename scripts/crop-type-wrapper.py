@@ -1,14 +1,10 @@
-#!/usr/bin/env python
-from __future__ import print_function
-
+#!/usr/bin/env python3
 import argparse
 import csv
 from datetime import datetime
-import dateutil.parser
-import errno
 import os
 import os.path
-import pipes
+import shlex
 import shutil
 import subprocess
 import sys
@@ -16,7 +12,7 @@ import sys
 
 def run_command(args, env=None):
     args = list(map(str, args))
-    cmd_line = " ".join(map(pipes.quote, args))
+    cmd_line = " ".join(map(shlex.quote, args))
 
     print(cmd_line)
     result = subprocess.call(args, env=env)
@@ -33,15 +29,6 @@ def check_file(p):
         if f.readline() and f.readline():
             return True
     return False
-
-
-def makedirs2(path):
-    # FIXME: just use makedirs(exist_ok=True) in Python 3
-    try:
-        os.makedirs(path)
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise
 
 
 def read_optical_products_tiles(file):
@@ -399,8 +386,8 @@ def main():
         writer = None
 
     if args.target_path:
-        season_start = dateutil.parser.parse(args.season_start).strftime("%Y%m%d")
-        season_end = dateutil.parser.parse(args.season_end)
+        season_start = datetime.fromisoformat(args.season_start).strftime("%Y%m%d")
+        season_end = datetime.fromisoformat(args.season_end)
         created_timestamp = season_end.strftime("%Y-%m-%d %H:%M:%S")
         season_end = season_end.strftime("%Y%m%d")
         now = datetime.now().strftime("%Y%m%dT%H%M%S")
@@ -420,7 +407,7 @@ def main():
                     infix, season_start, season_end, now
                 )
                 product_dir = os.path.join(args.target_path, product_name)
-                makedirs2(product_dir)
+                os.makedirs(product_dir, exist_ok=True)
                 product_path = os.path.join(product_dir, product_name + ".ipc")
                 shutil.move(features, product_path)
                 shutil.move(features + ".idx", product_path + ".idx")
