@@ -37,13 +37,6 @@ def try_rm_file(f):
         return False
 
 
-def try_mkdir(p):
-    try:
-        os.makedirs(p)
-    except OSError:
-        pass
-
-
 class Config:
     def __init__(self, args):
         parser = ConfigParser()
@@ -420,10 +413,17 @@ class DataPreparation:
         lpis_path = lpis_path.replace("{year}", str(year))
         lpis_path = lpis_path.replace("{site}", site_name)
 
+        os.makedirs(lpis_path, exist_ok=True)
         if not working_path:
             working_path = lpis_path
+        else:
+            os.makedirs(working_path, exist_ok=True)
+
         self.lpis_path = lpis_path
         self.working_path = working_path
+
+
+
 
     def get_connection(self):
         return psycopg2.connect(
@@ -989,9 +989,6 @@ where is_new;"""
                 logging.info("LUT table does not exist, skipping export")
                 return
 
-        try_mkdir(self.lpis_path)
-        try_mkdir(self.working_path)
-
         commands = []
         class_counts = []
         class_counts_20m = []
@@ -1493,7 +1490,7 @@ and ST_Intersects(lpis.wkb_geometry, tile.geom);"""
 
     def compute_tile_bounds(self):
         print("Computing tile bounds")
-        output_path = os.path.join(self.working_path, "tile_bounds.json")
+        output_path = os.path.join(self.lpis_path, "tile_bounds.json")
 
         site_epsg = self.site_geom.GetSpatialReference().GetAuthorityCode(None)
         site_wkt = f"SRID={site_epsg};{self.site_geom.ExportToWkt()}"
