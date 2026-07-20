@@ -1,6 +1,5 @@
 #include <stdexcept>
 
-#include "make_unique.hpp"
 #include "statistics-reader.h"
 
 statistics_reader::statistics_reader(reader_real reader_mean,
