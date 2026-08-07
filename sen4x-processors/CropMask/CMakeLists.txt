@@ -4,7 +4,6 @@ add_subdirectory(MajorityVoting)
 add_subdirectory(RandomForestTraining)
 add_subdirectory(Trimming)
 add_subdirectory(Erosion)
-add_subdirectory(FillNoData)
 add_subdirectory(SpectralFeaturesExtraction)
 
 install(FILES ../../scripts/CropMask.py ../../scripts/CropMaskFused.py
