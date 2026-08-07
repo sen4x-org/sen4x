@@ -1,4 +1,3 @@
-add_subdirectory(DataSmoothing)
 add_subdirectory(TemporalFeaturesNoInsitu)
 add_subdirectory(PrincipalComponentAnalysis)
 add_subdirectory(MeanShiftSegmentation)
