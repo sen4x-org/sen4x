@@ -1,5 +1,4 @@
 add_subdirectory(SampleSelection)
-#add_subdirectory(BandsExtractor)
 add_subdirectory(FeatureExtraction)
 add_subdirectory(QualityFlagsExtractor)
 
