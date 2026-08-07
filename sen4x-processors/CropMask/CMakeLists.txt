@@ -6,7 +6,6 @@ add_subdirectory(RandomForestTraining)
 add_subdirectory(Trimming)
 add_subdirectory(Erosion)
 add_subdirectory(FillNoData)
-add_subdirectory(FeaturesWithInsitu)
 add_subdirectory(FeaturesWithoutInsitu)
 add_subdirectory(SpectralFeaturesExtraction)
 
