@@ -1,5 +1,4 @@
 add_subdirectory(SampleSelection)
-add_subdirectory(FeatureExtraction)
 add_subdirectory(QualityFlagsExtractor)
 
 install(FILES ../../scripts/CropType.py ../../scripts/CropTypeFused.py
