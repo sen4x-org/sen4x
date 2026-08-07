@@ -221,8 +221,7 @@ def extract_optical_features(
     env["OTB_MAX_RAM_HINT"] = str(256)
 
     command = []
-    command += ["otbcli", "OpticalFeatures"]
-    command += ["-pixsize", resolution]
+    command += ["otbcli", "OpticalFeaturesRewrite"]
     command += ["-mission", satellite]
     command += ["-ref", ref]
     command += ["-dates", dates_file]
