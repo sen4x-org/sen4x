@@ -29,7 +29,6 @@ add_definitions(-DVCL_CAN_STATIC_CONST_INIT_FLOAT=0)
 
 add_subdirectory(Composite)
 add_subdirectory(VegetationStatus)
-add_subdirectory(CreateFootprint)
 add_subdirectory(Common)
 add_subdirectory(ContinuousColorMapping)
 add_subdirectory(ProductFormatters)
