@@ -1,5 +1,4 @@
 add_subdirectory(OpticalFeatures)
-add_subdirectory(ClassStatisticsRatio)
 add_subdirectory(Composite)
 add_subdirectory(StandardDeviation)
 add_subdirectory(CoherenceMonthlyFeatures)
