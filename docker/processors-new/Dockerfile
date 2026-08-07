@@ -42,6 +42,7 @@ RUN apt-get update && \
         r-cran-e1071 \
         r-cran-dbscan \
         r-cran-dplyr \
+        r-cran-fnn \
         r-cran-gsubfn \
         r-cran-igraph \
         r-cran-ranger \
@@ -66,4 +67,65 @@ COPY --from=build /install/usr/lib/*.so /app/otb/lib/
 COPY crop-type-wrapper.py /usr/bin/
 COPY crop-type-parcels.py /usr/bin/
 COPY extract-parcels.py /usr/bin/
+COPY csv_to_ipc.py /usr/bin/
 COPY crop_type.R /usr/bin/
+
+# TODO(lnicola): try this again when OTB supports Ubuntu 26
+# FROM docker.io/sen4x/otb:9.1.1_ubuntu26 AS builder
+# RUN apt-get update && \
+#     apt-get dist-upgrade -y && \
+#     apt-get clean && \
+#     rm -rf /var/lib/apt/lists/*
+
+# FROM builder AS build
+# COPY src /src
+# RUN --mount=type=cache,target=/build \
+#     mkdir -p /build && \
+#     cd /build && \
+#     cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo /src && \
+#     cmake --build . --parallel $(nproc) && \
+#     cmake --install . --prefix /install
+
+# FROM docker.io/sen4x/otb:9.1.1_ubuntu26
+# RUN apt-get update && \
+#     apt-get dist-upgrade -y && \
+#     apt-get install -y --no-install-recommends \
+#         python3-lxml \
+#         python3-psycopg2 \
+#         python3-pyarrow \
+#         libarrow-dev \
+#         libarrow-acero-dev \
+#         libarrow-dataset-dev \
+#         libparquet-dev \
+#         r-base \
+#         r-cran-assertthat \
+#         r-cran-arrow \
+#         r-cran-caret \
+#         r-cran-cpp11 \
+#         r-cran-e1071 \
+#         r-cran-fnn \
+#         r-cran-dbscan \
+#         r-cran-dplyr \
+#         r-cran-gsubfn \
+#         r-cran-igraph \
+#         r-cran-ranger \
+#         r-cran-readr \
+#         r-cran-catools \
+#         r-cran-tidyverse \
+#         r-cran-data.table && \
+#     echo "install.packages('smotefamily', Ncpus = $(nproc), repos = c(CRAN = 'https://cran.rstudio.com'))" | Rscript - && \
+#     apt-get purge -y --autoremove \
+#         libxml2-dev && \
+#     apt-get clean && \
+#     rm -rf /var/lib/apt/lists/*
+
+# COPY --from=build /install/bin/* /app/otb/bin/
+# COPY --from=build /install/usr/bin/* /usr/bin/
+# COPY --from=build /install/usr/lib/otb/applications/* /app/otb/lib/otb/applications/
+# COPY --from=build /install/usr/lib/*.so /app/otb/lib/
+
+# COPY crop-type-wrapper.py /usr/bin/
+# COPY crop-type-parcels.py /usr/bin/
+# COPY extract-parcels.py /usr/bin/
+# COPY csv_to_ipc.py /usr/bin/
+# COPY crop_type.R /usr/bin/
