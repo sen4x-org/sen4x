@@ -43,7 +43,6 @@ private:
         SetName("HeterogeneityLocalClassConnectivityIndex");
         SetDescription("TBD");
 
-        SetDocName("HeterogeneityRemoveIsolated");
         SetDocLongDescription("TBD");
         SetDocLimitations("None");
         SetDocAuthors("CUU");

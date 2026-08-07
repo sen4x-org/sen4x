@@ -1,3 +1,5 @@
+include(${OTB_USE_FILE})
+
 include_directories(../include)
 
 otb_create_application(
@@ -9,6 +11,3 @@ otb_create_application(
 )
 
 install(TARGETS otbapp_HeterogeneityRemoveIsolated DESTINATION usr/lib/otb/applications/)
-
-
-

@@ -43,7 +43,6 @@ private:
         SetName("ConstantStepInterpolationMasked");
         SetDescription("TBD");
 
-        SetDocName("ConstantStepInterpolationMasked");
         SetDocLongDescription("TBD");
         SetDocLimitations("None");
         SetDocAuthors("CUU");

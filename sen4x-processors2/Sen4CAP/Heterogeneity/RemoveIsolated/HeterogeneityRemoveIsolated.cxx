@@ -42,7 +42,6 @@ private:
         SetName("HeterogeneityRemoveIsolated");
         SetDescription("TBD");
 
-        SetDocName("HeterogeneityRemoveIsolated");
         SetDocLongDescription("TBD");
         SetDocLimitations("None");
         SetDocAuthors("CUU");
