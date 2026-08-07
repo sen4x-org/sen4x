@@ -10,7 +10,7 @@ import subprocess
 import sys
 import tempfile
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from glob import glob
 
 from lxml import etree
@@ -146,13 +146,13 @@ def get_tile_hdr(tile, path):
 
 
 def date_to_epoch_days(dt):
-    unix_epoch = datetime.utcfromtimestamp(0).date()
+    unix_epoch = datetime.fromtimestamp(0, UTC).date()
     d = dt - unix_epoch
     return d.days
 
 
 def epoch_days_to_date(days):
-    unix_epoch = datetime.utcfromtimestamp(0).date()
+    unix_epoch = datetime.fromtimestamp(0, UTC).date()
     dt = unix_epoch + timedelta(days=days)
     return dt
 
@@ -269,7 +269,7 @@ def paste_files(file1, file2, out):
 
 def process_optical(args, pool, satellite_id):
     product_map = defaultdict(lambda: defaultdict(list))
-    with open(args.optical_products, "rb") as file:
+    with open(args.optical_products, "r") as file:
         reader = csv.reader(file)
         next(reader, None)
         for site_id, full_path, tile, created_timestamp in reader:
@@ -1735,7 +1735,7 @@ def main():
         if not args.optical_products:
             print("--optical-products is required with -m optical")
             sys.exit(1)
-        pool = multiprocessing.dummy.Pool(cpu_count / 2)
+        pool = multiprocessing.dummy.Pool(cpu_count // 2)
     else:
         if not args.tile_footprints:
             print("--tile-footprints is required with -m sar")

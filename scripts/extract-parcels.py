@@ -5,7 +5,7 @@ import os.path
 import sys
 from configparser import ConfigParser
 
-import datetime
+from datetime import datetime
 import psycopg2
 import psycopg2.extras
 from osgeo import gdal, ogr
@@ -62,7 +62,7 @@ def get_site_name(conn, site_id):
 
 
 def save_to_csv(rows, path, headers):
-    with open(path, "wb") as csvfile:
+    with open(path, "w") as csvfile:
         writer = csv.writer(csvfile, quoting=csv.QUOTE_MINIMAL)
         writer.writerow(headers)
         for row in rows:

@@ -10,7 +10,7 @@ import subprocess
 import sys
 import tempfile
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from glob import glob
 
 from lxml import etree
@@ -157,13 +157,13 @@ def get_tile_hdr(tile, path):
 
 
 def date_to_epoch_days(dt):
-    unix_epoch = datetime.utcfromtimestamp(0).date()
+    unix_epoch = datetime.fromtimestamp(0, UTC).date()
     d = dt - unix_epoch
     return d.days
 
 
 def epoch_days_to_date(days):
-    unix_epoch = datetime.utcfromtimestamp(0).date()
+    unix_epoch = datetime.fromtimestamp(0, UTC).date()
     dt = unix_epoch + timedelta(days=days)
     return dt
 
