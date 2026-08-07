@@ -1,4 +1,3 @@
-add_subdirectory(TemporalFeaturesNoInsitu)
 add_subdirectory(PrincipalComponentAnalysis)
 add_subdirectory(MeanShiftSegmentation)
 add_subdirectory(MajorityVoting)
