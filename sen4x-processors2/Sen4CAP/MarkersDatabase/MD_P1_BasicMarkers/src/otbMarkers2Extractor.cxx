@@ -78,7 +78,6 @@ private:
         SetDescription("Extracts the Marker 2 CSV file.");
 
         // Documentation
-        SetDocName("Markers 2 CSV extractor");
         SetDocLongDescription("");
         SetDocLimitations("None");
         SetDocAuthors("OTB-Team");

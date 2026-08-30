@@ -26,7 +26,7 @@
 #include "otbVectorImageToImageListFilter.h"
 #include <boost/filesystem.hpp>
 #include "otbMarkers1CsvWriter.h"
-#include <boost/regex.hpp>
+#include <regex>
 
 #include "ImageResampler.h"
 #include "GenericRSImageResampler.h"
@@ -192,7 +192,6 @@ private:
         SetDescription("Markers 1 set extractor.");
 
         // Documentation
-        SetDocName("Markers 1 set extractor");
         SetDocLongDescription("Markers 1 set extractor");
         SetDocLimitations("None");
         SetDocAuthors("OTB-Team");
@@ -644,9 +643,9 @@ private:
                 continue;
             }
             if (filePattern.size() > 0) {
-                boost::regex regexExp(filePattern);
-                boost::smatch matches;
-                if (boost::regex_match(i->path().filename().string(),matches,regexExp)) {
+                std::regex regexExp(filePattern);
+                std::smatch matches;
+                if (std::regex_match(i->path().filename().string(),matches,regexExp)) {
                     return i->path().string();
                 }
             }

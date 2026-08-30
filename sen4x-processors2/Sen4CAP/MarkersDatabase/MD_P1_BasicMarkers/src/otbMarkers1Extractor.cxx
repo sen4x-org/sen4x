@@ -26,7 +26,7 @@
 #include "otbVectorImageToImageListFilter.h"
 #include <boost/filesystem.hpp>
 #include "otbMarkers1CsvWriter.h"
-#include <boost/regex.hpp>
+#include <regex>
 
 #include "ImageResampler.h"
 #include "GenericRSImageResampler.h"
@@ -34,7 +34,6 @@
 //#include "../../Common/include/GSAAAttributesTablesReaderFactory.h"
 //#include "DeclarationsInfo.h"
 
-#include "../../../Common/Filters/otbStreamingStatisticsMapFromLabelImageFilter.h"
 
 #define MEAN_COL_NAME "mean"
 #define STDEV_COL_NAME "stdev"
@@ -189,7 +188,6 @@ private:
         SetDescription("Markers 1 set extractor.");
 
         // Documentation
-        SetDocName("Markers 1 set extractor");
         SetDocLongDescription("Markers 1 set extractor");
         SetDocLimitations("None");
         SetDocAuthors("OTB-Team");
@@ -643,7 +641,7 @@ private:
 
     otb::ogr::DataSource::Pointer GetVector(const otb::ogr::DataSource::Pointer &vectors, const FloatVectorImageType::Pointer &inputImg) {
         const std::string &imageProjectionRef = inputImg->GetProjectionRef();
-        FloatVectorImageType::ImageKeywordlistType imageKwl = inputImg->GetImageKeywordlist();
+        const otb::ImageMetadata &imageMd = inputImg->GetImageMetadata();
         const std::string &vectorProjectionRef = vectors->GetLayer(GetParameterInt("layer")).GetProjectionRef();
 
         const OGRSpatialReference imgOGRSref = OGRSpatialReference( imageProjectionRef.c_str() );
@@ -651,7 +649,7 @@ private:
         bool doReproj = true;
         // don't reproject for these cases
         if (  vectorProjectionRef.empty() || imgOGRSref.IsSame( &vectorOGRSref )
-            || ( imageProjectionRef.empty() && imageKwl.GetSize() == 0) ) {
+            || ( imageProjectionRef.empty() && !imageMd.HasSensorGeometry() ) ) {
             doReproj = false;
         }
 
@@ -668,7 +666,7 @@ private:
             geometriesProjFilter->SetInput(inputGeomSet);
             if (imageProjectionRef.empty())
             {
-                geometriesProjFilter->SetOutputKeywordList(inputImg->GetImageKeywordlist()); // nec qd capteur
+                geometriesProjFilter->SetOutputImageMetadata(&imageMd); // nec qd capteur
             }
             geometriesProjFilter->SetOutputProjectionRef(imageProjectionRef);
             geometriesProjFilter->SetOutput(outputGeomSet);
@@ -684,7 +682,7 @@ private:
 
     bool NeedsReprojection(const otb::ogr::DataSource::Pointer &vectors, const FloatVectorImageType::Pointer &inputImg) {
         const std::string &imageProjectionRef = inputImg->GetProjectionRef();
-        FloatVectorImageType::ImageKeywordlistType imageKwl = inputImg->GetImageKeywordlist();
+        const otb::ImageMetadata &imageMd = inputImg->GetImageMetadata();
         const std::string &vectorProjectionRef = vectors->GetLayer(GetParameterInt("layer")).GetProjectionRef();
 
         const OGRSpatialReference imgOGRSref = OGRSpatialReference( imageProjectionRef.c_str() );
@@ -692,7 +690,7 @@ private:
         bool doReproj = true;
         // don't reproject for these cases
         if (  vectorProjectionRef.empty() || imgOGRSref.IsSame( &vectorOGRSref )
-            || ( imageProjectionRef.empty() && imageKwl.GetSize() == 0) ) {
+            || ( imageProjectionRef.empty() && !imageMd.HasSensorGeometry() ) ) {
             doReproj = false;
         }
 
@@ -802,9 +800,9 @@ private:
                 continue;
             }
             if (filePattern.size() > 0) {
-                boost::regex regexExp(filePattern);
-                boost::smatch matches;
-                if (boost::regex_match(i->path().filename().string(),matches,regexExp)) {
+                std::regex regexExp(filePattern);
+                std::smatch matches;
+                if (std::regex_match(i->path().filename().string(),matches,regexExp)) {
                     return i->path().string();
                 }
             }

@@ -157,7 +157,6 @@ private:
         SetDescription("Computes statistics on a training polygon set.");
 
         // Documentation
-        SetDocName("Merges Markers 1 CSV files");
         SetDocLongDescription("");
         SetDocLimitations("None");
         SetDocAuthors("OTB-Team");
