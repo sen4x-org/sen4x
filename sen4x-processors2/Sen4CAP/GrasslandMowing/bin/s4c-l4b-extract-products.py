@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-from __future__ import print_function
+#!/usr/bin/env python3
 
 import argparse
 import csv
@@ -168,7 +167,7 @@ def extract_s1_products(conn, site_id, season_start, season_end, prds_list):
 
 def get_s2_products_from_tiffs(input_products_list):
     products = []
-    l3b_file_regex = "(S2AGRI_L3B_([A-Z]{5,11})_A([0-9]{8})T([0-9]{6})_T([0-9]{2}[A-Z]{3})\.)"
+    l3b_file_regex = r"(S2AGRI_L3B_([A-Z]{5,11})_A([0-9]{8})T([0-9]{6})_T([0-9]{2}[A-Z]{3})\.)"
     regex = re.compile(l3b_file_regex)
     for tifFilePath in input_products_list:
         tifFileName = os.path.basename(tifFilePath)
@@ -275,7 +274,7 @@ def extract_l3b_products_files(conn, site_id, season_start, season_end, prds_are
                 # print ("TILE DIRS: {} ...".format(tilesDirs))
                 
                 # Ignore the L8 tiles
-                if re.match("\d{6}", tile) :
+                if re.match(r"\d{6}", tile) :
                     print ("Ignoring L8 tile {}".format(tile))
                     continue
                 tilePaths = fnmatch.filter(tilesDirs, "S2AGRI_L3B*_A*_T{}".format(tile))

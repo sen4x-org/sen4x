@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import os, glob
 import sys
@@ -244,7 +244,7 @@ def run_proc(orbit_list, orbit_type, sarDataGlob, re_compile, segmentsFile,
 
         # second setp: erode
         if erode_pixels > 1:
-            erosion_mask = scipy.ndimage.morphology.binary_erosion(eroded_segs>0, structure=cross,iterations=(erode_pixels-1))
+            erosion_mask = scipy.ndimage.binary_erosion(eroded_segs>0, structure=cross,iterations=(erode_pixels-1))
             eroded_segs = eroded_segs*erosion_mask
 
     # Fill segments
@@ -493,7 +493,7 @@ def main_run(configFile, segmentsFile, data_x_detection, outputDir, new_acq_date
     config = configparser.ConfigParser()
     config.read(configFile)
 
-    re_compile = "(SEN4CAP_L2A_(S[0-9]{1,2})_V([0-9]{8})T([0-9]{6})_([0-9]{8})T([0-9]{6})_([VH]{2})_([0-9]{3})_(?:.+)?(AMP|COHE)\.)"
+    re_compile = r"(SEN4CAP_L2A_(S[0-9]{1,2})_V([0-9]{8})T([0-9]{6})_([0-9]{8})T([0-9]{6})_([VH]{2})_([0-9]{3})_(?:.+)?(AMP|COHE)\.)"
     # [S1_input_data]
     # re_compile = config['S1_input_data']['re_compile']
     # data_x_detection = list(map(str.strip, config['S1_input_data']['data_x_detection'].split(',')))
@@ -501,10 +501,10 @@ def main_run(configFile, segmentsFile, data_x_detection, outputDir, new_acq_date
     print("data_x_detection", data_x_detection)
 
     # [S1_constants]
-    S1_time_interval = np.int(config['S1_constants']['S1_time_interval'])
-    SAR_spacing = np.float(config['S1_constants']['SAR_spacing'])
-    cohe_ENL = np.float(config['S1_constants']['cohe_ENL'])
-    min_cohe_var = np.float(config['S1_constants']['min_cohe_var'])
+    S1_time_interval = int(config['S1_constants']['S1_time_interval'])
+    SAR_spacing = float(config['S1_constants']['SAR_spacing'])
+    cohe_ENL = float(config['S1_constants']['cohe_ENL'])
+    min_cohe_var = float(config['S1_constants']['min_cohe_var'])
     locAcqTimeASC = config['S1_constants']['locAcqTimeASC']
     locAcqTimeDESC = config['S1_constants']['locAcqTimeASC']
     print("S1_time_interval", S1_time_interval)
@@ -515,7 +515,7 @@ def main_run(configFile, segmentsFile, data_x_detection, outputDir, new_acq_date
     print("locAcqTimeDESC", locAcqTimeDESC)
 
     # [S1_processing]
-    invalid_data = np.float(config['S1_processing']['invalid_data'])
+    invalid_data = float(config['S1_processing']['invalid_data'])
     saturate_sigma_str = config['S1_processing']['saturate_sigma']
     if saturate_sigma_str == "True":
         saturate_sigma = True
@@ -524,11 +524,11 @@ def main_run(configFile, segmentsFile, data_x_detection, outputDir, new_acq_date
     else:
         print("saturate_sigma invalid")
         return 0, test_d
-    pfa = np.float(config['S1_processing']['pfa'])
-    stat_smpl_n = np.int(config['S1_processing']['stat_smpl_n'])
-    non_overlap_interval_days = np.int(config['S1_processing']['non_overlap_interval_days'])
+    pfa = float(config['S1_processing']['pfa'])
+    stat_smpl_n = int(config['S1_processing']['stat_smpl_n'])
+    non_overlap_interval_days = int(config['S1_processing']['non_overlap_interval_days'])
     options_layer_burning = list(map(str.strip, config['S1_processing']['options_layer_burning'].split(',')))
-    erode_pixels = np.int(config['S1_processing']['erode_pixels'])
+    erode_pixels = int(config['S1_processing']['erode_pixels'])
     dataType = list(map(str.strip, config['S1_processing']['data_types'].split(',')))
     polType = list(map(str.strip, config['S1_processing']['pol_types'].split(',')))
     print("invalid_data", invalid_data)
@@ -545,7 +545,7 @@ def main_run(configFile, segmentsFile, data_x_detection, outputDir, new_acq_date
     if do_cmpl:
         cnt_crop_code = list(map(str.strip, config['compliancy']['crop_codes'].split(',')))
         cnt_crop_TR = list(ast.literal_eval(config['compliancy']['crop_time_intervals']))
-        cnt_crop_rule = [np.int(s) for s in config['compliancy']['crop_rule'].split(',')]
+        cnt_crop_rule = [int(s) for s in config['compliancy']['crop_rule'].split(',')]
     else:
         cnt_crop_code = None
         cnt_crop_TR = None

@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-from __future__ import print_function
+#!/usr/bin/env python3
 
 import argparse
 from datetime import date
@@ -9,7 +8,7 @@ import os.path
 from osgeo import osr
 from osgeo import ogr
 from osgeo import gdalconst
-import pipes
+import shlex
 import psycopg2
 from psycopg2.sql import SQL, Literal, Identifier
 import psycopg2.extras
@@ -49,7 +48,7 @@ class Config(object):
 
 def run_command(args, env=None):
     args = list(map(str, args))
-    cmd_line = " ".join(map(pipes.quote, args))
+    cmd_line = " ".join(map(shlex.quote, args))
     print(cmd_line)
     subprocess.call(args, env=env)
 

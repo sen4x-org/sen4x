@@ -123,7 +123,7 @@ def make_model_pandas(model_temporal_range_str, S2DataGlob, segmentsFile,
 
     # setting file name parsing tools
     keys = ['file_name', 'data_type', 'acq_date', 'acq_time', 'tile_code']
-    get_par_from_file = re.compile('(S2AGRI_L3B_([A-Z]{5,11})_A([0-9]{8})T([0-9]{6})_(T[0-9]{2}[A-Z]{3})\.)')
+    get_par_from_file = re.compile(r'(S2AGRI_L3B_([A-Z]{5,11})_A([0-9]{8})T([0-9]{6})_(T[0-9]{2}[A-Z]{3})\.)')
 
     # file list generation from data dir
     print("Search paths -->", S2DataGlob)
@@ -290,7 +290,7 @@ def make_model_pandas(model_temporal_range_str, S2DataGlob, segmentsFile,
 
         # second setp: erode
         if erode_pixels > 1:
-            erosion_mask = scipy.ndimage.morphology.binary_erosion(eroded_segs>0, structure=cross,iterations=(erode_pixels-1))
+            erosion_mask = scipy.ndimage.binary_erosion(eroded_segs>0, structure=cross,iterations=(erode_pixels-1))
             eroded_segs = eroded_segs*erosion_mask
 
     # Fill segments
@@ -407,5 +407,4 @@ def make_model_pandas(model_temporal_range_str, S2DataGlob, segmentsFile,
     save_model(model_dict, model_data_file_name)
 
     return model_dbl_l, x_mod, y, x, 0
-
 

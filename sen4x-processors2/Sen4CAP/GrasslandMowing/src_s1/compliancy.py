@@ -40,7 +40,7 @@ def do_compliancy(shp_file_name, compliance_config_filename=None, cnt_crop_code=
         config.read(compliance_config_filename)
         cnt_crop_code = list(map(str.strip, config['compliancy']['crop_codes'].split(',')))
         cnt_crop_TR = list(ast.literal_eval(config['compliancy']['crop_time_intervals']))
-        cnt_crop_rule = [np.int(s) for s in config['compliancy']['crop_rule'].split(',')]
+        cnt_crop_rule = [int(s) for s in config['compliancy']['crop_rule'].split(',')]
 
     print('cnt_crop_TR:', cnt_crop_TR)
     print("cnt_crop_code", cnt_crop_code)
@@ -134,4 +134,3 @@ def do_compliancy(shp_file_name, compliance_config_filename=None, cnt_crop_code=
     del ds
     
     return 0
-

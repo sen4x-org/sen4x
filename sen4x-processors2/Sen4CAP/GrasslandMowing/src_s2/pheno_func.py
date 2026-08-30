@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import numpy as np
 from scipy.optimize import leastsq
 from scipy.optimize import least_squares
@@ -165,6 +165,5 @@ def constrained_fit_phenology_model (date, ndvi, pheno_model, bounds=None, param
 		    args=(pheno_func, ndvi, date), bounds=bounds, max_nfev=1000000)
 
     return res
-
 
 

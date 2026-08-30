@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import os, glob
 import sys
@@ -304,7 +304,7 @@ def run_proc(tile_number, S2DataGlob, re_compile, segmentsFile,
 
         # second setp: erode
         if erode_pixels > 1:
-            erosion_mask = scipy.ndimage.morphology.binary_erosion(eroded_segs>0, structure=cross,iterations=(erode_pixels-1))
+            erosion_mask = scipy.ndimage.binary_erosion(eroded_segs>0, structure=cross,iterations=(erode_pixels-1))
             eroded_segs = eroded_segs*erosion_mask
 
     print("eroded_segs", eroded_segs)
@@ -589,7 +589,7 @@ def main_run(configFile, segmentsFile, data_x_detection, data_x_model, outputDir
     config = configparser.ConfigParser()
     config.read(configFile)
 
-    re_compile = "(S2AGRI_L3B[A-Z]*_([A-Z]{5,11})_A([0-9]{8})T([0-9]{6})_T([0-9]{2}[A-Z]{3})\.)"
+    re_compile = r"(S2AGRI_L3B[A-Z]*_([A-Z]{5,11})_A([0-9]{8})T([0-9]{6})_T([0-9]{2}[A-Z]{3})\.)"
     # [S2_input_data]
     # re_compile = config['S2_input_data']['re_compile']
     # data_x_detection = list(map(str.strip, config['S2_input_data']['data_x_detection'].split(',')))

@@ -32,8 +32,8 @@ def do_validation(det_shapefile_name, truth_csv_filename, validation_conf_file_n
     config.read(validation_conf_file_name)
     validation_interval = list(ast.literal_eval(config['validation']['validation_temporal_range_str']))
     validation_interval = [dateutil.parser.parse(d, yearfirst=True, dayfirst=False) for d in validation_interval]
-    fwd_tol_days = np.int(config['validation']['fwd_tol_days'])
-    bkw_tol_days = np.int(config['validation']['bkw_tol_days'])
+    fwd_tol_days = int(config['validation']['fwd_tol_days'])
+    bkw_tol_days = int(config['validation']['bkw_tol_days'])
     
     # load truths
     print("Reading truths ...")
@@ -118,8 +118,8 @@ def do_validation_adv(detShapeFile, truth_csv_filename, validation_conf_file_nam
     config.read(validation_conf_file_name)
     validation_interval = list(ast.literal_eval(config['validation']['validation_temporal_range_str']))
     validation_interval = [dateutil.parser.parse(d, yearfirst=True, dayfirst=False) for d in validation_interval]
-    fwd_tol_days = np.int(config['validation']['fwd_tol_days'])
-    bkw_tol_days = np.int(config['validation']['bkw_tol_days'])
+    fwd_tol_days = int(config['validation']['fwd_tol_days'])
+    bkw_tol_days = int(config['validation']['bkw_tol_days'])
 
     # load truths
     print("Reading truths ...")
@@ -197,6 +197,3 @@ def do_validation_adv(detShapeFile, truth_csv_filename, validation_conf_file_nam
         print("Precision undetermined [TP/(TP+FP)]")
 
     return recall, precision, TP, FP, FN
-
-
-
