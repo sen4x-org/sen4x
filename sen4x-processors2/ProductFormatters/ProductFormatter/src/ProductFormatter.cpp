@@ -26,7 +26,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #ifdef _WIN32
-     #include "WStringToString.h"		
+     #include "WStringToString.h"
 #else
      #include <sys/wait.h>
      #include <spawn.h>
@@ -38,7 +38,7 @@
 #include "TileMetadataWriter.hpp"
 
 #include "MetadataHelperFactory.h"
-#include <boost/regex.hpp>
+#include <regex>
 
 #define PROJECT_ID                      "S2AGRI"
 #define GIPP_VERSION                    "0001"
@@ -364,7 +364,6 @@ private:
         SetName("ProductFormatter");
         SetDescription("Creates folder ierarchy and metadata files");
 
-        SetDocName("ProductFormatter");
         SetDocLongDescription("Creates folder ierarchy and metadata files");
         SetDocLimitations("None");
         SetDocAuthors("ATA");
@@ -967,11 +966,13 @@ private:
       if (!sourceSRS) {
           return extent;
       }
+      sourceSRS->SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER);
 
-      auto targetSRS = static_cast<OGRSpatialReference *>(OSRNewSpatialReference(SRS_WKT_WGS84));
+      auto targetSRS = static_cast<OGRSpatialReference *>(OSRNewSpatialReference(SRS_WKT_WGS84_LAT_LONG));
       if (!targetSRS) {
           return extent;
       }
+      targetSRS->SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER);
 
       auto transform = static_cast<OGRCoordinateTransformation *>(
           OCTNewCoordinateTransformation(sourceSRS, targetSRS));
@@ -2092,12 +2093,12 @@ private:
 
   std::string ExtractTile(const std::string& path)
   {
-      static const boost::regex rx(R"(_T([0-9]{2}[A-Z]{3})_)");
-      boost::smatch match;
+      static const std::regex rx(R"(_T([0-9]{2}[A-Z]{3})_)");
+      std::smatch match;
       std::string lastMatch;
       std::string::const_iterator start = path.begin();
       std::string::const_iterator end = path.end();
-      while (boost::regex_search(start, end, match, rx)) {
+      while (std::regex_search(start, end, match, rx)) {
           lastMatch = match[1];          // save latest
           start = match[0].second;      // continue search after this match
       }

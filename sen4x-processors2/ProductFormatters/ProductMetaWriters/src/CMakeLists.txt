@@ -1,6 +1,5 @@
-find_package(Boost REQUIRED COMPONENTS filesystem)
+include(${OTB_USE_FILE})
 
-include_directories(../../Common/XmlUtils/include)
 
 set(Sen2AgriPrdMetaWriters_HEADERS
     ../include/ProductMetadata.hpp
@@ -15,14 +14,8 @@ set(Sen2AgriPrdMetaWriters_SOURCES
 add_library(Sen2AgriPrdMetaWriters SHARED ${Sen2AgriPrdMetaWriters_HEADERS} ${Sen2AgriPrdMetaWriters_SOURCES})
 target_link_libraries(Sen2AgriPrdMetaWriters 
     Sen2AgriXmlUtils
-    "${Boost_LIBRARIES}"
-    "${OTBCommon_LIBRARIES}"
-    "${OTBTinyXML_LIBRARIES}"
-    "${OTBITK_LIBRARIES}")
-
-#if(BUILD_TESTING)
-#  add_subdirectory(test)
-#endif()
+    ${OTB_LIBRARIES}
+    ${Boost_LIBRARIES})
 
 target_include_directories(Sen2AgriPrdMetaWriters PUBLIC ../include)
 

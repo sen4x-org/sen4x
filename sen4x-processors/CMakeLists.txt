@@ -31,7 +31,6 @@ add_subdirectory(Composite)
 add_subdirectory(VegetationStatus)
 add_subdirectory(Common)
 add_subdirectory(ContinuousColorMapping)
-add_subdirectory(ProductFormatters)
 add_subdirectory(ProductReaders)
 
 if (NOT WIN32)
