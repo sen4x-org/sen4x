@@ -1,19 +1,9 @@
 include(${OTB_USE_FILE})
 
-include_directories(../../Common/include)
 
 otb_create_application(
   NAME           TimeSeriesAnalysis
   SOURCES        otbTimeSeriesAnalysis.cpp
-                 ../../Common/include/CommonFunctions.h
-                 ../../Common/include/CommonDefs.h
-                 ../../Common/include/PracticeReaderBase.h
-                 ../../Common/include/PracticeReaderFactory.h
-                 ../../Common/src/PracticeReaderFactory.cpp
-                 ../../Common/include/PracticeShpReader.h
-                 ../../Common/src/PracticeShpReader.cpp
-                 ../../Common/include/PracticeCsvReader.h
-                 ../../Common/src/PracticeCsvReader.cpp
                  TimeSeriesAnalysisTypes.h
                  TimeSeriesAnalysisUtils.h
                  StatisticsInfosReaderBase.h
@@ -57,7 +47,7 @@ otb_create_application(
                  TsaTillageAnalysisHandler.cpp
                  TsaTillageAnalysisHandler.h
 
-  LINK_LIBRARIES ${OTB_LIBRARIES} MACCSMetadata Sen2AgriPrdMetaWriters ${Boost_LIBRARIES} GSL::gsl EXPAT::EXPAT)
+  LINK_LIBRARIES ${OTB_LIBRARIES} AgriculturalPracticesCommon MACCSMetadata Sen2AgriPrdMetaWriters ${Boost_LIBRARIES} GSL::gsl EXPAT::EXPAT)
 
 #if(BUILD_TESTING)
 #  add_subdirectory(test)

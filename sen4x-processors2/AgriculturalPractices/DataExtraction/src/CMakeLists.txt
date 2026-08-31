@@ -1,6 +1,5 @@
 include(${OTB_USE_FILE})
 
-include_directories(../../Common/include)
 include_directories(../../../Filters)
 
 otb_create_application(
@@ -16,38 +15,18 @@ otb_create_application(
                  otbAgricPractDataExtrFileWriter2.txx
                  DeclarationsInfo.h
                  DeclarationsInfo.cpp
-                 ../../Common/include/CommonFunctions.h
-                 ../../Common/include/CommonDefs.h
-                 ../../Common/include/AttributeEntry.h
-                 ../../Common/include/GSAAAttributesTablesReaderBase.h
-                 ../../Common/src/GSAAAttributesTablesReaderFactory.cpp
-                 ../../Common/include/GSAAAttributesTablesReaderFactory.h
-                 ../../Common/src/GSAACsvAttributesTablesReader.cpp
-                 ../../Common/include/GSAACsvAttributesTablesReader.h
-                 ../../Common/src/GSAAShpAttributesTablesReader.cpp
-                 ../../Common/include/GSAAShpAttributesTablesReader.h
-                 ../../Common/include/DeclarationsInfoBase.h
-                 ../../Common/src/DeclarationsInfoBase.cpp
-                 ../../Common/include/PracticeReaderFactory.h
-                 ../../Common/src/PracticeReaderFactory.cpp
-                 ../../Common/include/PracticeShpReader.h
-                 ../../Common/src/PracticeShpReader.cpp
-                 ../../Common/include/PracticeCsvReader.h
-                 ../../Common/src/PracticeCsvReader.cpp
 
-  LINK_LIBRARIES ${OTB_LIBRARIES} MACCSMetadata Sen2AgriPrdMetaWriters ${Boost_LIBRARIES} Sen2AgriCommonUtils EXPAT::EXPAT)
+  LINK_LIBRARIES ${OTB_LIBRARIES} AgriculturalPracticesCommon MACCSMetadata Sen2AgriPrdMetaWriters ${Boost_LIBRARIES} Sen2AgriCommonUtils EXPAT::EXPAT)
 
 otb_create_application(
   NAME           AgricPractMergeDataExtractionFiles
   SOURCES        otbAgricPractMergeDataExtractionFiles.cxx
-                 ../../Common/include/CommonFunctions.h ../../Common/include/CommonDefs.h
-  LINK_LIBRARIES ${OTB_LIBRARIES} MACCSMetadata ${Boost_LIBRARIES} EXPAT::EXPAT)
+  LINK_LIBRARIES ${OTB_LIBRARIES} AgriculturalPracticesCommon MACCSMetadata ${Boost_LIBRARIES} EXPAT::EXPAT)
 
 otb_create_application(
   NAME           IndexAgricPracticesXml
   SOURCES        otbIndexAgricPracticesXml.cxx
-                 ../../Common/include/CommonFunctions.h ../../Common/include/CommonDefs.h
-  LINK_LIBRARIES ${OTB_LIBRARIES} MACCSMetadata ${Boost_LIBRARIES})
+  LINK_LIBRARIES ${OTB_LIBRARIES} AgriculturalPracticesCommon MACCSMetadata ${Boost_LIBRARIES})
 
 #otb_create_application(
 #  NAME           AgricPracticesXmlToTxtFiles

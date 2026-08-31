@@ -1,6 +1,5 @@
 include(${OTB_USE_FILE})
 
-include_directories(../../../../AgriculturalPractices/Common/include)
 include_directories(../../../../Filters)
 
 
@@ -16,21 +15,21 @@ otb_create_application(
                  otbMarkers1CsvWriter.h
                  otbMarkers1CsvWriter.txx
 
-  LINK_LIBRARIES ${OTB_LIBRARIES} MACCSMetadata Sen2AgriProductReaders ${Boost_LIBRARIES} Sen2AgriCommonUtils
+  LINK_LIBRARIES ${OTB_LIBRARIES} AgriculturalPracticesCommon MACCSMetadata Sen2AgriProductReaders ${Boost_LIBRARIES} Sen2AgriCommonUtils
 )
 
 otb_create_application(
   NAME           Markers1CsvMerge
   SOURCES        otbMarkers1CsvMerge.cxx
 
-  LINK_LIBRARIES ${OTB_LIBRARIES} ${Boost_LIBRARIES} Sen2AgriCommonUtils
+  LINK_LIBRARIES ${OTB_LIBRARIES} AgriculturalPracticesCommon ${Boost_LIBRARIES} Sen2AgriCommonUtils
 )
 
 otb_create_application(
   NAME           Markers2Extractor
   SOURCES        otbMarkers2Extractor.cxx
 
-  LINK_LIBRARIES ${OTB_LIBRARIES} ${Boost_LIBRARIES} Sen2AgriCommonUtils
+  LINK_LIBRARIES ${OTB_LIBRARIES} AgriculturalPracticesCommon ${Boost_LIBRARIES} Sen2AgriCommonUtils
 )
 
 otb_create_application(
@@ -39,7 +38,7 @@ otb_create_application(
                  otbMarkersFromLabelImageFilter.h
                  otbMarkersFromLabelImageFilter.hxx
 
-  LINK_LIBRARIES ${OTB_LIBRARIES} MACCSMetadata Sen2AgriProductReaders ${Boost_LIBRARIES} Sen2AgriCommonUtils
+  LINK_LIBRARIES ${OTB_LIBRARIES} AgriculturalPracticesCommon MACCSMetadata Sen2AgriProductReaders ${Boost_LIBRARIES} Sen2AgriCommonUtils
 )
 
 install(TARGETS otbapp_Markers1Extractor DESTINATION usr/lib/otb/applications/)
