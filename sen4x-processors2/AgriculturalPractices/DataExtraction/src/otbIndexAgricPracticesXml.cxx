@@ -18,6 +18,7 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/lexical_cast.hpp>
+#include <regex>
 
 #include "tinyxml_utils.hpp"
 #include "string_utils.hpp"
@@ -65,7 +66,7 @@ public:
     {
         //const std::string &regex = R"(\s?<fid id=\"(.*)\" name=\"(.*)\">)";
         const std::string &regex = R"(\s?<fid id=\"(.*)\">)";
-        boost::regex regexExp {regex};
+        std::regex regexExp {regex};
         m_startFidRegexExp = regexExp;
     }
 
@@ -75,7 +76,6 @@ public:
         SetDescription("Indexes an Agricultural Practices data extraction XML.");
 
         // Documentation
-        SetDocName("Polygon Class Statistics");
         SetDocLongDescription("TODO");
         SetDocLimitations("None");
         SetDocAuthors("OTB-Team");
@@ -166,9 +166,9 @@ public:
             } else {
                 //const std::string &regex = "<fid id=\"(.*)\" name=\"(.*)\">";
                 const std::string &regex = "<fid id=\"(.*)\">";
-                boost::regex regexExp {regex};
-                boost::smatch matches;
-                if (boost::regex_search(strLine,matches,regexExp)) {
+                std::regex regexExp {regex};
+                std::smatch matches;
+                if (std::regex_search(strLine,matches,regexExp)) {
                     curFidStart = curLineStart;
                     curFid = matches[1].str();
                     //curName = matches[2].str();
@@ -194,7 +194,7 @@ public:
         }
     }
 private:
-     boost::regex m_startFidRegexExp;
+     std::regex m_startFidRegexExp;
 };
 
 } // end of namespace Wrapper

@@ -6,7 +6,6 @@
 
 #include "TsaCountryDefaultPlugin.h"
 
-#include <vector>
 #include <memory>
 
 class TsaCountryPluginsFactory : public itk::LightObject
@@ -28,6 +27,7 @@ public:
         if (defaultImpl->GetName() == name) {
             return defaultImpl;
         }
+        return defaultImpl;
     }
 };
 

@@ -5,6 +5,7 @@
 #include "itkObjectFactory.h"
 
 #include "PracticeReaderBase.h"
+#include <memory>
 
 class PracticeReaderFactory : public itk::LightObject
 {

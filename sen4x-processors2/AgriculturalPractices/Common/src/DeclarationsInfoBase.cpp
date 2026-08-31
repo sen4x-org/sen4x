@@ -1,4 +1,4 @@
-#include "../../Common/include/DeclarationsInfoBase.h"
+#include "DeclarationsInfoBase.h"
 #include "CommonFunctions.h"
 
 DeclarationsInfoBase::DeclarationsInfoBase()

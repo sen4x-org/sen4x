@@ -1,4 +1,4 @@
-find_package(Boost REQUIRED COMPONENTS regex)
+include(${OTB_USE_FILE})
 
 include_directories(../../Common/include)
 
@@ -31,7 +31,7 @@ otb_create_application(
                  RouCountryInfo.h RouCountryInfo.cpp
                  FraCountryInfo.h FraCountryInfo.cpp
                  DefaultCountryInfo.h DefaultCountryInfo.cpp
-  LINK_LIBRARIES ${OTBExtensions} ${OTB_LIBRARIES} ${OTBCommon_LIBRARIES} ${OTBITK_LIBRARIES} MACCSMetadata ${Boost_LIBRARIES})
+  LINK_LIBRARIES ${OTB_LIBRARIES} MACCSMetadata ${Boost_LIBRARIES})
 
 #if(BUILD_TESTING)
 #  add_subdirectory(test)

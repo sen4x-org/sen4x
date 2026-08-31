@@ -32,7 +32,7 @@
 //#include "../../Common/include/GSAAAttributesTablesReaderFactory.h"
 //#include "DeclarationsInfo.h"
 
-#include "../../../Common/Filters/otbStreamingStatisticsMapFromLabelImageFilter.h"
+#include "otbStreamingStatisticsMapFromLabelImageFilter2.h"
 
 namespace otb
 {
@@ -108,7 +108,7 @@ public:
 
     typedef FloatVectorImageType                                                     FeatureImageType;
     typedef Int32ImageType                                                           ClassImageType;
-    typedef otb::StreamingStatisticsMapFromLabelImageFilter<FeatureImageType, ClassImageType> StatisticsFilterType;
+    typedef otb::StreamingStatisticsMapFromLabelImageFilter2<FeatureImageType, ClassImageType> StatisticsFilterType;
     typedef otb::ImageFileReader<ClassImageType>                             ClassImageReaderType;
 
     typedef itk::UnaryFunctorImageFilter<FeatureImageType,FeatureImageType,
@@ -141,7 +141,6 @@ private:
         SetDescription("Computes statistics on a training polygon set.");
 
         // Documentation
-        SetDocName("Polygon Class Statistics");
         SetDocLongDescription("The application processes a set of geometries "
         "intended for training (they should have a field giving the associated "
         "class). The geometries are analyzed against a support image to compute "
@@ -666,7 +665,7 @@ private:
 
     otb::ogr::DataSource::Pointer GetVector(const otb::ogr::DataSource::Pointer &vectors, const FloatVectorImageType::Pointer &inputImg) {
         const std::string &imageProjectionRef = inputImg->GetProjectionRef();
-        FloatVectorImageType::ImageKeywordlistType imageKwl = inputImg->GetImageKeywordlist();
+        const otb::ImageMetadata &imageMd = inputImg->GetImageMetadata();
         const std::string &vectorProjectionRef = vectors->GetLayer(GetParameterInt("layer")).GetProjectionRef();
 
         const OGRSpatialReference imgOGRSref = OGRSpatialReference( imageProjectionRef.c_str() );
@@ -674,7 +673,7 @@ private:
         bool doReproj = true;
         // don't reproject for these cases
         if (  vectorProjectionRef.empty() || imgOGRSref.IsSame( &vectorOGRSref )
-            || ( imageProjectionRef.empty() && imageKwl.GetSize() == 0) ) {
+            || ( imageProjectionRef.empty() && !imageMd.HasSensorGeometry() ) ) {
             doReproj = false;
         }
 
@@ -693,7 +692,7 @@ private:
             geometriesProjFilter->SetInput(inputGeomSet);
             if (imageProjectionRef.empty())
             {
-                geometriesProjFilter->SetOutputKeywordList(inputImg->GetImageKeywordlist()); // nec qd capteur
+                geometriesProjFilter->SetOutputImageMetadata(&imageMd); // nec qd capteur
             }
             geometriesProjFilter->SetOutputProjectionRef(imageProjectionRef);
             geometriesProjFilter->SetOutput(outputGeomSet);
@@ -709,7 +708,7 @@ private:
 
     bool NeedsReprojection(const otb::ogr::DataSource::Pointer &vectors, const FloatVectorImageType::Pointer &inputImg) {
         const std::string &imageProjectionRef = inputImg->GetProjectionRef();
-        FloatVectorImageType::ImageKeywordlistType imageKwl = inputImg->GetImageKeywordlist();
+        const otb::ImageMetadata &imageMd = inputImg->GetImageMetadata();
         const std::string &vectorProjectionRef = vectors->GetLayer(GetParameterInt("layer")).GetProjectionRef();
 
         const OGRSpatialReference imgOGRSref = OGRSpatialReference( imageProjectionRef.c_str() );
@@ -717,7 +716,7 @@ private:
         bool doReproj = true;
         // don't reproject for these cases
         if (  vectorProjectionRef.empty() || imgOGRSref.IsSame( &vectorOGRSref )
-            || ( imageProjectionRef.empty() && imageKwl.GetSize() == 0) ) {
+            || ( imageProjectionRef.empty() && !imageMd.HasSensorGeometry() ) ) {
             doReproj = false;
         }
         if (doReproj && imageProjectionRef.find("LAEA") != std::string::npos

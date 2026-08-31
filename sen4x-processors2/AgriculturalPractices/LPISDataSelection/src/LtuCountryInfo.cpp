@@ -3,11 +3,8 @@
 
 LtuCountryInfo::LtuCountryInfo() : m_is2019FileFormat(-1), m_discrimCsvColIdx(-1), m_additionalDiscrimCsvColIdx(-1) {
     m_2018FileCsvKeys = {"valdos numeris", "kZs", "deklaruoto lauko numeris"};
-    std::string kzsNr("K");
-    kzsNr.append<int>(1,0x8E);
-    kzsNr.append("S Nr.");
-    m_2019FileCsvKeys = {"Valda", kzsNr, "Lauko nr."};
-    m_2019CCFileCsvKeys = {"Holding Nr.", kzsNr, "Parcel Nr."};
+    m_2019FileCsvKeys = {"Valda", "K\x8ES Nr.", "Lauko nr."};
+    m_2019CCFileCsvKeys = {"Holding Nr.", "K\x8ES Nr.", "Parcel Nr."};
     m_DiscrimCsvColName = "Kodas";
     m_AdditionalDiscrimCsvColName = "Pas?lis";
     m_DiscrimISCsvVal = "EASV_ZOL_ISELIO_ZI";
@@ -15,8 +12,7 @@ LtuCountryInfo::LtuCountryInfo() : m_is2019FileFormat(-1), m_discrimCsvColIdx(-1
     m_DiscrimSPCCCsvVal = "EASV_POSELIS_PS";
 
     m_DiscrimFLCsvVal = "EASV_PUDYMO_PD";
-    m_DiscrimAddPDZFLCsvVal = "PD";
-    m_DiscrimAddPDZFLCsvVal.append<int>(1,0x8E);
+    m_DiscrimAddPDZFLCsvVal = "PD\x8E";
     m_DiscrimAddPDJFLCsvVal = "PDJ";
 
     m_DiscrimNFCCsvVal = "EASV_AZOT_AZ";

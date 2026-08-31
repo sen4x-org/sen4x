@@ -1,6 +1,7 @@
 include(${OTB_USE_FILE})
 
 include_directories(../../../../AgriculturalPractices/Common/include)
+include_directories(../../../../Filters)
 
 
 otb_create_application(

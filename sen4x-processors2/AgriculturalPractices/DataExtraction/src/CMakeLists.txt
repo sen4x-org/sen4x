@@ -1,8 +1,7 @@
-find_package(Boost REQUIRED COMPONENTS filesystem)
+include(${OTB_USE_FILE})
 
-include_directories(../../../Common/OTBExtensions)
 include_directories(../../Common/include)
-find_package(Boost REQUIRED COMPONENTS regex)
+include_directories(../../../Filters)
 
 otb_create_application(
   NAME           AgricPractDataExtraction
@@ -38,19 +37,19 @@ otb_create_application(
                  ../../Common/include/PracticeCsvReader.h
                  ../../Common/src/PracticeCsvReader.cpp
 
-  LINK_LIBRARIES ${OTBExtensions} ${OTB_LIBRARIES} ${OTBCommon_LIBRARIES} ${OTBITK_LIBRARIES} MACCSMetadata Sen2AgriPrdMetaWriters ${Boost_LIBRARIES} Sen2AgriCommonUtils)
+  LINK_LIBRARIES ${OTB_LIBRARIES} MACCSMetadata Sen2AgriPrdMetaWriters ${Boost_LIBRARIES} Sen2AgriCommonUtils EXPAT::EXPAT)
 
 otb_create_application(
   NAME           AgricPractMergeDataExtractionFiles
   SOURCES        otbAgricPractMergeDataExtractionFiles.cxx
                  ../../Common/include/CommonFunctions.h ../../Common/include/CommonDefs.h
-  LINK_LIBRARIES ${OTBExtensions} ${OTB_LIBRARIES} ${OTBCommon_LIBRARIES} ${OTBITK_LIBRARIES} MACCSMetadata ${Boost_LIBRARIES})
+  LINK_LIBRARIES ${OTB_LIBRARIES} MACCSMetadata ${Boost_LIBRARIES} EXPAT::EXPAT)
 
 otb_create_application(
   NAME           IndexAgricPracticesXml
   SOURCES        otbIndexAgricPracticesXml.cxx
                  ../../Common/include/CommonFunctions.h ../../Common/include/CommonDefs.h
-  LINK_LIBRARIES ${OTBExtensions} ${OTB_LIBRARIES} ${OTBCommon_LIBRARIES} ${OTBITK_LIBRARIES} MACCSMetadata ${Boost_LIBRARIES})
+  LINK_LIBRARIES ${OTB_LIBRARIES} MACCSMetadata ${Boost_LIBRARIES})
 
 #otb_create_application(
 #  NAME           AgricPracticesXmlToTxtFiles

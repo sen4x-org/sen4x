@@ -18,7 +18,6 @@
 
 #include "otbOGRDataSourceWrapper.h"
 
-#include <boost/regex.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -111,7 +110,6 @@ private:
         SetDescription("TODO.");
 
         // Documentation
-        SetDocName("TODO");
         SetDocLongDescription("TODO");
         SetDocLimitations("None");
         SetDocAuthors("CIU");

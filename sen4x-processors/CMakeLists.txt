@@ -35,7 +35,6 @@ add_subdirectory(ContinuousColorMapping)
 if (NOT WIN32)
     add_subdirectory(CropType)
     add_subdirectory(CropMask)
-    add_subdirectory(AgriculturalPractices)
     add_subdirectory(Sen4CAP)
     add_subdirectory(merge-statistics)
 endif()
@@ -64,13 +63,6 @@ install(FILES ../scripts/insert_l2a_product_to_db.py
               ../scripts/s4s_perm_crops/s4s-perm-crops-rasterization.py
               ../scripts/s4s_perm_crops/s4s-perm-crops-run-broceliande.py
               ../scripts/merge-sar.py
-              ../scripts/s4c_l4c_manual_exec/agric_practices_data_extraction.py
-              ../scripts/s4c_l4c_manual_exec/agric_practices_data_extraction.sh
-              ../scripts/s4c_l4c_manual_exec/agric_practices_merge_files.py
-              ../scripts/s4c_l4c_manual_exec/agric_practices_merge_files.sh
-              ../scripts/s4c_l4c_manual_exec/agric_practices_tsa.sh
-              ../scripts/s4c_l4c_manual_exec/extract_practices_infos.sh
-              ../scripts/s4c_l4c_manual_exec/launch_agric_practices.sh
               ../scripts/import_theia.sh
               ../scripts/arrow/csv_to_ipc.py
               ../scripts/arrow/ipc_to_csv.py

@@ -1,7 +1,7 @@
 #ifndef CommonFunctions_h
 #define CommonFunctions_h
 
-#include <boost/regex.hpp>
+#include <regex>
 #include <boost/filesystem.hpp>
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -438,11 +438,11 @@ inline bool GetFileInfosFromName(const std::string &filePath, Satellite &sat, st
     fileDate = 0;
     prevFileDate = 0;
 
-    boost::regex regexExp;
-    boost::smatch matches;
+    std::regex regexExp;
+    std::smatch matches;
     for (const FileNameRegexInfoType& info: fileNameRegexInfos) {
-        regexExp = {info.regex.c_str()};
-        if (boost::regex_match(fileName,matches,regexExp)) {
+        regexExp = std::regex(info.regex);
+        if (std::regex_match(fileName,matches,regexExp)) {
             if(info.prdTypeIdx > 0) {
                 fileType = matches[info.prdTypeIdx].str();
             } else {

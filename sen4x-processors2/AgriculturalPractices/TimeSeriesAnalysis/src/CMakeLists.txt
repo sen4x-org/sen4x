@@ -1,10 +1,6 @@
-find_package(Boost REQUIRED COMPONENTS regex)
+include(${OTB_USE_FILE})
 
-include_directories(../../../Common/OTBExtensions)
 include_directories(../../Common/include)
-IF (WIN32)
-    link_directories(C:/OTB-release-xdk-win32/lib)
-ENDIF(WIN32)
 
 otb_create_application(
   NAME           TimeSeriesAnalysis
@@ -61,7 +57,7 @@ otb_create_application(
                  TsaTillageAnalysisHandler.cpp
                  TsaTillageAnalysisHandler.h
 
-  LINK_LIBRARIES ${OTBExtensions} ${OTB_LIBRARIES} ${OTBCommon_LIBRARIES} ${OTBITK_LIBRARIES} MACCSMetadata Sen2AgriPrdMetaWriters ${Boost_LIBRARIES} gsl)
+  LINK_LIBRARIES ${OTB_LIBRARIES} MACCSMetadata Sen2AgriPrdMetaWriters ${Boost_LIBRARIES} GSL::gsl EXPAT::EXPAT)
 
 #if(BUILD_TESTING)
 #  add_subdirectory(test)

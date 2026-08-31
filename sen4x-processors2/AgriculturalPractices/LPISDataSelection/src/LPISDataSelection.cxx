@@ -87,7 +87,6 @@ private:
         SetDescription("Extracts agricultural practices information from the input shapefile and additional files");
 
         // Documentation
-        SetDocName("Agricultural practices information extractor");
         SetDocLongDescription("TODO");
         SetDocLimitations("None");
         SetDocAuthors("Cosmin UDROIU");

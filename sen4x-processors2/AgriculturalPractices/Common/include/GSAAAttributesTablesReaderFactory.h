@@ -5,6 +5,7 @@
 #include "itkObjectFactory.h"
 
 #include "GSAAAttributesTablesReaderBase.h"
+#include <memory>
 
 class GSAAAttributesTablesReaderFactory : public itk::LightObject
 {

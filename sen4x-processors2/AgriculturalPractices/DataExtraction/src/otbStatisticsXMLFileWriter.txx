@@ -25,7 +25,6 @@
 #include "itkMacro.h"
 #include "itksys/SystemTools.hxx"
 #include "otb_tinyxml.h"
-#include "otbStringUtils.h"
 
 namespace otb {
 

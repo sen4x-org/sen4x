@@ -169,7 +169,6 @@ private:
         SetDescription("Computes statistics on a training polygon set.");
 
         // Documentation
-        SetDocName("Polygon Class Statistics");
         SetDocLongDescription("TODO");
         SetDocLimitations("None");
         SetDocAuthors("OTB-Team");

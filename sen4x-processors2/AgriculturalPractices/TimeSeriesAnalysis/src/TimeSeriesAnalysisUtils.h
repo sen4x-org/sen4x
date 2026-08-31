@@ -2,6 +2,8 @@
 #define TimeSeriesAnalysisUtils_h
 
 #include <time.h>
+#include <numeric>
+#include <cmath>
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/algorithm/string.hpp>
