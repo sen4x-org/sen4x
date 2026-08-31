@@ -1,5 +1,3 @@
-find_package(Boost REQUIRED COMPONENTS filesystem regex)
-
 set(Sen2AgriProductReaders_HEADERS
 #    MACCSMetadataHelper.h
     MACCSMetadataHelperBase.h

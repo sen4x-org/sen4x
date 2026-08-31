@@ -1,4 +1,4 @@
-find_package(Boost REQUIRED COMPONENTS filesystem)
+include(${OTB_USE_FILE})
 
 include_directories(../../Common/XmlUtils/include)
 
@@ -25,7 +25,7 @@ set(MACCSMetadata_SOURCES
     MetadataUtil.cpp)
 
 add_library(MACCSMetadata SHARED ${MACCSMetadata_HEADERS} ${MACCSMetadata_SOURCES})
-target_link_libraries(MACCSMetadata 
+target_link_libraries(MACCSMetadata
     Sen2AgriXmlUtils
     Sen2AgriCommonUtils
     "${Boost_LIBRARIES}"

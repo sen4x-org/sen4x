@@ -590,8 +590,7 @@ SEN2CORMetadataHelper<PixelType, MasksPixelType>::GetL2AMasksImage(MasksFlagType
     typename MetadataHelper<PixelType, MasksPixelType>::SingleBandMasksImageType::Pointer img;
     // force resolution to 10 m if not specified
     const std::string &sclFn = GetSCLFileName(resolution);
-    img = this->m_maskFlagsBandsExtractor.ExtractResampledBand(sclFn, 1, Interpolator_NNeighbor, -1,
-        (resolution == -1 ? 10 : resolution));
+    img = this->m_maskFlagsBandsExtractor.ExtractResampledBand(sclFn, 1, Interpolator_NNeighbor, -1, -1);
 
     this->m_maskHandlerFunctor.Initialize(nMaskFlags, binarizeResult);
     this->m_maskHandlerFilter = Sen2CorUnaryFunctorImageFilterType::New();

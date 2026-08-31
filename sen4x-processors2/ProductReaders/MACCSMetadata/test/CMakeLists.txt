@@ -1,4 +1,4 @@
-find_package(Boost REQUIRED COMPONENTS unit_test_framework)
+include(${OTB_USE_FILE})
 
 add_definitions(-DBOOST_TEST_DYN_LINK)
 

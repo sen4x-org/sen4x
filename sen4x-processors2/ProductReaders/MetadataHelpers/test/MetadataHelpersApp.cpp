@@ -67,7 +67,6 @@ private:
         SetDescription("Test application for the product readers.");
 
         // Documentation
-        SetDocName("Test application for the product readers");
         SetDocLongDescription("");
         SetDocLimitations("None");
         SetDocAuthors("CIU");

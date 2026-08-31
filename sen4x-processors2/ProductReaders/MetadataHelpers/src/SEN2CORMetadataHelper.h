@@ -51,12 +51,13 @@ class SEN2CORMetadataHelper : public MetadataHelper<PixelType, MasksPixelType>
     private:
         int m_BoaOffset;
     };
-        
+
     template< class TInput, class TOutput>
     class Sen2CorMaskHandlerFunctor
     {
     public:
-        Sen2CorMaskHandlerFunctor(){}
+        Sen2CorMaskHandlerFunctor()
+        : m_MaskFlags(), m_bBinarizeResult() {}
         void Initialize(MasksFlagType nMaskFlags, bool binarizeResult) { m_MaskFlags = nMaskFlags; m_bBinarizeResult = binarizeResult;}
         Sen2CorMaskHandlerFunctor& operator =(const Sen2CorMaskHandlerFunctor& copy) {
             m_MaskFlags=copy.m_MaskFlags;

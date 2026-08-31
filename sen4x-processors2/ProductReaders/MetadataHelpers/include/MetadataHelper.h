@@ -173,7 +173,7 @@ protected:
     {
         typename MetadataHelper<PixelType, MasksPixelType>::ImageReaderType::Pointer reader =
             MetadataHelper<PixelType, MasksPixelType>::ImageReaderType::New();
-        reader->SetFileName(imgPath + "?skipgeom=true");
+        reader->SetFileName(imgPath + "?&skipgeom=true");
         reader->UpdateOutputInformation();
         this->m_readers.push_back(reader);
         return reader;
