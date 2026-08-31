@@ -13,8 +13,6 @@ otb_create_application(
                  otbOGRDataToClassStatisticsFilter.txx
                  otbMaskedIteratorDecorator.h
                  otbMaskedIteratorDecorator.txx
-                 otbStopwatch.h
-                 otbStopwatch.cxx
                  otbMarkers1CsvWriter.h
                  otbMarkers1CsvWriter.txx
 

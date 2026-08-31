@@ -12,8 +12,6 @@ otb_create_application(
                  otbOGRDataToClassStatisticsFilter.txx
                  otbMaskedIteratorDecorator.h
                  otbMaskedIteratorDecorator.txx
-                 otbStopwatch.h
-                 otbStopwatch.cxx
                  otbAgricPractDataExtrFileWriter2.h
                  otbAgricPractDataExtrFileWriter2.txx
                  DeclarationsInfo.h
