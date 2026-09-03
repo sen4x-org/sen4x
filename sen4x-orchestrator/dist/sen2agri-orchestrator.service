@@ -6,7 +6,7 @@ Requires=docker.service
 [Service]
 Type=simple
 BusName=org.esa.sen2agri.orchestrator
-ExecStart=/usr/bin/sen2agri-orchestrator
+ExecStart=/usr/bin/sen4x-orchestrator
 User=sen2agri-service
 RestartSec=5
 Restart=on-failure
