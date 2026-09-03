@@ -7,7 +7,7 @@ Requires=docker.service
 [Service]
 Type=simple
 BusName=org.esa.sen2agri.processorsExecutor
-ExecStart=/usr/bin/sen2agri-executor
+ExecStart=/usr/bin/sen4x-executor
 User=sen2agri-service
 RestartSec=5
 Restart=on-failure
