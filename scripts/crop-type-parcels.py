@@ -711,7 +711,7 @@ class CoherenceSeasonGroup(object):
 
 def get_tile_footprints(file):
     tiles = {}
-    with open(file, "rb") as file:
+    with open(file, "r") as file:
         reader = csv.reader(file)
         next(reader)
         for tile_id, epsg_code, geog in reader:
@@ -724,7 +724,7 @@ def get_tile_footprints(file):
 
 def get_radar_products(file):
     products = []
-    with open(file, "rb") as file:
+    with open(file, "r") as file:
         reader = csv.reader(file)
         next(reader)
         for (
