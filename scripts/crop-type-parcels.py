@@ -868,11 +868,20 @@ class WeeklyComposite(object):
 
             os.remove(self.temp)
 
-            command = []
-            command += ["optimize_gtiff.py"]
-            command += ["--no-data", 0]
-            command += [self.output]
-            run_command(command, env)
+            temp = os.path.splitext(self.output)[0] + ".tmpcog.tif"
+            options = gdal.TranslateOptions(
+                format="COG",
+                noData=0,
+                creationOptions=[
+                    "COMPRESS=DEFLATE",
+                    "PREDICTOR=YES",
+                    "OVERVIEW_RESAMPLING=BILINEAR",
+                    "BLOCKSIZE=256",
+                    "NUM_THREADS=ALL_CPUS",
+                ],
+            )
+            gdal.Translate(temp, self.output, options=options)
+            os.replace(temp, self.output)
 
         if self.tile_ref:
             command = get_statistics_invocation(self.output, self.tile_ref)
@@ -945,11 +954,20 @@ class BackscatterMonthlyComposite(object):
             command += ["-il"] + inputs
             run_command(command, env)
 
-            command = []
-            command += ["optimize_gtiff.py"]
-            command += ["--no-data", 0]
-            command += [self.output]
-            run_command(command, env)
+            temp = os.path.splitext(self.output)[0] + ".tmpcog.tif"
+            options = gdal.TranslateOptions(
+                format="COG",
+                noData=0,
+                creationOptions=[
+                    "COMPRESS=DEFLATE",
+                    "PREDICTOR=YES",
+                    "OVERVIEW_RESAMPLING=BILINEAR",
+                    "BLOCKSIZE=256",
+                    "NUM_THREADS=ALL_CPUS",
+                ],
+            )
+            gdal.Translate(temp, self.output, options=options)
+            os.replace(temp, self.output)
 
         if self.tile_ref:
             command = get_statistics_invocation(self.output, self.tile_ref)
@@ -985,11 +1003,20 @@ class CoherenceMonthlyComposite(object):
             command += ["-il"] + inputs
             run_command(command, env)
 
-            command = []
-            command += ["optimize_gtiff.py"]
-            command += ["--no-data", 0]
-            command += [self.output]
-            run_command(command, env)
+            temp = os.path.splitext(self.output)[0] + ".tmpcog.tif"
+            options = gdal.TranslateOptions(
+                format="COG",
+                noData=0,
+                creationOptions=[
+                    "COMPRESS=DEFLATE",
+                    "PREDICTOR=YES",
+                    "OVERVIEW_RESAMPLING=BILINEAR",
+                    "BLOCKSIZE=256",
+                    "NUM_THREADS=ALL_CPUS",
+                ],
+            )
+            gdal.Translate(temp, self.output, options=options)
+            os.replace(temp, self.output)
 
         if self.tile_ref:
             command = get_statistics_invocation(self.output, self.tile_ref)
@@ -1025,11 +1052,20 @@ class CoherenceSeasonComposite(object):
             command += ["-il"] + inputs
             run_command(command, env)
 
-            command = []
-            command += ["optimize_gtiff.py"]
-            command += ["--no-data", 0]
-            command += [self.output]
-            run_command(command, env)
+            temp = os.path.splitext(self.output)[0] + ".tmpcog.tif"
+            options = gdal.TranslateOptions(
+                format="COG",
+                noData=0,
+                creationOptions=[
+                    "COMPRESS=DEFLATE",
+                    "PREDICTOR=YES",
+                    "OVERVIEW_RESAMPLING=BILINEAR",
+                    "BLOCKSIZE=256",
+                    "NUM_THREADS=ALL_CPUS",
+                ],
+            )
+            gdal.Translate(temp, self.output, options=options)
+            os.replace(temp, self.output)
 
         if self.tile_ref:
             command = get_statistics_invocation(self.output, self.tile_ref)
