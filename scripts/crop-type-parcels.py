@@ -1144,9 +1144,8 @@ def process_radar(args, pool):
         if input_srs is None:
             (input_srs, force_input_epsg) = get_projection(product.path)
 
-        # TODO: py3
         group_week = (
-            int((product.week - 1) / args.radar_compositing_weeks)
+            (product.week - 1) // args.radar_compositing_weeks
             * args.radar_compositing_weeks
             + 1
         )
@@ -1281,7 +1280,7 @@ def process_radar(args, pool):
         if group.product_type == PRODUCT_TYPE_ID_BCK:
             month = group.month
             backscatter_group_month = (
-                int((month - 1) / args.backscatter_compositing_months)
+                (month - 1) // args.backscatter_compositing_months
                 * args.backscatter_compositing_months
                 + 1
             )
