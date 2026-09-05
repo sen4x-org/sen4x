@@ -215,7 +215,9 @@ def extract_optical_features(
     env = os.environ.copy()
     env["ITK_USE_THREADPOOL"] = str(1)
     env["ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS"] = str(4)
-    env["OTB_MAX_RAM_HINT"] = str(256)
+    env["OTB_MAX_RAM_HINT"] = "1024"
+    env["GDAL_DISABLE_READDIR_ON_OPEN"] = "EMPTY_DIR"
+    env["GDAL_PAM_ENABLED"] = "NO"
 
     command = []
     command += ["otbcli", "OpticalFeaturesRewrite"]
@@ -825,7 +827,9 @@ class WeeklyComposite(object):
         env = os.environ.copy()
         env["ITK_USE_THREADPOOL"] = str(1)
         env["ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS"] = str(2)
-        env["OTB_MAX_RAM_HINT"] = str(1024)
+        env["OTB_MAX_RAM_HINT"] = "1024"
+        env["GDAL_DISABLE_READDIR_ON_OPEN"] = "EMPTY_DIR"
+        env["GDAL_PAM_ENABLED"] = "NO"
 
         if not os.path.exists(self.output):
             self.inputs = filter(os.path.exists, self.inputs)
@@ -887,7 +891,9 @@ class WeeklyRatioStatistics(object):
         env = os.environ.copy()
         env["ITK_USE_THREADPOOL"] = str(1)
         env["ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS"] = str(2)
-        env["OTB_MAX_RAM_HINT"] = str(1024)
+        env["OTB_MAX_RAM_HINT"] = "1024"
+        env["GDAL_DISABLE_READDIR_ON_OPEN"] = "EMPTY_DIR"
+        env["GDAL_PAM_ENABLED"] = "NO"
 
         if not self.tile_ref:
             return
@@ -921,7 +927,9 @@ class BackscatterMonthlyComposite(object):
         env = os.environ.copy()
         env["ITK_USE_THREADPOOL"] = str(1)
         env["ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS"] = str(2)
-        env["OTB_MAX_RAM_HINT"] = str(1024)
+        env["OTB_MAX_RAM_HINT"] = "1024"
+        env["GDAL_DISABLE_READDIR_ON_OPEN"] = "EMPTY_DIR"
+        env["GDAL_PAM_ENABLED"] = "NO"
 
         if not os.path.exists(self.output):
             self.inputs = filter(os.path.exists, self.inputs)
@@ -960,7 +968,9 @@ class CoherenceMonthlyComposite(object):
         env = os.environ.copy()
         env["ITK_USE_THREADPOOL"] = str(1)
         env["ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS"] = str(2)
-        env["OTB_MAX_RAM_HINT"] = str(1024)
+        env["OTB_MAX_RAM_HINT"] = "1024"
+        env["GDAL_DISABLE_READDIR_ON_OPEN"] = "EMPTY_DIR"
+        env["GDAL_PAM_ENABLED"] = "NO"
 
         if not os.path.exists(self.output):
             self.inputs = filter(os.path.exists, self.inputs)
@@ -998,7 +1008,9 @@ class CoherenceSeasonComposite(object):
         env = os.environ.copy()
         env["ITK_USE_THREADPOOL"] = str(1)
         env["ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS"] = str(2)
-        env["OTB_MAX_RAM_HINT"] = str(1024)
+        env["OTB_MAX_RAM_HINT"] = "1024"
+        env["GDAL_DISABLE_READDIR_ON_OPEN"] = "EMPTY_DIR"
+        env["GDAL_PAM_ENABLED"] = "NO"
 
         if not os.path.exists(self.output):
             self.inputs = filter(os.path.exists, self.inputs)
