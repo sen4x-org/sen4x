@@ -762,7 +762,7 @@ def get_otb_extended_filename_with_tiling(file):
 
 
 def get_otb_extended_filename_skipgeom(file):
-    return file + "?skipgeom=true"
+    return file + "?&skipgeom=true"
 
 
 def get_statistics_file_names(input):
