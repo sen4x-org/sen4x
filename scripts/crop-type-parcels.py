@@ -192,7 +192,6 @@ def extract_optical_features(
     path, satellite_id, tile, products, ref, dates_file, red_edge
 ):
     satellite = get_satellite_name_long(satellite_id)
-    # resolution = get_satellite_resolution(satellite_id)
 
     hdrs = []
     for product in products:
@@ -204,12 +203,10 @@ def extract_optical_features(
         mean = "mean-re-{}.csv".format(tile)
         dev = "dev-re-{}.csv".format(tile)
         count = "count-re-{}.csv".format(tile)
-        resolution = 20
     else:
         mean = "mean-{}.csv".format(tile)
         dev = "dev-{}.csv".format(tile)
         count = "count-{}.csv".format(tile)
-        resolution = 10
 
     mean = os.path.join(path, mean)
     dev = os.path.join(path, dev)
