@@ -1,0 +1,1 @@
+../../scripts/s4c_l4c_manual_exec/extract_practices_infos.sh

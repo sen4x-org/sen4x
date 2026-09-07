@@ -63,12 +63,21 @@ COPY --from=build /install/bin/* /app/otb/bin/
 COPY --from=build /install/usr/bin/* /usr/bin/
 COPY --from=build /install/usr/lib/otb/applications/* /app/otb/lib/otb/applications/
 COPY --from=build /install/usr/lib/*.so /app/otb/lib/
+COPY --from=build /install/usr/share/sen2agri/ /usr/share/sen2agri/
 
 COPY crop-type-wrapper.py /usr/bin/
 COPY crop-type-parcels.py /usr/bin/
 COPY extract-parcels.py /usr/bin/
+COPY merge-sar.py /usr/bin/
 COPY csv_to_ipc.py /usr/bin/
 COPY crop_type.R /usr/bin/
+COPY agric_practices_data_extraction.py /usr/bin/
+COPY agric_practices_data_extraction.sh /usr/bin/
+COPY agric_practices_merge_files.py /usr/bin/
+COPY agric_practices_merge_files.sh /usr/bin/
+COPY agric_practices_tsa.sh /usr/bin/
+COPY extract_practices_infos.sh /usr/bin/
+COPY launch_agric_practices.sh /usr/bin/
 
 # TODO(lnicola): try this again when OTB supports Ubuntu 26
 # FROM docker.io/sen4x/otb:9.1.1_ubuntu26 AS builder
@@ -127,5 +136,13 @@ COPY crop_type.R /usr/bin/
 # COPY crop-type-wrapper.py /usr/bin/
 # COPY crop-type-parcels.py /usr/bin/
 # COPY extract-parcels.py /usr/bin/
+# COPY merge-sar.py /usr/bin/
 # COPY csv_to_ipc.py /usr/bin/
 # COPY crop_type.R /usr/bin/
+# COPY agric_practices_data_extraction.py /usr/bin/
+# COPY agric_practices_data_extraction.sh /usr/bin/
+# COPY agric_practices_merge_files.py /usr/bin/
+# COPY agric_practices_merge_files.sh /usr/bin/
+# COPY agric_practices_tsa.sh /usr/bin/
+# COPY extract_practices_infos.sh /usr/bin/
+# COPY launch_agric_practices.sh /usr/bin/
