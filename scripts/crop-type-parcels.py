@@ -128,19 +128,16 @@ def get_tile_hdr(tile, path):
                     )
                     return None
         return hdr
-
     pat = "*_T{}_*/*_MTD_ALL.xml".format(tile)
     entries = glob(os.path.join(path, pat))
     if len(entries) > 0:
         hdr = entries[0]
         return hdr
-
     pat = "MTD_MSIL2A.xml"
     entries = glob(os.path.join(path, pat))
     if len(entries) > 0:
         hdr = entries[0]
         return hdr
-
     print("No HDR found for tile {} in {}".format(tile, path))
     return None
 
@@ -268,7 +265,7 @@ def paste_files(file1, file2, out):
 
 def process_optical(args, pool, satellite_id):
     product_map = defaultdict(lambda: defaultdict(list))
-    with open(args.optical_products, "r") as file:
+    with open(args.optical_products) as file:
         reader = csv.reader(file)
         next(reader, None)
         for site_id, full_path, tile, created_timestamp in reader:
@@ -711,7 +708,7 @@ class CoherenceSeasonGroup(object):
 
 def get_tile_footprints(file):
     tiles = {}
-    with open(file, "r") as file:
+    with open(file) as file:
         reader = csv.reader(file)
         next(reader)
         for tile_id, epsg_code, geog in reader:
@@ -724,7 +721,7 @@ def get_tile_footprints(file):
 
 def get_radar_products(file):
     products = []
-    with open(file, "r") as file:
+    with open(file) as file:
         reader = csv.reader(file)
         next(reader)
         for (
@@ -1652,7 +1649,7 @@ def generate_headers(
     date_file, headers_mean, headers_dev, headers_re_mean, headers_re_dev, red_edge
 ):
     dates = []
-    with open(date_file, "r") as file:
+    with open(date_file) as file:
         for line in file:
             days = int(line.split()[1])
             dt = epoch_days_to_date(days)

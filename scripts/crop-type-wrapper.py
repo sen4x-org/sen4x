@@ -33,7 +33,7 @@ def check_file(p):
 
 def read_optical_products_tiles(file):
     tiles = set()
-    with open(file, "r") as file:
+    with open(file) as file:
         # skip headers
         reader = csv.reader(file)
         next(reader)
@@ -44,7 +44,7 @@ def read_optical_products_tiles(file):
 
 def read_radar_products_tiles(file):
     tiles = set()
-    with open(file, "r") as file:
+    with open(file) as file:
         reader = csv.reader(file)
         # skip headers
         next(reader)
@@ -213,7 +213,7 @@ def main():
         radar_products = os.path.abspath(args.radar_products)
         lpis_path = os.path.abspath(args.lpis_path)
 
-    with open(lpis_path, "rt") as f:
+    with open(lpis_path) as f:
         lpis_path = f.readline().strip()
 
     tiles = set()
