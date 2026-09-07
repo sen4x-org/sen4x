@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from pathlib import Path
 import argparse
 import csv
 import io
@@ -15,6 +14,7 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from configparser import ConfigParser
 from datetime import date
+from pathlib import Path
 
 import psycopg2
 import psycopg2.extensions
@@ -286,7 +286,7 @@ def drop_index(conn, table, columns):
 
 def create_spatial_index(conn, table, column):
     with conn.cursor() as cursor:
-        name = "ix_{}_{}".format(table, column)
+        name = f"ix_{table}_{column}"
         if not index_exists(conn, name):
             query = SQL("create index {} on {} using gist({});").format(
                 Identifier(name), Identifier(table), Identifier(column)
@@ -297,7 +297,7 @@ def create_spatial_index(conn, table, column):
 
 def drop_spatial_index(conn, table, column):
     with conn.cursor() as cursor:
-        name = "ix_{}_{}".format(table, column)
+        name = f"ix_{table}_{column}"
         query = SQL("drop index if exists {};").format(Identifier(name))
         logging.debug(query.as_string(conn))
         cursor.execute(query)
@@ -305,7 +305,7 @@ def drop_spatial_index(conn, table, column):
 
 def create_primary_key(conn, table, columns):
     with conn.cursor() as cursor:
-        name = "{}_pkey".format(table)
+        name = f"{table}_pkey"
         if not index_exists(conn, name):
             cols = SQL(", ").join([Identifier(c) for c in columns])
             query = SQL("alter table {} add constraint {} primary key({});").format(
@@ -405,9 +405,9 @@ class DataPreparation:
             self.tiles = get_site_tiles(conn, config.site_id)
             # self.srid = get_site_srid(conn, lpis_table)
 
-        self.lpis_table = "decl_{}_{}".format(site_name, year)
-        self.lpis_table_staging = "decl_{}_{}_staging".format(site_name, year)
-        self.lut_table = "lut_{}_{}".format(site_name, year)
+        self.lpis_table = f"decl_{site_name}_{year}"
+        self.lpis_table_staging = f"decl_{site_name}_{year}_staging"
+        self.lut_table = f"lut_{site_name}_{year}"
 
         lpis_path = get_lpis_path(conn, config.site_id)
         lpis_path = lpis_path.replace("{year}", str(year))
@@ -435,13 +435,7 @@ class DataPreparation:
         )
 
     def get_ogr_connection_string(self):
-        return "PG:dbname={} host={} port={} user={} password={}".format(
-            self.config.dbname,
-            self.config.host,
-            self.config.port,
-            self.config.user,
-            self.config.password,
-        )
+        return f"PG:dbname={self.config.dbname} host={self.config.host} port={self.config.port} user={self.config.user} password={self.config.password}"
 
     def find_overlaps(self, srid, tile_counts, total):
         if total == 0:
@@ -461,16 +455,14 @@ class DataPreparation:
                 tile = q.get()
                 progress += tile_counts[tile.tile_id]
                 sys.stdout.write(
-                    "\rFinding overlapping parcels: {0:.2f}%".format(
-                        100.0 * progress / total
-                    )
+                    f"\rFinding overlapping parcels: {100.0 * progress / total:.2f}%"
                 )
                 sys.stdout.flush()
             sys.stdout.write("\n")
             sys.stdout.flush()
 
             overlaps = list(set.union(*map(set, [f.result() for f in futures])))
-            logging.info("{} overlapping parcels".format(len(overlaps)))
+            logging.info(f"{len(overlaps)} overlapping parcels")
             self.mark_overlapping_parcels(overlaps)
         except Exception as e:
             logging.error(e)
@@ -494,16 +486,14 @@ class DataPreparation:
                 tile = q.get()
                 progress += tile_counts[tile.tile_id]
                 sys.stdout.write(
-                    "\rFinding duplicate parcels: {0:.2f}%".format(
-                        100.0 * progress / total
-                    )
+                    f"\rFinding duplicate parcels: {100.0 * progress / total:.2f}%"
                 )
                 sys.stdout.flush()
             sys.stdout.write("\n")
             sys.stdout.flush()
 
             duplicates = list(set.union(*map(set, [f.result() for f in futures])))
-            logging.info("{} duplicate parcels".format(len(duplicates)))
+            logging.info(f"{len(duplicates)} duplicate parcels")
             self.mark_duplicate_parcels(duplicates)
         except Exception as e:
             logging.error(e)
@@ -525,8 +515,8 @@ class DataPreparation:
 
             print("Preparing LUT")
             with conn.cursor() as cursor:
-                lut_pkey_name = "{}_pkey".format(self.lut_table)
-                lut_key_name = "{}_ori_crop_key".format(self.lut_table)
+                lut_pkey_name = f"{self.lut_table}_pkey"
+                lut_key_name = f"{self.lut_table}_ori_crop_key"
 
                 query = SQL(
                     """alter table {}
@@ -607,7 +597,7 @@ add constraint {} unique(ori_crop);"""
                 for col in ["ori_id", "ori_hold", "ori_crop"]:
                     if column_exists(conn, "public", self.lpis_table_staging, col):
                         logging.error(
-                            "`{}` is not an allowed LPIS column name".format(col)
+                            f"`{col}` is not an allowed LPIS column name"
                         )
                         sys.exit(1)
 
@@ -1012,7 +1002,7 @@ where is_new;"""
                     else:
                         satellite = "S1"
 
-                    output = "{}_{}_{}.tif".format(base, tile.tile_id, satellite)
+                    output = f"{base}_{tile.tile_id}_{satellite}.tif"
                     output = os.path.join(self.lpis_path, output)
 
                     sql = SQL(
@@ -1043,7 +1033,7 @@ where "GeomValid"
                         resolution,
                         sql,
                         "NewID",
-                        "EPSG:{}".format(tile.epsg_code),
+                        f"EPSG:{tile.epsg_code}",
                         int(dst_xmin),
                         int(dst_ymin),
                         int(dst_xmax),
@@ -1075,7 +1065,7 @@ where "GeomValid"
         for i in range(len(commands)):
             progress += q.get()
             sys.stdout.write(
-                "\rRasterizing LPIS: {0:.2f}%".format(100.0 * progress / total)
+                f"\rRasterizing LPIS: {100.0 * progress / total:.2f}%"
             )
             sys.stdout.flush()
         sys.stdout.write("\n")
@@ -1086,10 +1076,10 @@ where "GeomValid"
         inputs_s2 = []
         inputs_s1 = []
         for tile in self.tiles:
-            output = "{}_{}_S2.tif".format(base, tile.tile_id)
+            output = f"{base}_{tile.tile_id}_S2.tif"
             inputs_s2.append(os.path.join(self.lpis_path, output))
 
-            output_s1 = "{}_{}_S1.tif".format(base, tile.tile_id)
+            output_s1 = f"{base}_{tile.tile_id}_S1.tif"
             inputs_s1.append(os.path.join(self.lpis_path, output_s1))
 
         counts_10m = os.path.join(self.working_path, "counts_10m.csv")
@@ -1184,7 +1174,7 @@ when not matched by source and (
                 conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_DEFAULT)
 
                 tiles = [t.tile_id for t in self.tiles]
-                name = "SEN4CAP_LPIS_S{}_{}".format(self.config.site_id, self.year)
+                name = f"SEN4CAP_LPIS_S{self.config.site_id}_{self.year}"
                 dt = date(self.year, 1, 1)
                 sql = SQL(
                     """
@@ -1220,12 +1210,12 @@ where site_id = %s
 
                 commands = []
 
-                lpis_csv = "{}.csv".format(self.lpis_table)
+                lpis_csv = f"{self.lpis_table}.csv"
                 lpis_csv = os.path.join(self.lpis_path, lpis_csv)
 
                 try_rm_file(lpis_csv)
 
-                lpis_gpkg = "{}.gpkg".format(self.lpis_table)
+                lpis_gpkg = f"{self.lpis_table}.gpkg"
                 lpis_gpkg_working = os.path.join(self.working_path, lpis_gpkg)
                 lpis_gpkg = os.path.join(self.lpis_path, lpis_gpkg)
 
@@ -1261,13 +1251,9 @@ where "GeomValid"
                             continue
 
                         buf = resolution // 2
-                        output = "{}_{}_buf_{}m.shp".format(
-                            self.lpis_table, epsg_code, buf
-                        )
+                        output = f"{self.lpis_table}_{epsg_code}_buf_{buf}m.shp"
                         output = os.path.join(self.lpis_path, output)
-                        prj = "{}_{}_buf_{}m.prj".format(
-                            self.lpis_table, epsg_code, buf
-                        )
+                        prj = f"{self.lpis_table}_{epsg_code}_buf_{buf}m.prj"
                         prj = os.path.join(self.lpis_path, prj)
 
                         with open(prj, "wt") as f:
@@ -1309,7 +1295,7 @@ where "GeomValid"
         for i in range(len(commands)):
             progress += q.get()
             sys.stdout.write(
-                "\rExporting data: {0:.2f}%".format(100.0 * progress / total)
+                f"\rExporting data: {100.0 * progress / total:.2f}%"
             )
             sys.stdout.flush()
         sys.stdout.write("\n")
@@ -1323,10 +1309,9 @@ where "GeomValid"
 
     def get_tile_parcel_counts(self, srid):
         print("Counting parcels")
-        with self.get_connection() as conn:
-            with conn.cursor() as cursor:
-                query = SQL(
-                    """
+        with self.get_connection() as conn, conn.cursor() as cursor:
+            query = SQL(
+                """
 with tiles as (
     select tile_id, ST_Transform(geog :: geometry, %s) as geom
     from shape_tiles_s2
@@ -1340,17 +1325,17 @@ select tile_id, (
      and ST_Intersects(lpis.wkb_geometry, tiles.geom)
 ) as count
 from tiles;"""
-                ).format(Identifier(self.lpis_table))
-                logging.debug(query.as_string(conn))
-                tiles = [t.tile_id for t in self.tiles]
-                cursor.execute(query, (srid, tiles))
+            ).format(Identifier(self.lpis_table))
+            logging.debug(query.as_string(conn))
+            tiles = [t.tile_id for t in self.tiles]
+            cursor.execute(query, (srid, tiles))
 
-                counts = {}
-                for r in cursor:
-                    counts[r[0]] = r[1]
+            counts = {}
+            for r in cursor:
+                counts[r[0]] = r[1]
 
-                conn.commit()
-                return counts
+            conn.commit()
+            return counts
 
     def get_overlapping_parcels(self, srid, q, tile):
         try:
@@ -1395,10 +1380,9 @@ and ST_Intersects(lpis.wkb_geometry, tile.geom);"""
 
     def get_duplicate_parcels(self, srid, q, tile):
         try:
-            with self.get_connection() as conn:
-                with conn.cursor() as cursor:
-                    query = SQL(
-                        """
+            with self.get_connection() as conn, conn.cursor() as cursor:
+                query = SQL(
+                    """
     with tile as (
         select ST_Transform(geog :: geometry, %s) as geom
         from shape_tiles_s2
@@ -1413,13 +1397,13 @@ and ST_Intersects(lpis.wkb_geometry, tile.geom);"""
         and ST_Intersects(wkb_geometry, tile.geom)
         and not is_deleted
     ) t where count > 1;"""
-                    )
-                    query = query.format(Identifier(self.lpis_table))
-                    logging.debug(query.as_string(conn))
-                    cursor.execute(query, (srid, tile.tile_id))
+                )
+                query = query.format(Identifier(self.lpis_table))
+                logging.debug(query.as_string(conn))
+                cursor.execute(query, (srid, tile.tile_id))
 
-                    q.put(tile)
-                    return [r[0] for r in cursor]
+                q.put(tile)
+                return [r[0] for r in cursor]
         except Exception as e:
             logging.error(e)
             sys.exit(1)
@@ -1432,26 +1416,23 @@ and ST_Intersects(lpis.wkb_geometry, tile.geom);"""
             progress = 0
             sys.stdout.write("Marking overlapping parcels: 0.00%")
             sys.stdout.flush()
-            with self.get_connection() as conn:
-                with conn.cursor() as cursor:
-                    for b in batch(parcels, self.DB_UPDATE_BATCH_SIZE):
-                        sql = SQL(
-                            'update {} set "Overlap" = true where "NewID" = any(%s)'
-                        )
-                        sql = sql.format(Identifier(self.lpis_table))
-                        logging.debug(sql.as_string(conn))
-                        cursor.execute(sql, (b,))
-                        conn.commit()
+            with self.get_connection() as conn, conn.cursor() as cursor:
+                for b in batch(parcels, self.DB_UPDATE_BATCH_SIZE):
+                    sql = SQL(
+                        'update {} set "Overlap" = true where "NewID" = any(%s)'
+                    )
+                    sql = sql.format(Identifier(self.lpis_table))
+                    logging.debug(sql.as_string(conn))
+                    cursor.execute(sql, (b,))
+                    conn.commit()
 
-                        progress += len(b)
-                        sys.stdout.write(
-                            "\rMarking overlapping parcels: {0:.2f}%".format(
-                                100.0 * progress / total
-                            )
-                        )
-                        sys.stdout.flush()
-                    sys.stdout.write("\n")
+                    progress += len(b)
+                    sys.stdout.write(
+                        f"\rMarking overlapping parcels: {100.0 * progress / total:.2f}%"
+                    )
                     sys.stdout.flush()
+                sys.stdout.write("\n")
+                sys.stdout.flush()
         except Exception as e:
             logging.error(e)
             sys.exit(1)
@@ -1464,26 +1445,23 @@ and ST_Intersects(lpis.wkb_geometry, tile.geom);"""
             progress = 0
             sys.stdout.write("Marking duplicate parcels: 0.00%")
             sys.stdout.flush()
-            with self.get_connection() as conn:
-                with conn.cursor() as cursor:
-                    for b in batch(parcels, self.DB_UPDATE_BATCH_SIZE):
-                        sql = SQL(
-                            'update {} set "Duplic" = true where "NewID" = any(%s)'
-                        )
-                        sql = sql.format(Identifier(self.lpis_table))
-                        logging.debug(sql.as_string(conn))
-                        cursor.execute(sql, (b,))
-                        conn.commit()
+            with self.get_connection() as conn, conn.cursor() as cursor:
+                for b in batch(parcels, self.DB_UPDATE_BATCH_SIZE):
+                    sql = SQL(
+                        'update {} set "Duplic" = true where "NewID" = any(%s)'
+                    )
+                    sql = sql.format(Identifier(self.lpis_table))
+                    logging.debug(sql.as_string(conn))
+                    cursor.execute(sql, (b,))
+                    conn.commit()
 
-                        progress += len(b)
-                        sys.stdout.write(
-                            "\rMarking duplicate parcels: {0:.2f}%".format(
-                                100.0 * progress / total
-                            )
-                        )
-                        sys.stdout.flush()
-                    sys.stdout.write("\n")
+                    progress += len(b)
+                    sys.stdout.write(
+                        f"\rMarking duplicate parcels: {100.0 * progress / total:.2f}%"
+                    )
                     sys.stdout.flush()
+                sys.stdout.write("\n")
+                sys.stdout.flush()
         except Exception as e:
             logging.error(e)
             sys.exit(1)

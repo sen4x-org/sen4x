@@ -10,7 +10,7 @@ import subprocess
 import sys
 import tempfile
 from collections import defaultdict
-from datetime import datetime, timedelta, UTC
+from datetime import UTC, datetime, timedelta
 from glob import glob
 
 from lxml import etree
@@ -66,7 +66,7 @@ def get_product_type(product_type_id):
         return "COHE"
 
 
-class OpticalProduct(object):
+class OpticalProduct:
     def __init__(self, site_id, tile, dt, path):
         self.site_id = site_id
         self.tile = tile
@@ -80,7 +80,7 @@ def cal(dt):
     return (dt.year, dt.month, week)
 
 
-class RadarProduct(object):
+class RadarProduct:
     def __init__(self, dt, tile_id, orbit_type_id, polarization, product_type, path):
         self.year = dt.year
         self.month = dt.month
@@ -109,14 +109,14 @@ def get_season_dates(start_date, end_date):
 
 
 def get_tile_hdr(tile, path):
-    pat = "*_SSC_*_{}_*.HDR".format(tile)
+    pat = f"*_SSC_*_{tile}_*.HDR"
     entries = glob(os.path.join(path, pat))
     if len(entries) > 0:
         hdr = entries[0]
-        entries = glob(os.path.join(path, "*_SSC_*_{}_*.DBL.DIR/*.TIF".format(tile)))
+        entries = glob(os.path.join(path, f"*_SSC_*_{tile}_*.DBL.DIR/*.TIF"))
         for raster_type in ["FRE", "CLD", "MSK", "QLT"]:
             for res in ["R1", "R2"]:
-                pat = "_{}_{}.DBL.TIF".format(raster_type, res)
+                pat = f"_{raster_type}_{res}.DBL.TIF"
                 ok = False
                 for entry in entries:
                     if entry.endswith(pat):
@@ -124,11 +124,11 @@ def get_tile_hdr(tile, path):
                         break
                 if not ok:
                     print(
-                        "No {} raster found for tile {} in {}".format(pat, tile, path)
+                        f"No {pat} raster found for tile {tile} in {path}"
                     )
                     return None
         return hdr
-    pat = "*_T{}_*/*_MTD_ALL.xml".format(tile)
+    pat = f"*_T{tile}_*/*_MTD_ALL.xml"
     entries = glob(os.path.join(path, pat))
     if len(entries) > 0:
         hdr = entries[0]
@@ -138,7 +138,7 @@ def get_tile_hdr(tile, path):
     if len(entries) > 0:
         hdr = entries[0]
         return hdr
-    print("No HDR found for tile {} in {}".format(tile, path))
+    print(f"No HDR found for tile {tile} in {path}")
     return None
 
 
@@ -157,13 +157,13 @@ def epoch_days_to_date(days):
 def save_dates_file(path, site_id, satellite_id, dates):
     satellite_short = get_satellite_name_short(satellite_id)
     satellite_long = get_satellite_name_long(satellite_id)
-    file_name = "dates-{}-{}.txt".format(site_id, satellite_short)
+    file_name = f"dates-{site_id}-{satellite_short}.txt"
     file_path = os.path.join(path, file_name)
     if not os.path.exists(file_path):
         with open(file_path, "w") as file:
             for dt in dates:
                 days = date_to_epoch_days(dt)
-                file.write("{} {}\n".format(satellite_long, days))
+                file.write(f"{satellite_long} {days}\n")
     return file_path
 
 
@@ -180,7 +180,7 @@ def run_command(args, env=None, retry=False):
         else:
             result = subprocess.call(args)
         if result != 0:
-            print("Exit code: {}".format(result))
+            print(f"Exit code: {result}")
         else:
             break
 
@@ -197,13 +197,13 @@ def extract_optical_features(
             hdrs.append(hdr)
 
     if red_edge:
-        mean = "mean-re-{}.csv".format(tile)
-        dev = "dev-re-{}.csv".format(tile)
-        count = "count-re-{}.csv".format(tile)
+        mean = f"mean-re-{tile}.csv"
+        dev = f"dev-re-{tile}.csv"
+        count = f"count-re-{tile}.csv"
     else:
-        mean = "mean-{}.csv".format(tile)
-        dev = "dev-{}.csv".format(tile)
-        count = "count-{}.csv".format(tile)
+        mean = f"mean-{tile}.csv"
+        dev = f"dev-{tile}.csv"
+        count = f"count-{tile}.csv"
 
     mean = os.path.join(path, mean)
     dev = os.path.join(path, dev)
@@ -252,12 +252,12 @@ def paste_files(file1, file2, out):
 
     command = []
     command += ["sh"]
-    command += ["-c", "cut -d, -f2- {} > {}".format(file2, temp)]
+    command += ["-c", f"cut -d, -f2- {file2} > {temp}"]
     run_command(command)
 
     command = []
     command += ["sh"]
-    command += ["-c", "paste -d, {} {} >> {}".format(file1, temp, out)]
+    command += ["-c", f"paste -d, {file1} {temp} >> {out}"]
     run_command(command)
 
     os.remove(temp)
@@ -335,9 +335,9 @@ def process_optical(args, pool, satellite_id):
         command += ["merge-statistics"]
         command += ["mean.csv", "dev.csv"]
         for tile, _ in tiles.items():
-            mean = "mean-{}.csv".format(tile)
-            dev = "dev-{}.csv".format(tile)
-            count = "count-{}.csv".format(tile)
+            mean = f"mean-{tile}.csv"
+            dev = f"dev-{tile}.csv"
+            count = f"count-{tile}.csv"
 
             mean = os.path.join(args.path, mean)
             dev = os.path.join(args.path, dev)
@@ -352,9 +352,9 @@ def process_optical(args, pool, satellite_id):
             command += ["merge-statistics"]
             command += ["mean-re.csv", "dev-re.csv"]
             for tile, _ in tiles.items():
-                mean_re = "mean-re-{}.csv".format(tile)
-                dev_re = "dev-re-{}.csv".format(tile)
-                count_re = "count-re-{}.csv".format(tile)
+                mean_re = f"mean-re-{tile}.csv"
+                dev_re = f"dev-re-{tile}.csv"
+                count_re = f"count-re-{tile}.csv"
 
                 mean_re = os.path.join(args.path, mean_re)
                 dev_re = os.path.join(args.path, dev_re)
@@ -401,7 +401,7 @@ def process_optical(args, pool, satellite_id):
                 paste_files("mean-re.csv", "dev-re.csv", optical_features_re)
 
 
-class RadarGroup(object):
+class RadarGroup:
     def __init__(
         self, year, month, week, tile_id, orbit_type_id, polarization, product_type
     ):
@@ -447,29 +447,15 @@ class RadarGroup(object):
     def format(self, site_id):
         orbit_type = get_orbit_type(self.orbit_type_id)
         product_type = get_product_type(self.product_type)
-        return "SEN4CAP_L2A_PRD_S{}_W{:04}{:02}_T{}_{}_{}_{}.tif".format(
-            site_id,
-            self.year,
-            self.week,
-            self.tile_id,
-            orbit_type,
-            self.polarization,
-            product_type,
-        )
+        return f"SEN4CAP_L2A_PRD_S{site_id}_W{self.year:04}{self.week:02}_T{self.tile_id}_{orbit_type}_{self.polarization}_{product_type}.tif"
 
     def band_description(self):
         orbit_type = get_orbit_type(self.orbit_type_id)
         product_type = get_product_type(self.product_type)
-        return "S1_W{:04}{:02}_{}_{}_{}".format(
-            self.year,
-            self.week,
-            orbit_type,
-            self.polarization,
-            product_type,
-        )
+        return f"S1_W{self.year:04}{self.week:02}_{orbit_type}_{self.polarization}_{product_type}"
 
 
-class BackscatterWeeklyRatioGroup(object):
+class BackscatterWeeklyRatioGroup:
     def __init__(self, year, week, tile_id, orbit_type_id):
         self.year = year
         self.week = week
@@ -502,12 +488,10 @@ class BackscatterWeeklyRatioGroup(object):
 
     def format(self, site_id):
         orbit_type = get_orbit_type(self.orbit_type_id)
-        return "SEN4CAP_L2A_PRD_S{}_W{:04}{:02}_T{}_{}_RATIO_BCK".format(
-            site_id, self.year, self.week, self.tile_id, orbit_type
-        )
+        return f"SEN4CAP_L2A_PRD_S{site_id}_W{self.year:04}{self.week:02}_T{self.tile_id}_{orbit_type}_RATIO_BCK"
 
 
-class BackscatterBiMonthlyGroup(object):
+class BackscatterBiMonthlyGroup:
     def __init__(self, year, month, tile_id, orbit_type_id, polarization):
         self.year = year
         self.month = month
@@ -547,9 +531,7 @@ class BackscatterBiMonthlyGroup(object):
 
     def format(self, site_id):
         orbit_type = get_orbit_type(self.orbit_type_id)
-        return "SEN4CAP_L2A_PRD_S{}_M{:04}{:02}_T{}_{}_{}_BCK.tif".format(
-            site_id, self.year, self.month, self.tile_id, orbit_type, self.polarization
-        )
+        return f"SEN4CAP_L2A_PRD_S{site_id}_M{self.year:04}{self.month:02}_T{self.tile_id}_{orbit_type}_{self.polarization}_BCK.tif"
 
     def band_description(self, band_number):
         orbit_type = get_orbit_type(self.orbit_type_id)
@@ -557,12 +539,10 @@ class BackscatterBiMonthlyGroup(object):
             desc = "MEAN"
         elif band_number == 2:
             desc = "CVAR"
-        return "S1_M{:04}{:02}_{}_{}_BCK_{}".format(
-            self.year, self.month, orbit_type, self.polarization, desc
-        )
+        return f"S1_M{self.year:04}{self.month:02}_{orbit_type}_{self.polarization}_BCK_{desc}"
 
 
-class BackscatterRatioBiMonthlyGroup(object):
+class BackscatterRatioBiMonthlyGroup:
     def __init__(self, year, month, tile_id, orbit_type_id):
         self.year = year
         self.month = month
@@ -595,9 +575,7 @@ class BackscatterRatioBiMonthlyGroup(object):
 
     def format(self, site_id):
         orbit_type = get_orbit_type(self.orbit_type_id)
-        return "SEN4CAP_L2A_PRD_S{}_M{:04}{:02}_T{}_{}_RATIO_BCK.tif".format(
-            site_id, self.year, self.month, self.tile_id, orbit_type
-        )
+        return f"SEN4CAP_L2A_PRD_S{site_id}_M{self.year:04}{self.month:02}_T{self.tile_id}_{orbit_type}_RATIO_BCK.tif"
 
     def band_description(self, band_number):
         orbit_type = get_orbit_type(self.orbit_type_id)
@@ -605,24 +583,22 @@ class BackscatterRatioBiMonthlyGroup(object):
             desc = "MEAN"
         elif band_number == 2:
             desc = "CVAR"
-        return "S1_M{:04}{:02}_{}_RATIO_BCK_{}".format(
-            self.year, self.month, orbit_type, desc
-        )
+        return f"S1_M{self.year:04}{self.month:02}_{orbit_type}_RATIO_BCK_{desc}"
 
 
-class BackscatterPair(object):
+class BackscatterPair:
     def __init__(self):
         self.vv = None
         self.vh = None
 
 
-class BackscatterPairs(object):
+class BackscatterPairs:
     def __init__(self):
         self.vv = []
         self.vh = []
 
 
-class CoherenceMonthlyGroup(object):
+class CoherenceMonthlyGroup:
     def __init__(self, year, month, tile_id, polarization):
         self.year = year
         self.month = month
@@ -654,21 +630,17 @@ class CoherenceMonthlyGroup(object):
         return (self.year, self.month, self.tile_id, self.polarization)
 
     def format(self, site_id):
-        return "SEN4CAP_L2A_PRD_S{}_M{:04}{:02}_T{}_{}_COHE.tif".format(
-            site_id, self.year, self.month, self.tile_id, self.polarization
-        )
+        return f"SEN4CAP_L2A_PRD_S{site_id}_M{self.year:04}{self.month:02}_T{self.tile_id}_{self.polarization}_COHE.tif"
 
     def band_description(self, band_number):
         if band_number == 1:
             desc = "MEAN"
         elif band_number == 2:
             desc = "Q10"
-        return "S1_M{:04}{:02}_{}_COHE_{}".format(
-            self.year, self.month, self.polarization, desc
-        )
+        return f"S1_M{self.year:04}{self.month:02}_{self.polarization}_COHE_{desc}"
 
 
-class CoherenceSeasonGroup(object):
+class CoherenceSeasonGroup:
     def __init__(self, tile_id, polarization):
         self.tile_id = tile_id
         self.polarization = polarization
@@ -698,12 +670,10 @@ class CoherenceSeasonGroup(object):
         return (self.tile_id, self.polarization)
 
     def format(self, site_id):
-        return "SEN4CAP_L2A_PRD_S{}_S_T{}_{}_COHE.tif".format(
-            site_id, self.tile_id, self.polarization
-        )
+        return f"SEN4CAP_L2A_PRD_S{site_id}_S_T{self.tile_id}_{self.polarization}_COHE.tif"
 
     def band_description(self):
-        return "S1_S_{}_COHE_STDDEV".format(self.polarization)
+        return f"S1_S_{self.polarization}_COHE_STDDEV"
 
 
 def get_tile_footprints(file):
@@ -791,7 +761,7 @@ def get_statistics_invocation(input, ref):
     return command
 
 
-class WeeklyComposite(object):
+class WeeklyComposite:
     def __init__(
         self,
         output,
@@ -852,7 +822,7 @@ class WeeklyComposite(object):
 
             command = ["gdalwarp"]
             command += ["-q", "-r", "cubic"]
-            command += ["-t_srs", "EPSG:{}".format(self.tile_epsg_code)]
+            command += ["-t_srs", f"EPSG:{self.tile_epsg_code}"]
             command += ["-tr", self.spacing, self.spacing]
             command += ["-te", xmin, ymin, xmax, ymax]
             command += [self.temp]
@@ -882,7 +852,7 @@ class WeeklyComposite(object):
                 run_command(command, env)
 
 
-class WeeklyRatioStatistics(object):
+class WeeklyRatioStatistics:
     def __init__(self, output, vv, vh, tile_ref):
         self.output = output
         self.vv = vv
@@ -917,7 +887,7 @@ class WeeklyRatioStatistics(object):
         run_command(command, env)
 
 
-class BackscatterMonthlyComposite(object):
+class BackscatterMonthlyComposite:
     def __init__(self, tile_ref, output, output_extended, mode, inputs):
         self.tile_ref = tile_ref
         self.output = output
@@ -968,7 +938,7 @@ class BackscatterMonthlyComposite(object):
                 run_command(command, env)
 
 
-class CoherenceMonthlyComposite(object):
+class CoherenceMonthlyComposite:
     def __init__(self, tile_ref, output, output_extended, inputs):
         self.tile_ref = tile_ref
         self.output = output
@@ -1017,7 +987,7 @@ class CoherenceMonthlyComposite(object):
                 run_command(command, env)
 
 
-class CoherenceSeasonComposite(object):
+class CoherenceSeasonComposite:
     def __init__(self, tile_ref, output, output_extended, inputs):
         self.tile_ref = tile_ref
         self.output = output
@@ -1112,7 +1082,7 @@ def process_radar(args, pool):
             continue
         if product.path not in found_products:
             if not os.path.exists(product.path):
-                print("product {} does not exist".format(product.path))
+                print(f"product {product.path} does not exist")
                 missing_products.add(product.path)
                 continue
             else:
@@ -1617,9 +1587,7 @@ def process_radar(args, pool):
             },
             E.SRS({"dataAxisToSRSAxisMapping": "1,2"}, srs.ExportToWkt()),
             E.GeoTransform(
-                "{}, {}, {}, {}, {}, {}".format(
-                    gt[0], gt[1], gt[2], gt[3], gt[4], gt[5]
-                )
+                f"{gt[0]}, {gt[1]}, {gt[2]}, {gt[3]}, {gt[4]}, {gt[5]}"
             ),
             E.BlockXSize(str(256)),
             E.BlockYSize(str(256)),
@@ -1628,9 +1596,8 @@ def process_radar(args, pool):
             vrt_dataset.append(vrt_band)
 
         root = etree.ElementTree(vrt_dataset)
-        # TODO: py3
-        bands_vrt = "s1_{}.vrt".format(tile_id)
-        bands_vrt_10m = "s1_{}_10m.vrt".format(tile_id)
+        bands_vrt = f"s1_{tile_id}.vrt"
+        bands_vrt_10m = f"s1_{tile_id}_10m.vrt"
         root.write(bands_vrt, pretty_print=True, encoding="utf-8")
         command = [
             "gdal_translate",
@@ -1670,7 +1637,7 @@ def generate_headers(
         for dt in dates:
             for band in bands:
                 date_string = dt.strftime("%Y_%m_%d")
-                column = "XX_{}_s2_mean_{}".format(date_string, band)
+                column = f"XX_{date_string}_s2_mean_{band}"
                 file.write("," + column)
         file.write("\n")
 
@@ -1679,7 +1646,7 @@ def generate_headers(
         for dt in dates:
             for band in bands:
                 date_string = dt.strftime("%Y_%m_%d")
-                column = "XX_{}_s2_dev_{}".format(date_string, band)
+                column = f"XX_{date_string}_s2_dev_{band}"
                 file.write("," + column)
         file.write("\n")
 
@@ -1693,7 +1660,7 @@ def generate_headers(
         for dt in dates:
             for band in bands:
                 date_string = dt.strftime("%Y_%m_%d")
-                column = "XX_{}_s2_mean_{}".format(date_string, band)
+                column = f"XX_{date_string}_s2_mean_{band}"
                 file.write("," + column)
         file.write("\n")
 
@@ -1702,7 +1669,7 @@ def generate_headers(
         for dt in dates:
             for band in bands:
                 date_string = dt.strftime("%Y_%m_%d")
-                column = "XX_{}_s2_dev_{}".format(date_string, band)
+                column = f"XX_{date_string}_s2_dev_{band}"
                 file.write("," + column)
         file.write("\n")
 

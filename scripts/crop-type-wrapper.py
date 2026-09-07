@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 import argparse
 import csv
-from datetime import datetime
 import os
 import os.path
 import shlex
 import shutil
 import subprocess
 import sys
+from datetime import datetime
 
 
 def run_command(args, env=None):
@@ -18,7 +18,7 @@ def run_command(args, env=None):
     result = subprocess.call(args, env=env)
     if result != 0:
         raise RuntimeError(
-            "Command `{}` failed with exit code {}".format(cmd_line, result)
+            f"Command `{cmd_line}` failed with exit code {result}"
         )
 
 
@@ -403,9 +403,7 @@ def main():
             feature_files, infixes, product_types
         ):
             if features:
-                product_name = "SEN4CAP_MDB_L4A_{}_V{}_{}_{}".format(
-                    infix, season_start, season_end, now
-                )
+                product_name = f"SEN4CAP_MDB_L4A_{infix}_V{season_start}_{season_end}_{now}"
                 product_dir = os.path.join(args.target_path, product_name)
                 os.makedirs(product_dir, exist_ok=True)
                 product_path = os.path.join(product_dir, product_name + ".ipc")
