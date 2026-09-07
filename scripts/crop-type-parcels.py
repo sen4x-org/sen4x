@@ -804,7 +804,6 @@ class WeeklyComposite(object):
         xmax,
         ymin,
         ymax,
-        force_input_epsg,
         tile_epsg_code,
         tile_extent,
         spacing,
@@ -817,7 +816,6 @@ class WeeklyComposite(object):
         self.xmax = xmax
         self.ymin = ymin
         self.ymax = ymax
-        self.force_input_epsg = force_input_epsg
         self.tile_epsg_code = tile_epsg_code
         self.tile_extent = tile_extent
         self.spacing = spacing
@@ -857,8 +855,6 @@ class WeeklyComposite(object):
 
             command = ["gdalwarp"]
             command += ["-q", "-r", "cubic"]
-            if self.force_input_epsg is not None:
-                command += ["-s_srs", "EPSG:{}".format(self.force_input_epsg)]
             command += ["-t_srs", "EPSG:{}".format(self.tile_epsg_code)]
             command += ["-tr", self.spacing, self.spacing]
             command += ["-te", xmin, ymin, xmax, ymax]
@@ -1075,14 +1071,7 @@ class CoherenceSeasonComposite(object):
 
 def get_projection(file):
     ds = gdal.Open(file, gdal.GA_ReadOnly)
-    srs = osr.SpatialReference(wkt=ds.GetProjectionRef())
-
-    # workaround for gdal-libs-1.11.4-3 not knowing about EPSG:3035
-    if srs.IsLocal() and srs.GetAuthorityCode("LOCAL_CS") == "3035":
-        srs.ImportFromEPSG(3035)
-        return (srs, 3035)
-    else:
-        return (srs, None)
+    return osr.SpatialReference(ds.GetProjection())
 
 
 def get_extent(raster):
@@ -1116,7 +1105,6 @@ def process_radar(args, pool):
     products = get_radar_products(args.radar_products)
     groups = defaultdict(list)
     input_srs = None
-    force_input_epsg = None
     missing_products = set()
     found_products = set()
     # TODO dedup with tile_gt_map
@@ -1142,7 +1130,7 @@ def process_radar(args, pool):
             tile_product_ref[product.tile_id] = product.path
 
         if input_srs is None:
-            (input_srs, force_input_epsg) = get_projection(product.path)
+            input_srs = get_projection(product.path)
 
         group_week = (
             (product.week - 1) // args.radar_compositing_weeks
@@ -1242,7 +1230,6 @@ def process_radar(args, pool):
                 xmax,
                 ymin,
                 ymax,
-                force_input_epsg,
                 epsg_code,
                 tile_extent,
                 tile_spacing[group.tile_id],
