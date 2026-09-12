@@ -28,7 +28,6 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
 add_definitions(-DVCL_CAN_STATIC_CONST_INIT_FLOAT=0)
 
 add_subdirectory(Composite)
-add_subdirectory(VegetationStatus)
 add_subdirectory(Common)
 add_subdirectory(ContinuousColorMapping)
 

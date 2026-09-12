@@ -1,4 +1,0 @@
-
-Biophysical variable estimation from remote sensing imagery 
-
-License
