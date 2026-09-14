@@ -21,6 +21,7 @@
 #include "otbWrapperApplicationFactory.h"
 #include "otbOGRIOHelper.h"
 #include "ogr_geometry.h"
+#include "otbImageFileReader.h"
 #include <iostream>
 #include <time.h>
 #include <stdio.h>
@@ -1580,10 +1581,10 @@ private:
               }
               rasterFileEl.strNewRasterFullPath = strImgDataPath + "/" + rasterFileEl.strNewRasterFileName;
 
-              // call script for COG/COMPRESS, if needed
-              ExecuteGdalTranslateOps(rasterFileEl.strRasterFileName, (rasterFileEl.paramDescr.rasterType == SIMPLE_DISCRETE_FLAGS_RASTER));
-
-              CopyFile(rasterFileEl.strNewRasterFullPath, rasterFileEl.strRasterFileName);
+              if (!ExecuteGdalTranslateOps(rasterFileEl.strRasterFileName, rasterFileEl.strNewRasterFullPath,
+                                          (rasterFileEl.paramDescr.rasterType == SIMPLE_DISCRETE_FLAGS_RASTER))) {
+                  itkExceptionMacro("Error converting raster " << rasterFileEl.strRasterFileName);
+              }
           }
         }
    }
@@ -1933,42 +1934,48 @@ private:
       return ExecuteExternalProgram("s2x_prd_to_zarr.py", args);
   }
 
-  bool ExecuteGdalTranslateOps(const std::string &rasterFileName, bool bHasDiscreteValues) {
+  bool ExecuteGdalTranslateOps(const std::string &rasterFileName, const std::string &outFileName, bool bHasDiscreteValues) {
       bool compress = (GetParameterInt("compress") != 0);
       bool cog = (GetParameterInt("cog") != 0);
       if (!compress && !cog) {
+          CopyFile(outFileName, rasterFileName);
           return true;
       }
       std::cout << "Starting gdal operations for raster " << rasterFileName << std::endl;
-      std::vector<const char *> args;
-      if (compress) {
-          args.emplace_back("--compress");
-          args.emplace_back("DEFLATE");
-      } else {
-          args.emplace_back("--no-compress");
-      }
+      std::vector<const char *> args = {
+          "-of", cog ? "COG" : "GTiff",
+          "-co", compress ? "COMPRESS=DEFLATE" : "COMPRESS=NONE",
+          "-co", "NUM_THREADS=ALL_CPUS"
+      };
 
       if (!bHasDiscreteValues) {
-          args.emplace_back("--no-data");
+          args.emplace_back("-a_nodata");
           args.emplace_back("-10000");
       }
 
       if (cog) {
-          if (bHasDiscreteValues) {
-              args.emplace_back("--resampler");
-              args.emplace_back("nearest");
-          } else {
-              args.emplace_back("--resampler");
-              args.emplace_back("average");
+          args.emplace_back("-co");
+          args.emplace_back("BLOCKSIZE=256");
+          args.emplace_back("-co");
+          args.emplace_back(bHasDiscreteValues ? "RESAMPLING=NEAREST" : "RESAMPLING=BILINEAR");
+          if (compress) {
+              args.emplace_back("-co");
+              args.emplace_back("PREDICTOR=YES");
           }
-          args.emplace_back("--overviews");
-          args.emplace_back("--tiled");
       } else {
-          args.emplace_back("--no-overviews");
-          args.emplace_back("--stripped");
+          args.emplace_back("-co");
+          args.emplace_back("TILED=NO");
+
+          args.emplace_back("-co");
+          auto reader = ImageFileReader<FloatVectorImageType>::New();
+          reader->SetFileName(rasterFileName);
+          reader->UpdateOutputInformation();
+          auto dataType = reader->GetImageIO()->GetComponentType();
+          args.emplace_back((dataType == ImageIOBase::FLOAT || dataType == ImageIOBase::DOUBLE) ? "PREDICTOR=3" : "PREDICTOR=2");
       }
       args.emplace_back(rasterFileName.c_str());
-      return ExecuteExternalProgram("optimize_gtiff.py", args);
+      args.emplace_back(outFileName.c_str());
+      return ExecuteExternalProgram("gdal_translate", args);
   }
 
   bool ExecuteExternalProgram(const char *appExe, std::vector<const char *> appArgs) {
@@ -2187,5 +2194,3 @@ private:
 }
 
 OTB_APPLICATION_EXPORT(otb::Wrapper::ProductFormatter)
-
-
