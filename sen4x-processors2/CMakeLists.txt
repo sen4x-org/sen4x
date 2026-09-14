@@ -12,6 +12,7 @@ find_package(GSL REQUIRED)
 find_package(EXPAT REQUIRED)
 
 add_subdirectory(Common)
+add_subdirectory(ContinuousColorMapping)
 add_subdirectory(Sen4CAP)
 add_subdirectory(Sen4Stat)
 add_subdirectory(TimeSeriesReader)
