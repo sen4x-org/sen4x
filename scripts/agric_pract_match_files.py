@@ -144,7 +144,7 @@ def writeProductsToFile(config, groups) :
             
     outFileName = config.path
     with open(outFileName, 'w') as f:
-        for (product, tile_refs) in groups.iteritems():
+        for (product, tile_refs) in groups.items():
             tile_refs.sort()
             if len(filter_files) > 0 and str(product) in filter_files:
                 continue

@@ -275,7 +275,7 @@ def writeProductsToFile(config, file_idx, groups) :
     print("Writing to file {}".format(outFileName))
     
     with open(outFileName, 'w') as f:
-        for (product, tile_refs) in groups.iteritems():
+        for (product, tile_refs) in groups.items():
             tile_refs.sort()
             print("S1 product: {}".format(product))
             f.write(product)
