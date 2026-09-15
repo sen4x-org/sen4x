@@ -14,7 +14,7 @@
  =========================================================================*/
  
 #include <boost/algorithm/string/predicate.hpp>
-#include <boost/filesystem.hpp>
+#include <filesystem>
 #include <boost/algorithm/string.hpp>
 
 #include "MetadataUtil.hpp"
@@ -27,8 +27,8 @@ std::string getRasterFile(const MACCSFileMetadata &metadata, const char *suffix)
 
     for (const auto &fileInfo : metadata.ProductOrganization.ImageFiles) {
         if (boost::algorithm::ends_with(fileInfo.LogicalName, suffix)) {
-            boost::filesystem::path p(metadata.ProductPath);
-            p.remove_filename();
+            std::filesystem::path p(metadata.ProductPath);
+            p = p.parent_path();
             p /= fileInfo.FileLocation;
             p.replace_extension(".DBL.TIF");
             file = p.string();
@@ -42,8 +42,8 @@ std::string getRasterFile(const MACCSFileMetadata &metadata, const char *suffix)
 
 std::string getRasterFile(const SPOT4Metadata &metadata, const std::string &file)
 {
-    boost::filesystem::path p(metadata.ProductPath);
-    p.remove_filename();
+    std::filesystem::path p(metadata.ProductPath);
+    p = p.parent_path();
     p /= file;
     return p.string();
 }
@@ -280,7 +280,7 @@ std::string ExtractDateFromDateTime(std::string dateTime) {
 std::string GetLogicalFileName(std::string filePath, bool withExtension)
 {
    // Create a Path object from File Path
-   boost::filesystem::path pathObj(filePath);
+   std::filesystem::path pathObj(filePath);
 
    // Check if file name is required without extension
    if(withExtension == false)

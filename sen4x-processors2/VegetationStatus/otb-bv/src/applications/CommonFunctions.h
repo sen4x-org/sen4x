@@ -16,6 +16,7 @@
 #ifndef __COMMONFUNCTIONS_H
 #define __COMMONFUNCTIONS_H
 
+#include <filesystem>
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 #include <regex>
@@ -197,10 +198,10 @@ namespace otb
                             ((sensorInstrument == "") || (productInstrumentName == sensorInstrument))) {
                         std::cout << "Found configured file!"<< std::endl;
 
-                        boost::filesystem::path cfgFilePath(cfgFileName);
+                        std::filesystem::path cfgFilePath(cfgFileName);
                         if (cfgFilePath.is_relative()) {
-                            boost::filesystem::path containerFilePath(fileName);
-                            containerFilePath.remove_filename();
+                            std::filesystem::path containerFilePath(fileName);
+                            containerFilePath = containerFilePath.parent_path();
                             cfgFilePath = containerFilePath / cfgFilePath;
                             cfgFileName = cfgFilePath.string();
                         }

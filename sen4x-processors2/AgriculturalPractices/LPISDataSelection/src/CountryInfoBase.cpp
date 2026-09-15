@@ -1,3 +1,4 @@
+#include <filesystem>
 #include "CountryInfoBase.h"
 #include "../../Common/include/CommonFunctions.h"
 
@@ -8,7 +9,7 @@ CountryInfoBase::CountryInfoBase()
 void CountryInfoBase::SetAdditionalFiles(const std::vector<std::string> &additionalFiles) {
     m_additionalFiles.insert(m_additionalFiles.end(), additionalFiles.begin(), additionalFiles.end());
     for(const auto &file: m_additionalFiles) {
-        const std::string &extension = boost::filesystem::extension(file);
+        const std::string &extension = std::filesystem::path(file).extension().string();
         if (boost::iequals(extension, ".csv")) {
             if (m_LineHandlerFnc == nullptr) {
                 std::cout << "ERROR: Additional files provided but no handler function defined for this country" << std::endl;

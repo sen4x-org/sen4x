@@ -22,7 +22,7 @@
 #include "otbImage.h"
 #include "otbImageFileReader.h"
 #include "itkUnaryFunctorImageFilter.h"
-#include <boost/filesystem.hpp>
+#include <filesystem>
 #include <boost/algorithm/string/predicate.hpp>
 
 #include "GlobalDefs.h"
@@ -153,20 +153,20 @@ public:
     std::string GetExternalMaskFile(const std::string &extMaskLocation, int preferedRes) {
         // If an external mask was provided, then use this one too
         if (extMaskLocation.size() > 0) {
-            if (boost::filesystem::is_regular_file(extMaskLocation)) {
+            if (std::filesystem::is_regular_file(extMaskLocation)) {
                 otbAppLogINFO("Using as mask from extmask parameter the file " << extMaskLocation);
                 return extMaskLocation;
             }
-            if (boost::filesystem::is_directory(extMaskLocation)) {
+            if (std::filesystem::is_directory(extMaskLocation)) {
                 // get the tiff files in the directory that could match our preffered resolution
-                boost::filesystem::directory_iterator end_itr;
+                std::filesystem::directory_iterator end_itr;
 
                 std::vector<std::string> tifFiles;
-                boost::filesystem::path dirPath(extMaskLocation);
+                std::filesystem::path dirPath(extMaskLocation);
                 // cycle through the directory
-                for (boost::filesystem::directory_iterator itr(dirPath); itr != end_itr; ++itr) {
-                    if (boost::filesystem::is_regular_file(itr->path())) {
-                        boost::filesystem::path pathObj = itr->path();
+                for (std::filesystem::directory_iterator itr(dirPath); itr != end_itr; ++itr) {
+                    if (std::filesystem::is_regular_file(itr->path())) {
+                        std::filesystem::path pathObj = itr->path();
                         std::string ext = pathObj.extension().string();
                         if (!boost::iequals(ext, ".tif")) { //accept only tif files for masks
                             continue;

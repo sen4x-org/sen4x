@@ -1,15 +1,15 @@
 cmake_minimum_required(VERSION 3.11)
 project(sen2agri-processors-re)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
 include(CTest)
 find_package(OTB CONFIG REQUIRED)
 find_package(Boost CONFIG REQUIRED COMPONENTS filesystem serialization unit_test_framework)
 find_package(CURL CONFIG REQUIRED)
 find_package(GSL REQUIRED)
 find_package(EXPAT REQUIRED)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_subdirectory(Common)
 add_subdirectory(ContinuousColorMapping)

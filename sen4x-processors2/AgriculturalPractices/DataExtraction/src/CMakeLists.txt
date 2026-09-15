@@ -23,6 +23,9 @@ otb_create_application(
   SOURCES        otbAgricPractMergeDataExtractionFiles.cxx
   LINK_LIBRARIES ${OTB_LIBRARIES} AgriculturalPracticesCommon MACCSMetadata ${Boost_LIBRARIES} EXPAT::EXPAT)
 
+set_target_properties(otbapp_AgricPractMergeDataExtractionFiles
+                      PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
+
 otb_create_application(
   NAME           IndexAgricPracticesXml
   SOURCES        otbIndexAgricPracticesXml.cxx

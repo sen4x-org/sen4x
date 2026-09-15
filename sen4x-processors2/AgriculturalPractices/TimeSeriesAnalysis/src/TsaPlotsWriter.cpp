@@ -15,7 +15,7 @@
 #include "TsaPlotsWriter.h"
 #include "TimeSeriesAnalysisUtils.h"
 
-#include <boost/filesystem.hpp>
+#include <filesystem>
 
 TsaPlotsWriter::TsaPlotsWriter() : m_bPlotOutputGraph(false), m_OutPlotsIdxCurIdx(0) {
 
@@ -31,7 +31,7 @@ void TsaPlotsWriter::CreatePlotsFile(const std::string &outDir, const std::strin
     m_OutPlotsFileStream << plotsStart.c_str();
 
     std::string outIdxPath;
-    boost::filesystem::path path(fullPath);
+    std::filesystem::path path(fullPath);
     outIdxPath = (path.parent_path() / path.filename()).string() + ".idx";
     m_OutPlotsIdxFileStream.open(outIdxPath, std::ios_base::trunc | std::ios_base::out);
     // initialize also the index
@@ -105,7 +105,7 @@ std::string TsaPlotsWriter::GetPlotsFilePath(const std::string &outDir, const st
                                   int year) {
     const std::string &fileName = "Sen4CAP_L4C_" + practiceName + "_" +
             countryCode + "_" + std::to_string(year) + "_PLOT.xml";
-    boost::filesystem::path rootFolder(outDir);
+    std::filesystem::path rootFolder(outDir);
     return (rootFolder / fileName).string();
 }
 

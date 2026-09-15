@@ -1,6 +1,6 @@
 #include "StatisticsInfosFolderFilesReader.h"
 
-#include <boost/filesystem.hpp>
+#include <filesystem>
 #include <boost/algorithm/string.hpp>
 #include <fstream>
 
@@ -81,11 +81,11 @@ bool StatisticsInfosFolderFilesReader::ExtractFileInfosForFilter(const FileInfoT
 
 std::vector<FileInfoType> StatisticsInfosFolderFilesReader::GetFilesInFolder(const std::string &targetPath) {
     std::vector<FileInfoType> allFolderFiles;
-    boost::filesystem::directory_iterator end_itr; // Default ctor yields past-the-end
-    for( boost::filesystem::directory_iterator i( targetPath ); i != end_itr; ++i )
+    std::filesystem::directory_iterator end_itr; // Default ctor yields past-the-end
+    for( std::filesystem::directory_iterator i( targetPath ); i != end_itr; ++i )
     {
         // Skip if not a file
-        if (!boost::filesystem::is_regular_file( i->status() ) )  {
+        if (!std::filesystem::is_regular_file( i->status() ) )  {
             continue;
         }
         allFolderFiles.push_back({i->path().filename().string(), i->path().string()});
@@ -107,7 +107,7 @@ std::vector<FileInfoType> StatisticsInfosFolderFilesReader::FindFilesForFieldId(
     return allMatchingFiles;
 //            boost::smatch what;
 //            // Skip if no match
-//            const boost::filesystem::path &path = i->path().filename();
+//            const std::filesystem::path &path = i->path().filename();
 //            const std::string &pathStr = path.string();
 //            if (!boost::regex_match( pathStr, what, fieldIdFileFilter)) {
 //                continue;

@@ -13,8 +13,8 @@
 
  =========================================================================*/
 
-#define BOOST_NO_CXX11_SCOPED_ENUMS
-#include <boost/filesystem.hpp>
+#include <filesystem>
+#include <system_error>
 #include <boost/algorithm/string/predicate.hpp>
 
 #include "otbWrapperApplication.h"
@@ -692,8 +692,8 @@ private:
           } else {
               try
               {
-                    boost::filesystem::remove_all(strMainFolderFullPath + "/" + TILES_FOLDER_NAME + "/" +  strTileName);
-              } catch(boost::filesystem::filesystem_error const & e) {
+                    std::filesystem::remove_all(strMainFolderFullPath + "/" + TILES_FOLDER_NAME + "/" +  strTileName);
+              } catch(std::filesystem::filesystem_error const & e) {
                     otbAppLogWARNING("Error removing invalid tile folder "
                                      <<  strMainFolderFullPath + "/" + TILES_FOLDER_NAME + "/" +  strTileName
                                      << "Error was: " << e.what());
@@ -705,7 +705,7 @@ private:
   bool TileHasRasters(const tileInfo &tileInfoEl) {
       for (const auto &rasterFileEl : m_rasterInfoList) {
           if(tileInfoEl.strTileID == rasterFileEl.strTileID) {
-              if (boost::filesystem::exists(rasterFileEl.strRasterFileName)) {
+              if (std::filesystem::exists(rasterFileEl.strRasterFileName)) {
                   return true;
               }
           }
@@ -843,8 +843,8 @@ private:
   //creates a directory given by full path 'path'
   bool mkPath(const std::string &path)
   {
-      boost::system::error_code ec;
-      boost::filesystem::create_directories(path, ec);
+      std::error_code ec;
+      std::filesystem::create_directories(path, ec);
       return !ec;
   }
 
@@ -905,7 +905,7 @@ private:
   }
 
   bool deleteMainFolderLockFile(const std::string &lockFileName) {
-    return boost::filesystem::remove(lockFileName);
+    return std::filesystem::remove(lockFileName);
   }
 
 
@@ -1094,7 +1094,7 @@ private:
 
       for (rasterInfo &rasterFileEl : m_rasterInfoList) {
           // we should not throw an exception here, as we might have just some rasters that do not exist
-          if(!boost::filesystem::exists(rasterFileEl.strRasterFileName)) {
+          if(!std::filesystem::exists(rasterFileEl.strRasterFileName)) {
               continue;
           }
 
@@ -1592,7 +1592,7 @@ private:
 
   void TransferAndRenameLUTFile(const std::string &lut)
   {
-      boost::filesystem::path p(lut);
+      std::filesystem::path p(lut);
       std::string outputFilename = BuildFileName(LUT_CATEG, "", p.extension().string());
 
       CopyFile(m_strDestRoot + "/" + m_strProductDirectoryName + "/" + AUX_DATA_FOLDER_NAME + "/" + outputFilename, lut);
@@ -1607,7 +1607,7 @@ private:
       for (const auto &gippFileEl : m_GIPPList) {
 
           strNewGIPPFileName = ReplaceString(strNewGIPPFileName, MAIN_FOLDER_CATEG, PARAMETER_CATEG);
-          boost::filesystem::path p(gippFileEl);
+          std::filesystem::path p(gippFileEl);
           if(m_GIPPList.size() > 1)
           {
               strNewGIPPFileName = BuildFileName(PARAMETER_CATEG, "", "_" + p.stem().string() + p.extension().string());
@@ -1640,7 +1640,7 @@ private:
       for (const auto &isdFileEl : m_ISDList) {
 
           strNewISDFileName = ReplaceString(strNewISDFileName, MAIN_FOLDER_CATEG, INSITU_CATEG);
-          boost::filesystem::path p(isdFileEl);
+          std::filesystem::path p(isdFileEl);
           if(m_GIPPList.size() > 1)
           {
               strNewISDFileName = BuildFileName(INSITU_CATEG, "", "_" + p.stem().string() + p.extension().string());
@@ -1670,12 +1670,12 @@ private:
             if(tileInfoEl.strTileID == qualityFileEl.strTileID)
             {
                 std::string strImgDataPath = tileInfoEl.strTilePath + "/" + QI_DATA_FOLDER_NAME;
-                boost::filesystem::path p(qualityFileEl.strFileName);
+                std::filesystem::path p(qualityFileEl.strFileName);
                 strNewQualityFileName = BuildFileName(QUALITY_CATEG, tileInfoEl.strTileID, p.extension().string());
                 CopyFile(strImgDataPath + "/" + strNewQualityFileName, qualityFileEl.strFileName);
             }
           } else {
-              boost::filesystem::path p(qualityFileEl.strFileName);
+              std::filesystem::path p(qualityFileEl.strFileName);
               strNewQualityFileName = BuildFileName(QUALITY_CATEG, "", p.extension().string(), "", "", "", qualityFileEl.strRegion);
 
                //quality files are copied to tileDirectory/QI_DATA
@@ -1746,15 +1746,15 @@ private:
 
         try
         {
-              boost::filesystem::remove(mosaicPreviewFullPath);
-        } catch(boost::filesystem::filesystem_error const & e) {
+              std::filesystem::remove(mosaicPreviewFullPath);
+        } catch(std::filesystem::filesystem_error const & e) {
               otbAppLogWARNING("Error removing file " << mosaicPreviewFullPath
                                << "Error was: " << e.what());
         }
 
   }
 
-  std::string GetFileNameFromBoostPath(boost::filesystem::path filePath) {
+  std::string GetFileNameFromPath(std::filesystem::path filePath) {
 #ifdef _WIN32
                 return ConvertFromUtf16ToUtf8(filePath.c_str());
 #else
@@ -1766,28 +1766,28 @@ private:
   {
       const std::string &folderName = m_bVectPrd ? VECTOR_FOLDER_NAME : TILES_FOLDER_NAME;
       for(const auto &file: files) {
-          boost::filesystem::path filePath(file);
-          if (boost::filesystem::is_directory(filePath)) {
-              for(const boost::filesystem::directory_entry& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(filePath), {})) {
+          std::filesystem::path filePath(file);
+          if (std::filesystem::is_directory(filePath)) {
+              for(const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(filePath)) {
                 //std::cout << entry.path(). << "\n";
-                  if (boost::filesystem::is_directory(entry.path())) {
-                      const std::string &dirName = GetFileNameFromBoostPath(entry.path().filename());
+                  if (std::filesystem::is_directory(entry.path())) {
+                      const std::string &dirName = GetFileNameFromPath(entry.path().filename());
                       otbAppLogINFO("Copying the content of the folder " << dirName)
                       CopyDir(entry.path(), m_strDestRoot + "/" + m_strProductDirectoryName + "/" + folderName + "/" + dirName);
                   } else {
-                      const std::string &fileName = GetFileNameFromBoostPath(entry.path().filename());
+                      const std::string &fileName = GetFileNameFromPath(entry.path().filename());
                       CopyFile(m_strDestRoot + "/" + m_strProductDirectoryName + "/" + folderName + "/" + fileName, entry.path().string());
                   }
               }
           } else {
-              const std::string &fileName = GetFileNameFromBoostPath(filePath.filename());
+              const std::string &fileName = GetFileNameFromPath(filePath.filename());
               CopyFile(m_strDestRoot + "/" + m_strProductDirectoryName + "/" + folderName + "/" + fileName, file);
           }
       }
   }
 
-  bool CopyDir(boost::filesystem::path const & source, boost::filesystem::path const & destination) {
-      namespace fs = boost::filesystem;
+  bool CopyDir(std::filesystem::path const & source, std::filesystem::path const & destination) {
+      namespace fs = std::filesystem;
       try {
           // Check whether the function call is valid
           if(!fs::exists(source) || !fs::is_directory(source)) {
@@ -1831,8 +1831,8 @@ private:
 
    void CopyFile(const std::string &strDest, const std::string &strSrc)
    {
-       boost::system::error_code ec;
-       boost::filesystem::copy_file(strSrc, strDest, boost::filesystem::copy_option::overwrite_if_exists, ec);
+       std::error_code ec;
+       std::filesystem::copy_file(strSrc, strDest, std::filesystem::copy_options::overwrite_existing, ec);
        if (ec) {
            otbAppLogWARNING("Error copying file " << strSrc << " to file " << strDest);
        }
@@ -2136,14 +2136,14 @@ private:
                                  << ". Trying to rename it into " << retPath);
                 bool bErr = false;
                 try {
-                    boost::filesystem::rename(strProductMainFolder, retPath);
+                    std::filesystem::rename(strProductMainFolder, retPath);
                 }
                 catch (...)
                 {
                     bErr = true;
 
                 }
-                if(bErr || !boost::filesystem::exists(retPath)) {
+                if(bErr || !std::filesystem::exists(retPath)) {
                     otbAppLogWARNING("Error renaming with _NOTV the folder " << strProductMainFolder);
                     // in this case restore the folder name
                     retPath = strProductMainFolder;

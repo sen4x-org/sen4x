@@ -21,6 +21,7 @@
 #ifndef otbAgricPractDataExtrFileWriter2_txx
 #define otbAgricPractDataExtrFileWriter2_txx
 
+#include <filesystem>
 #include "otbAgricPractDataExtrFileWriter2.h"
 #include "itkMacro.h"
 #include "itksys/SystemTools.hxx"
@@ -172,7 +173,7 @@ AgricPractDataExtrFileWriter2<TMeasurementVector>
       const auto &stdDevVal = it->second.stdDev[0];
 
       const std::string &fieldOutFileName = m_bUseMinMax ?
-                  boost::filesystem::path(fileName).filename().c_str() :
+                  std::filesystem::path(fileName).filename().string() :
                   BuildOutputFileName(fieldId, fileType, polarisation, orbit, fileDate, prevDate);
       const std::string &uniqueId = fieldId + fieldOutFileName;
 

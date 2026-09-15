@@ -17,8 +17,8 @@
 #include "ViewingAngles.hpp"
 
 #include <boost/algorithm/string/predicate.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/system/error_code.hpp>
+#include <filesystem>
+#include <system_error>
 
 template <typename PixelType, typename MasksPixelType>
 MACCSMetadataHelperBase<PixelType, MasksPixelType>::MACCSMetadataHelperBase()
@@ -93,7 +93,7 @@ bool MACCSMetadataHelperBase<PixelType, MasksPixelType>::GetMACCSImageFileName(c
                                                        const std::string& ending, std::string& retStr) {
     if (fileInfo.LogicalName.length() >= ending.length() &&
             0 == fileInfo.LogicalName.compare (fileInfo.LogicalName.length() - ending.length(), ending.length(), ending)) {
-        boost::filesystem::path rootFolder(this->m_DirName);
+        std::filesystem::path rootFolder(this->m_DirName);
         // Get the extension of file (default for MACCS is ".DBL.TIF" and for MAJA is ".TIF")
         const std::string &ext = this->GetRasterFileExtension();
         retStr = (rootFolder / (fileInfo.FileLocation.substr(0, fileInfo.FileLocation.find_last_of('.')) + ext)).string();
@@ -153,15 +153,15 @@ bool MACCSMetadataHelperBase<PixelType, MasksPixelType>::GetMACCSImageHdrName(co
 template <typename PixelType, typename MasksPixelType>
 bool MACCSMetadataHelperBase<PixelType, MasksPixelType>::CheckFileExistence(std::string &fileName) {
     bool ret = true;
-    boost::system::error_code ec;
-    if (!boost::filesystem::exists(fileName, ec)) {
+    std::error_code ec;
+    if (!std::filesystem::exists(fileName, ec)) {
         size_t lastindex = fileName.find_last_of(".");
         if((lastindex != std::string::npos) && (lastindex != (fileName.length()-1))) {
             std::string rawname = fileName.substr(0, lastindex);
             std::string ext = fileName.substr(lastindex+1);
             std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
             std::string recomputedName = rawname + "." + ext;
-            if (boost::filesystem::exists(recomputedName, ec)) {
+            if (std::filesystem::exists(recomputedName, ec)) {
                 fileName = recomputedName;
             } else {
                 ret = false;

@@ -18,7 +18,7 @@
 #include <time.h>
 #include <ctime>
 #include <cmath>
-#include <boost/filesystem.hpp>
+#include <filesystem>
 #include <boost/algorithm/string/predicate.hpp>
 #include <ctype.h>
 #include <limits.h>
@@ -50,8 +50,8 @@ bool MetadataHelper<PixelType, MasksPixelType>::LoadMetadataFile(const std::stri
     m_inputMetadataFileName = file;
     m_externalMask = externalMask;
 
-    boost::filesystem::path p(m_inputMetadataFileName);
-    p.remove_filename();
+    std::filesystem::path p(m_inputMetadataFileName);
+    p = p.parent_path();
 #ifdef _WIN32
     auto tmp = p.make_preferred();
     m_DirName = tmp.string();
@@ -79,7 +79,7 @@ template<typename PixelType, typename MasksPixelType>
 typename MetadataHelper<PixelType, MasksPixelType>::SingleBandMasksImageType::Pointer
 MetadataHelper<PixelType, MasksPixelType>::GetMasksImage(MasksFlagType nMaskFlags, bool binarizeResult, int resolution)
 {
-    if (m_externalMask.size() == 0 || !boost::filesystem::exists(m_externalMask)) {
+    if (m_externalMask.size() == 0 || !std::filesystem::exists(m_externalMask)) {
         return GetL2AMasksImage(nMaskFlags, binarizeResult, resolution);
     }
     typename otb::Wrapper::AppExternalMaskProvider<MasksPixelType>::Pointer appExtMskProvider = otb::Wrapper::AppExternalMaskProvider<MasksPixelType>::New();
@@ -192,7 +192,7 @@ bool MetadataHelper<PixelType, MasksPixelType>::GetTrueColourBandNames(std::stri
 template<typename PixelType, typename MasksPixelType>
 std::string MetadataHelper<PixelType, MasksPixelType>::buildFullPath(const std::string& fileName)
 {
-    boost::filesystem::path p(m_DirName);
+    std::filesystem::path p(m_DirName);
     p /= fileName;
     return p.string();
 }

@@ -1,3 +1,4 @@
+#include <filesystem>
 #include "DeclarationsInfo.h"
 #include "CommonFunctions.h"
 #include "../../Common/include/PracticeReaderFactory.h"
@@ -66,8 +67,8 @@ bool DeclarationsInfo::HasPractice(const AttributeEntry &ogrFeat, int practice) 
 }
 
 void DeclarationsInfo::LoadIdsFromPracticesFile(const std::string &file, MapIds *pMapToUpdate) {
-    boost::filesystem::path practicesInfoPath(file);
-    std::string pfFormat = practicesInfoPath.extension().c_str();
+    std::filesystem::path practicesInfoPath(file);
+    std::string pfFormat = practicesInfoPath.extension().string();
     pfFormat.erase(pfFormat.begin(), std::find_if(pfFormat.begin(), pfFormat.end(), [](int ch) {
             return ch != '.';
         }));

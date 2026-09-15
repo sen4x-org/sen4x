@@ -16,7 +16,7 @@
 #include "otbWrapperApplication.h"
 #include "otbWrapperApplicationFactory.h"
 
-#include <boost/filesystem.hpp>
+#include <filesystem>
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
 
@@ -347,7 +347,7 @@ private:
         virtual void SetAdditionalFiles(const std::vector<std::string> &additionalFiles) {
             m_additionalFiles.insert(m_additionalFiles.end(), additionalFiles.begin(), additionalFiles.end());
             for(const auto &file: m_additionalFiles) {
-                const std::string &extension = boost::filesystem::extension(file);
+                const std::string &extension = std::filesystem::path(file).extension().string();
                 if (boost::iequals(extension, ".csv")) {
                     if (m_LineHandlerFnc == nullptr) {
                         std::cout << "ERROR: Additional files provided but no handler function defined for this country" << std::endl;

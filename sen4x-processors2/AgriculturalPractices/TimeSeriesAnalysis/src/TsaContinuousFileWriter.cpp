@@ -15,7 +15,7 @@
 #include "TsaContinuousFileWriter.h"
 #include "TimeSeriesAnalysisUtils.h"
 
-#include <boost/filesystem.hpp>
+#include <filesystem>
 
 TsaContinuousFileWriter::TsaContinuousFileWriter() : m_bResultContinuousProduct(false) {
 
@@ -56,7 +56,7 @@ std::string TsaContinuousFileWriter::GetContinousProductCsvFilePath(const std::s
                                   int year) {
     const std::string &fileName = "Sen4CAP_L4C_" + practiceName + "_" +
             countryCode + "_" + std::to_string(year) + "_CSV_ContinousProduct.csv";
-    boost::filesystem::path rootFolder(outDir);
+    std::filesystem::path rootFolder(outDir);
     return (rootFolder / fileName).string();
 }
 

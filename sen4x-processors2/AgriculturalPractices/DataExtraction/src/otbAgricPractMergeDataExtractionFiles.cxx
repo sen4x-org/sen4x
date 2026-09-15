@@ -16,7 +16,8 @@
 #include "otbWrapperApplication.h"
 #include "otbWrapperApplicationFactory.h"
 
-#include <boost/filesystem.hpp>
+#include <filesystem>
+#include <chrono>
 #include <boost/lexical_cast.hpp>
 
 #include <fstream>
@@ -257,7 +258,7 @@ private:
             m_outFormat = GetParameterAsString("outformat");
         } else {
             // determine the format from the input files
-            boost::filesystem::path pathObj(inFilePaths[0]);
+            std::filesystem::path pathObj(inFilePaths[0]);
             std::string ext = pathObj.extension().string();
             if (boost::iequals(ext, ".xml")) {
                 m_outFormat = "xml";
@@ -294,7 +295,7 @@ private:
 
     bool ReadFile(const std::string &filePath, std::vector<FidType> &retFids) {
         otbAppLogINFO("Reading file " << filePath);
-        boost::filesystem::path pathObj(filePath);
+        std::filesystem::path pathObj(filePath);
         if (boost::iequals(pathObj.extension().string(), ".xml")) {
             return ReadXmlFile(filePath, retFids);
         } else {
@@ -352,8 +353,9 @@ private:
             otbAppLogFATAL("Error opening input file, exiting...");
             return false;
         }
-        boost::filesystem::path p( filePath ) ;
-        std::time_t ttFileLastWriteTime = boost::filesystem::last_write_time( p ) ;
+        const auto lastWriteTime = std::filesystem::last_write_time(filePath);
+        const auto systemTime = std::filesystem::file_time_type::clock::to_sys(lastWriteTime);
+        const std::time_t ttFileLastWriteTime = std::chrono::system_clock::to_time_t(systemTime);
         char buffer[15];
         strftime(buffer, 15, "%Y-%m-%d", localtime(&ttFileLastWriteTime));
         otbAppLogINFO("The last write date of the file " << filePath << " is " << buffer);
@@ -541,7 +543,7 @@ private:
 
     void WriteOutputFile(std::vector<FidType> &resultFidList) {
         const std::string &outFilePath = this->GetParameterString("out");
-        if (boost::filesystem::is_directory(outFilePath)) {
+        if (std::filesystem::is_directory(outFilePath)) {
             if (m_outFormat == "csv") {
 
                 // Disable the compact mode
@@ -663,7 +665,7 @@ private:
 
   void CreateOutputStreams(const std::string &outFilePath, std::ofstream &outFileStream, std::ofstream &indexFileStream) {
       std::string outIdxPath;
-      boost::filesystem::path path(outFilePath);
+      std::filesystem::path path(outFilePath);
       outIdxPath = (path.parent_path() / path.filename()).string() + ".idx";
       indexFileStream.open(outIdxPath, std::ios_base::trunc | std::ios_base::out);
 
@@ -737,19 +739,19 @@ private:
       std::vector<std::string> retFilePaths;
       const std::vector<std::string> &inFilePaths = this->GetParameterStringList("il");
       for (const std::string &inPath: inFilePaths) {
-          if ( !boost::filesystem::exists( inPath ) ) {
+          if ( !std::filesystem::exists( inPath ) ) {
               otbAppLogWARNING("The provided input path does not exists: " << inPath);
               continue;
           }
-          if (boost::filesystem::is_directory(inPath)) {
-              boost::filesystem::directory_iterator end_itr;
+          if (std::filesystem::is_directory(inPath)) {
+              std::filesystem::directory_iterator end_itr;
 
-              boost::filesystem::path dirPath(inPath);
+              std::filesystem::path dirPath(inPath);
               // cycle through the directory
-              for (boost::filesystem::directory_iterator itr(dirPath); itr != end_itr; ++itr) {
-                  if (boost::filesystem::is_regular_file(itr->path())) {
+              for (std::filesystem::directory_iterator itr(dirPath); itr != end_itr; ++itr) {
+                  if (std::filesystem::is_regular_file(itr->path())) {
                       // assign current file name to current_file and echo it out to the console.
-                      boost::filesystem::path pathObj = itr->path();
+                      std::filesystem::path pathObj = itr->path();
                       if (pathObj.has_extension()) {
                           std::string fileExt = pathObj.extension().string();
                           // Fetch the extension from path object and return

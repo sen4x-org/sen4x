@@ -4,7 +4,7 @@
 #include "TimeSeriesAnalysisUtils.h"
 #include "TsaHelperFunctions.h"
 
-#include "boost/filesystem.hpp"
+#include <filesystem>
 
 #define SEC_IN_5_WEEKS                  3024000 // 5 weeks * 7 days * seconds in day
 
@@ -15,7 +15,7 @@ TsaHarvestOnlyAnalysisHandler::TsaHarvestOnlyAnalysisHandler(itk::Logger* logger
 }
 
 void TsaHarvestOnlyAnalysisHandler::SetPrevPracticeFileName(const std::string &prevPrdDir, const std::string &prevFileName) {
-    boost::filesystem::path rootFolder(prevPrdDir);
+    std::filesystem::path rootFolder(prevPrdDir);
     m_prevPrdReader.Initialize((rootFolder / prevFileName).string());
 }
 

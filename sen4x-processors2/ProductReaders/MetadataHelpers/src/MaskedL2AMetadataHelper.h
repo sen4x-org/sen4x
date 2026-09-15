@@ -16,6 +16,7 @@
 #ifndef MASKEDL2AMETADATAHELPER_H
 #define MASKEDL2AMETADATAHELPER_H
 
+#include <filesystem>
 #include "MetadataHelperFactory.h"
 #include "MetadataHelper.h"
 
@@ -45,7 +46,7 @@ public:
                 return false;
             }
         }
-        boost::filesystem::path pRefFile(file);
+        std::filesystem::path pRefFile(file);
         while (std::getline(fStream, line)) {
             line.erase(std::remove_if(line.begin(), line.end(), isspace),line.end());
             if (line.size() == 0 || line[0] == '#') {
@@ -54,7 +55,7 @@ public:
             auto delimiterPos = line.find("=");
             auto key = line.substr(0, delimiterPos);
             auto value = line.substr(delimiterPos + 1);
-            if ( !boost::filesystem::exists(value) )
+            if ( !std::filesystem::exists(value) )
             {
                 std::cout << "Cannot find L2A metadata file " << value << " described in " << file << std::endl;
                 return false;
@@ -67,7 +68,7 @@ public:
                 auto idx = key.find("MSK_");
                 if (idx == 0) {
                     auto res = line.substr(strlen("MSK_"));
-                    if (!boost::filesystem::exists(pRefFile.parent_path() / value)) {
+                    if (!std::filesystem::exists(pRefFile.parent_path() / value)) {
                         std::cout << "Mask file " << value << " cannot be found in directory " << pRefFile.string() << std::endl;
                         return false;
                     }

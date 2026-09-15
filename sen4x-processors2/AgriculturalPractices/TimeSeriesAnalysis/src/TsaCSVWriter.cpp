@@ -15,7 +15,7 @@
 #include "TsaCSVWriter.h"
 #include "TimeSeriesAnalysisUtils.h"
 
-#include <boost/filesystem.hpp>
+#include <filesystem>
 
 TsaCSVWriter::TsaCSVWriter() {
     m_IndexPossibleVals = {{"STRONG", 1}, {"MODERATE", 1}, {"WEAK", 1}, {"POOR", 1}};
@@ -110,7 +110,7 @@ void TsaCSVWriter::WriteHarvestInfoToCsv(const FieldInfoType &fieldInfo, const H
 std::string TsaCSVWriter::GetResultsCsvFilePath(const std::string &outDir, const std::string &practiceName, const std::string &countryCode,
                                   int year) {
     const std::string &fileName = BuildResultsCsvFileName(practiceName, countryCode, year);
-    boost::filesystem::path rootFolder(outDir);
+    std::filesystem::path rootFolder(outDir);
     return (rootFolder / fileName).string();
 }
 

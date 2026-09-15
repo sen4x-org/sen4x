@@ -19,8 +19,8 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/predicate.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/system/error_code.hpp>
+#include <filesystem>
+#include <system_error>
 
 template <typename PixelType, typename MasksPixelType>
 bool SEN2CORMetadataHelper<PixelType, MasksPixelType>::is_number(const std::string &s)
@@ -427,7 +427,7 @@ std::string SEN2CORMetadataHelper<PixelType, MasksPixelType>::GetRasterPathForBa
     const std::string &suffix = ("_" + normalizedBandName + "_" + std::to_string(res) + "m");
     const std::string &filePath =
         this->GetSen2CorImageFileName(this->m_metadata->ProductOrganization.ImageFiles, suffix);
-    if ((filePath.length() != 0) && boost::filesystem::exists(filePath)) {
+    if ((filePath.length() != 0) && std::filesystem::exists(filePath)) {
         return filePath;
     }
     return "";
@@ -645,7 +645,7 @@ bool SEN2CORMetadataHelper<PixelType, MasksPixelType>::GetSen2CorImageFileName(
     if (fileInfo.LogicalName.length() >= ending.length() &&
         0 == fileInfo.LogicalName.compare(fileInfo.LogicalName.length() - ending.length(),
                                           ending.length(), ending)) {
-        boost::filesystem::path rootFolder(this->m_DirName);
+        std::filesystem::path rootFolder(this->m_DirName);
         // Get the extension of file (default for Sen2Cor is ".xml")
         const std::string &ext = this->GetRasterFileExtension();
         retStr = (rootFolder /
@@ -671,15 +671,15 @@ template <typename PixelType, typename MasksPixelType>
 bool SEN2CORMetadataHelper<PixelType, MasksPixelType>::CheckFileExistence(std::string &fileName)
 {
     bool ret = true;
-    boost::system::error_code ec;
-    if (!boost::filesystem::exists(fileName, ec)) {
+    std::error_code ec;
+    if (!std::filesystem::exists(fileName, ec)) {
         size_t lastindex = fileName.find_last_of(".");
         if ((lastindex != std::string::npos) && (lastindex != (fileName.length() - 1))) {
             std::string rawname = fileName.substr(0, lastindex);
             std::string ext = fileName.substr(lastindex + 1);
             std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
             std::string recomputedName = rawname + "." + ext;
-            if (boost::filesystem::exists(recomputedName, ec)) {
+            if (std::filesystem::exists(recomputedName, ec)) {
                 fileName = recomputedName;
             } else {
                 ret = false;
@@ -693,7 +693,7 @@ template <typename PixelType, typename MasksPixelType>
 std::string SEN2CORMetadataHelper<PixelType, MasksPixelType>::GetGranuleXmlPath(
     const std::unique_ptr<MACCSFileMetadata> &metadata)
 {
-    boost::filesystem::path path(metadata->ProductPath);
+    std::filesystem::path path(metadata->ProductPath);
     path = path.parent_path();
     std::string relFileLocation = metadata->ProductOrganization.ImageFiles[0].FileLocation;
     relFileLocation = relFileLocation.substr(0, relFileLocation.find("/IMG_DATA/"));

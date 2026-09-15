@@ -1,6 +1,6 @@
 #include "StatisticsInfosXmlReader.h"
 
-#include <boost/filesystem.hpp>
+#include <filesystem>
 #include <boost/algorithm/string.hpp>
 #include <fstream>
 #include <iostream>
@@ -168,7 +168,7 @@ void StatisticsInfosXmlReader::Initialize(const std::string &source, const std::
     m_year = year;
     // check if index file exists near the source xml
     const std::string &idxFilePath(source + ".idx");
-    if ( boost::filesystem::exists(idxFilePath)) {
+    if ( std::filesystem::exists(idxFilePath)) {
         std::cout << "Loading indexes file " << idxFilePath << std::endl;
         // load the indexes
         std::ifstream idxFileStream(idxFilePath);

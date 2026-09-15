@@ -1,6 +1,6 @@
 #include "Markers1CsvReader.h"
 
-#include <boost/filesystem.hpp>
+#include <filesystem>
 #include <boost/algorithm/string.hpp>
 #include <fstream>
 
@@ -191,7 +191,7 @@ bool Markers1CsvReader::LoadIndexFile(const std::string &source) {
     // check if index file exists near the source xml
     const std::string &idxFilePath(source + ".idx");
     char csvSep = ',';
-    if ( boost::filesystem::exists(idxFilePath)) {
+    if ( std::filesystem::exists(idxFilePath)) {
         std::cout << "Loading indexes file " << idxFilePath << std::endl;
         // load the indexes
         std::string line;

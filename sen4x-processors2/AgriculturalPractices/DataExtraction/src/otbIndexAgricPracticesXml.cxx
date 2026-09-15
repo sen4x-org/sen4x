@@ -16,7 +16,7 @@
 #include "otbWrapperApplication.h"
 #include "otbWrapperApplicationFactory.h"
 
-#include <boost/filesystem.hpp>
+#include <filesystem>
 #include <boost/lexical_cast.hpp>
 #include <regex>
 
@@ -40,7 +40,6 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
-#include <boost/filesystem.hpp>
 
 
 namespace otb
@@ -109,7 +108,7 @@ public:
             otbAppLogFATAL(<<"No file was given as input!");
         }
 
-        boost::filesystem::path path(inFile);
+        std::filesystem::path path(inFile);
         std::string ext = path.extension().string();
         bool bIsCsv = false;
         if (boost::iequals(ext, ".csv")) {

@@ -24,7 +24,7 @@
 #include "otbConcatenateVectorImagesFilter.h"
 #include "otbBandMathImageFilter.h"
 #include "otbVectorImageToImageListFilter.h"
-#include <boost/filesystem.hpp>
+#include <filesystem>
 #include "otbMarkers1CsvWriter.h"
 #include <regex>
 
@@ -598,7 +598,7 @@ private:
 
         for (std::vector<std::string>::const_iterator itImages = imagesPaths.begin();
              itImages != imagesPaths.end(); ++itImages) {
-            if ( !boost::filesystem::exists(*itImages) ) {
+            if ( !std::filesystem::exists(*itImages) ) {
                 otbAppLogWARNING("File " << *itImages << " does not exist on disk!");
                 continue;
             }
@@ -699,8 +699,8 @@ private:
 
     std::string BuildUniqueFileName(const std::string &targetDir, const std::string &refFileName) {
         bool bOutputCsv = true; // TODO : Here we can have an adapter for .ipc?
-        boost::filesystem::path rootFolder(targetDir);
-        boost::filesystem::path pRefFile(refFileName);
+        std::filesystem::path rootFolder(targetDir);
+        std::filesystem::path pRefFile(refFileName);
         std::string fileName = pRefFile.stem().string() + (bOutputCsv ? ".csv" : ".ipc");
         return (rootFolder / fileName).string();
     }
@@ -709,7 +709,7 @@ private:
         // Reproject geometries
         if (HasValue("filterids")) {
             const std::string &filterIdsFile = this->GetParameterString("filterids");
-            if (boost::filesystem::exists(filterIdsFile ))
+            if (std::filesystem::exists(filterIdsFile ))
             {
                 otbAppLogINFO("Loading filter IDs from file " << filterIdsFile);
                 // load the indexes
@@ -732,7 +732,7 @@ private:
 
     int GetInputRasterBandIdx(const std::string &rasterPath, const std::string &prdType, const std::string &bandDiscr) {
         if (prdType == "L2A") {
-            boost::filesystem::path pRefFile(rasterPath);
+            std::filesystem::path pRefFile(rasterPath);
             // check if starts with L8
             if(pRefFile.stem().string().find("L8") == 0) {
                 return GetInputRasterBandIdx(Satellite::Landsat8, bandDiscr);
@@ -755,7 +755,7 @@ private:
     }
 
     MaskImageType::Pointer GetProductMaskImage(const std::string &prdType, const std::string &rasterPath, int imgRes, int &maskValidValue, bool &bOk) {
-        boost::filesystem::path pRefFile(rasterPath);
+        std::filesystem::path pRefFile(rasterPath);
         std::string fileName = pRefFile.filename().string();
         if (prdType == "L2A") {
             std::string mtdFile;
@@ -767,7 +767,7 @@ private:
                 mtdFile = GetFileFromDir(pRefFile.parent_path().string(), R"(.*MTD_ALL.xml)");
             } else if (fileName.at(0) == 'T' && boost::algorithm::contains(fileName, "_B") && boost::algorithm::ends_with(fileName, ".jp2")) {
                 // We have an Sen2Cor L2A product. Get the mtd xml file 2 levels above
-                boost::filesystem::path prdRootDir = pRefFile.parent_path().parent_path().parent_path().parent_path().parent_path();
+                std::filesystem::path prdRootDir = pRefFile.parent_path().parent_path().parent_path().parent_path().parent_path();
                 mtdFile = GetFileFromDir(prdRootDir.string(), R"(MTD_MSIL2A\.xml)");
             }
             if (mtdFile.size() > 0) {
@@ -792,17 +792,18 @@ private:
     }
 
     std::string GetFileFromDir(const std::string &dir, const std::string &filePattern) {
-        boost::filesystem::directory_iterator end_itr; // Default ctor yields past-the-end
-        for( boost::filesystem::directory_iterator i( dir ); i != end_itr; ++i )
+        std::filesystem::directory_iterator end_itr; // Default ctor yields past-the-end
+        for( std::filesystem::directory_iterator i( dir ); i != end_itr; ++i )
         {
             // Skip if not a file
-            if (!boost::filesystem::is_regular_file( i->status() ) )  {
+            if (!std::filesystem::is_regular_file( i->status() ) )  {
                 continue;
             }
             if (filePattern.size() > 0) {
                 std::regex regexExp(filePattern);
                 std::smatch matches;
-                if (std::regex_match(i->path().filename().string(),matches,regexExp)) {
+                const std::string fileName = i->path().filename().string();
+                if (std::regex_match(fileName,matches,regexExp)) {
                     return i->path().string();
                 }
             }

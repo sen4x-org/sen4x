@@ -1,6 +1,6 @@
 #include "StatisticsInfosSingleCsvReader.h"
 
-#include <boost/filesystem.hpp>
+#include <filesystem>
 #include <boost/algorithm/string.hpp>
 #include <fstream>
 
@@ -45,7 +45,7 @@ void StatisticsInfosSingleCsvReader::Initialize(const std::string &source, const
 
     // check if index file exists near the source xml
     const std::string &idxFilePath(source + ".idx");
-    if ( boost::filesystem::exists(idxFilePath)) {
+    if ( std::filesystem::exists(idxFilePath)) {
         std::cout << "Loading indexes file " << idxFilePath << std::endl;
         // load the indexes
         std::ifstream idxFileStream(idxFilePath);

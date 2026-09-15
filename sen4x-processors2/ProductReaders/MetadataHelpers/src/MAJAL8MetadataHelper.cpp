@@ -17,8 +17,6 @@
 #include "ViewingAngles.hpp"
 
 #include <boost/algorithm/string/predicate.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/system/error_code.hpp>
 #include "MAJAMetadataReader.hpp"
 
 typedef itk::MAJAMetadataReader                                    MAJAMetadataReaderType;

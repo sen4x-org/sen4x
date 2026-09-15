@@ -15,7 +15,7 @@
 
 #include "otbWrapperApplication.h"
 #include "otbWrapperApplicationFactory.h"
-#include <boost/filesystem.hpp>
+#include <filesystem>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string.hpp>
 #include <unordered_map>
@@ -465,7 +465,7 @@ private:
 
     void CreateOutputStreams(const std::string &outFilePath, std::ofstream &outFileStream, std::ofstream &indexFileStream) {
         std::string outIdxPath;
-        boost::filesystem::path path(outFilePath);
+        std::filesystem::path path(outFilePath);
         outIdxPath = (path.parent_path() / path.filename()).string() + ".idx";
         indexFileStream.open(outIdxPath, std::ios_base::trunc | std::ios_base::out);
 
@@ -531,19 +531,19 @@ private:
         std::vector<std::string> retFilePaths;
         const std::vector<std::string> &inFilePaths = this->GetParameterStringList("il");
         for (const std::string &inPath: inFilePaths) {
-            if ( !boost::filesystem::exists( inPath ) ) {
+            if ( !std::filesystem::exists( inPath ) ) {
                 otbAppLogWARNING("The provided input path does not exists: " << inPath);
                 continue;
             }
-            if (boost::filesystem::is_directory(inPath)) {
-                boost::filesystem::directory_iterator end_itr;
+            if (std::filesystem::is_directory(inPath)) {
+                std::filesystem::directory_iterator end_itr;
 
-                boost::filesystem::path dirPath(inPath);
+                std::filesystem::path dirPath(inPath);
                 // cycle through the directory
-                for (boost::filesystem::directory_iterator itr(dirPath); itr != end_itr; ++itr) {
-                    if (boost::filesystem::is_regular_file(itr->path())) {
+                for (std::filesystem::directory_iterator itr(dirPath); itr != end_itr; ++itr) {
+                    if (std::filesystem::is_regular_file(itr->path())) {
                         // assign current file name to current_file and echo it out to the console.
-                        boost::filesystem::path pathObj = itr->path();
+                        std::filesystem::path pathObj = itr->path();
                         if (pathObj.has_extension()) {
                             std::string fileExt = pathObj.extension().string();
                             // Fetch the extension from path object and return

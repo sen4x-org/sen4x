@@ -16,7 +16,7 @@
 #include "otbWrapperApplication.h"
 #include "otbWrapperApplicationFactory.h"
 
-#include <boost/filesystem.hpp>
+#include <filesystem>
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
 
@@ -267,8 +267,8 @@ private:
         otbAppLogINFO("#######################################");
 
         // Start the processing
-        boost::filesystem::path practicesInfoPath(inShpFile);
-        std::string pfFormat = practicesInfoPath.extension().c_str();
+        std::filesystem::path practicesInfoPath(inShpFile);
+        std::string pfFormat = practicesInfoPath.extension().string();
         pfFormat.erase(pfFormat.begin(), std::find_if(pfFormat.begin(), pfFormat.end(), [](int ch) {
                 return ch != '.';
             }));
@@ -428,7 +428,7 @@ private:
     void CopyToTargetFolder(const std::string &outFilePath) {
         if (HasValue("copydir")) {
             const std::string &copyDir = this->GetParameterString("copydir");
-            if(copyDir.size() == 0 || !boost::filesystem::is_directory(copyDir)) {
+            if(copyDir.size() == 0 || !std::filesystem::is_directory(copyDir)) {
                 return;
             }
             otbAppLogINFO("Copying file " << outFilePath << " to " << copyDir << "...");
@@ -437,18 +437,18 @@ private:
             m_outPracticesFileStream.flush();
             m_outPracticesFileStream.close();
 
-            boost::filesystem::path p(outFilePath);
+            std::filesystem::path p(outFilePath);
             std::string fileName = p.filename().string();
             std::string ext = p.extension().string();
 
-            boost::filesystem::path finalFilePath(copyDir);
+            std::filesystem::path finalFilePath(copyDir);
             finalFilePath /= (fileName);
             std::string finalPathStr = finalFilePath.string();
 
-            if (!boost::filesystem::exists(finalPathStr) || !areFilesIdentical(outFilePath, finalPathStr)) {
+            if (!std::filesystem::exists(finalPathStr) || !areFilesIdentical(outFilePath, finalPathStr)) {
                 boost::uuids::uuid uuid = boost::uuids::random_generator()();
                 const std::string &newFileName = (boost::lexical_cast<std::string>(uuid) + ext);
-                boost::filesystem::path targetPath(copyDir);
+                std::filesystem::path targetPath(copyDir);
                 targetPath /= newFileName;
                 if (!copyFile(outFilePath, targetPath.string())) {
                     otbAppLogCRITICAL("Output file " << outFilePath << " cannot be copied to target dir " << copyDir);
@@ -457,8 +457,8 @@ private:
                 try {
                     // check again if the target file exists and has the exact same content
                     std::string targetPathStr = targetPath.string();
-                    if (!boost::filesystem::exists(finalPathStr) || !areFilesIdentical(targetPathStr, finalPathStr)) {
-                        boost::filesystem::rename(targetPathStr, finalPathStr);
+                    if (!std::filesystem::exists(finalPathStr) || !areFilesIdentical(targetPathStr, finalPathStr)) {
+                        std::filesystem::rename(targetPathStr, finalPathStr);
                     }
                 } catch (...) {
                     otbAppLogCRITICAL("Output file " << targetPath << " cannot be copied to final target file " << finalFilePath);

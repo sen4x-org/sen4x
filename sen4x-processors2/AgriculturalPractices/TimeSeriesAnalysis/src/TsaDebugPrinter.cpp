@@ -15,7 +15,6 @@
 #include "TsaDebugPrinter.h"
 #include "TimeSeriesAnalysisUtils.h"
 
-#include <boost/filesystem.hpp>
 
 TsaDebugPrinter::TsaDebugPrinter() : m_bDebugMode(false) {
 

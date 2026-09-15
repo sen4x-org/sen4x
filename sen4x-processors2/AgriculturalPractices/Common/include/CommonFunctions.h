@@ -2,7 +2,7 @@
 #define CommonFunctions_h
 
 #include <regex>
-#include <boost/filesystem.hpp>
+#include <filesystem>
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time.hpp>
@@ -367,8 +367,8 @@ inline void NormalizeFieldId(std::string &fieldId) {
 //inline bool GetFileInfosFromName(const std::string &filePath, std::string &fileType, std::string & polarisation,
 //                          std::string & orbit, time_t &fileDate, time_t &additionalFileDate)
 //{
-//    boost::filesystem::path p(filePath);
-//    boost::filesystem::path pf = p.filename();
+//    std::filesystem::path p(filePath);
+//    std::filesystem::path pf = p.filename();
 //    std::string fileName = pf.string();
 
 //    fileType = "";
@@ -427,8 +427,8 @@ inline void NormalizeFieldId(std::string &fieldId) {
 inline bool GetFileInfosFromName(const std::string &filePath, Satellite &sat, std::string &fileType, std::string &polarisation,
                           std::string & orbit, time_t &fileDate, std::string &tile, std::string &band, time_t &prevFileDate)
 {
-    boost::filesystem::path p(filePath);
-    boost::filesystem::path pf = p.filename();
+    std::filesystem::path p(filePath);
+    std::filesystem::path pf = p.filename();
     std::string fileName = pf.string();
 
     fileType = "";
@@ -512,10 +512,10 @@ inline std::string BuildOutputFileName(const std::string &fid, const std::string
 }
 
 inline std::string GetIndividualFieldFileName(const std::string &outDirPath, const std::string &fileName) {
-    boost::filesystem::path rootFolder(outDirPath);
+    std::filesystem::path rootFolder(outDirPath);
     // check if this path is a folder or a file
     // if it is a file, then we get its parent folder
-    if (!boost::filesystem::is_directory(rootFolder)) {
+    if (!std::filesystem::is_directory(rootFolder)) {
         rootFolder = rootFolder.parent_path();
     }
     return (rootFolder / fileName).string() + ".txt";

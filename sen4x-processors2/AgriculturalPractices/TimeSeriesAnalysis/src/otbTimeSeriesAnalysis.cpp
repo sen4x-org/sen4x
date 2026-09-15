@@ -14,7 +14,7 @@
  =========================================================================*/
 #include "otbWrapperApplication.h"
 #include "otbWrapperApplicationFactory.h"
-#include <boost/filesystem.hpp>
+#include <filesystem>
 
 #include "otbOGRDataSourceWrapper.h"
 
@@ -433,8 +433,8 @@ private:
                                       curYear, inputType);
 
         const std::string &practicesInfoFile = GetParameterAsString("harvestshp");
-        boost::filesystem::path practicesInfoPath(practicesInfoFile);
-        std::string pfFormat = practicesInfoPath.extension().c_str();
+        std::filesystem::path practicesInfoPath(practicesInfoFile);
+        std::string pfFormat = practicesInfoPath.extension().string();
         pfFormat.erase(pfFormat.begin(), std::find_if(pfFormat.begin(), pfFormat.end(), [](int ch) {
                 return ch != '.';
             }));
@@ -983,7 +983,7 @@ private:
         // Reproject geometries
         if (HasValue("filterids")) {
             const std::string &filterIdsFile = this->GetParameterString("filterids");
-            if (boost::filesystem::exists(filterIdsFile ))
+            if (std::filesystem::exists(filterIdsFile ))
             {
                 otbAppLogINFO("Loading filter IDs from file " << filterIdsFile);
                 // load the indexes

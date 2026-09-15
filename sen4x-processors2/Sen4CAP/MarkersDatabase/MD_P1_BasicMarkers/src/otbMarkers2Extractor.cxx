@@ -15,7 +15,7 @@
 
 #include "otbWrapperApplication.h"
 #include "otbWrapperApplicationFactory.h"
-#include <boost/filesystem.hpp>
+#include <filesystem>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string.hpp>
 #include <unordered_map>
@@ -115,7 +115,7 @@ private:
             }
         }
         const std::string &inFilePath = this->GetParameterString("in");
-        if ( !boost::filesystem::exists( inFilePath ) ) {
+        if ( !std::filesystem::exists( inFilePath ) ) {
             otbAppLogFATAL("The provided input path does not exists: " << inFilePath);
         }
 
@@ -318,7 +318,7 @@ private:
 
     void CreateOutputStreams(const std::string &outFilePath, std::ofstream &outFileStream, std::ofstream &indexFileStream) {
         std::string outIdxPath;
-        boost::filesystem::path path(outFilePath);
+        std::filesystem::path path(outFilePath);
         outIdxPath = (path.parent_path() / path.filename()).string() + ".idx";
         indexFileStream.open(outIdxPath, std::ios_base::trunc | std::ios_base::out);
 

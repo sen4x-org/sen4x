@@ -24,7 +24,7 @@
 #include "otbConcatenateVectorImagesFilter.h"
 #include "otbBandMathImageFilter.h"
 #include "otbVectorImageToImageListFilter.h"
-#include <boost/filesystem.hpp>
+#include <filesystem>
 #include "otbAgricPractDataExtrFileWriter2.h"
 
 #include "ImageResampler.h"
@@ -326,7 +326,7 @@ private:
         } else if(imagesPaths.size() == 1) {
             // If we heva only one file, we check if this is a CSV file containing the
             // products and the masked S2 rasters
-            boost::filesystem::path pathObj(imagesPaths[0]);
+            std::filesystem::path pathObj(imagesPaths[0]);
             std::string ext = pathObj.extension().string();
             if (boost::iequals(ext, ".csv")) {
                 m_bUseS2RasterMasks = true;
@@ -371,7 +371,7 @@ private:
         for (std::vector<InputFileInfoType>::const_iterator itInfos = m_InputFilesInfos.begin();
              itInfos != m_InputFilesInfos.end(); ++itInfos)
         {
-            if ( !boost::filesystem::exists(itInfos->inputImage) ) {
+            if ( !std::filesystem::exists(itInfos->inputImage) ) {
                 otbAppLogWARNING("File " << itInfos->inputImage << " does not exist on disk!");
                 continue;
             }
@@ -729,8 +729,8 @@ private:
 
     std::string BuildUniqueFileName(const std::string &targetDir, const std::string &refFileName) {
         bool bOutputCsv = (GetParameterInt("outcsv") != 0);
-        boost::filesystem::path rootFolder(targetDir);
-        boost::filesystem::path pRefFile(refFileName);
+        std::filesystem::path rootFolder(targetDir);
+        std::filesystem::path pRefFile(refFileName);
         std::string fileName = pRefFile.stem().string() + (bOutputCsv ? ".csv" : ".xml");
         return (rootFolder / fileName).string();
     }
@@ -784,7 +784,7 @@ private:
         // Reproject geometries
         if (HasValue("filterids")) {
             const std::string &filterIdsFile = this->GetParameterString("filterids");
-            if (boost::filesystem::exists(filterIdsFile ))
+            if (std::filesystem::exists(filterIdsFile))
             {
                 otbAppLogINFO("Loading filter IDs from file " << filterIdsFile);
                 // load the indexes
@@ -806,8 +806,8 @@ private:
             // extract and filter the ids from the declarations file (csv or shp)
             const std::string &declsFile = this->GetParameterString("decls");
             otbAppLogINFO("Loading declarations infos from file " << declsFile);
-            boost::filesystem::path practicesInfoPath(declsFile);
-            std::string pfFormat = practicesInfoPath.extension().c_str();
+            std::filesystem::path practicesInfoPath(declsFile);
+            std::string pfFormat = practicesInfoPath.extension().string();
             pfFormat.erase(pfFormat.begin(), std::find_if(pfFormat.begin(), pfFormat.end(), [](int ch) {
                     return ch != '.';
                 }));
@@ -892,8 +892,7 @@ private:
 
     bool CheckIfOutputExists(const std::string &imgPath, const std::string &outDir) {
         const std::string &outFilePath = BuildUniqueFileName(outDir, imgPath);
-        return boost::filesystem::exists(outFilePath);
-
+        return std::filesystem::exists(outFilePath);
     }
 
     private:

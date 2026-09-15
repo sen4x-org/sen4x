@@ -14,7 +14,7 @@
  =========================================================================*/
  
 #include <boost/algorithm/string/predicate.hpp>
-#include <boost/filesystem.hpp>
+#include <filesystem>
 
 #include "CommonMetadata.hpp"
 
@@ -25,8 +25,8 @@ std::string getRasterFile(const MACCSFileMetadata &metadata, const char *suffix)
 
     for (const auto &fileInfo : metadata.ProductOrganization.ImageFiles) {
         if (boost::algorithm::ends_with(fileInfo.LogicalName, suffix)) {
-            boost::filesystem::path p(metadata.ProductPath);
-            p.remove_filename();
+            std::filesystem::path p(metadata.ProductPath);
+            p = p.parent_path();
             p /= fileInfo.FileLocation;
             p.replace_extension(".DBL.TIF");
             file = p.string();
@@ -40,8 +40,8 @@ std::string getRasterFile(const MACCSFileMetadata &metadata, const char *suffix)
 
 std::string getRasterFile(const SPOT4Metadata &metadata, const std::string &file)
 {
-    boost::filesystem::path p(metadata.ProductPath);
-    p.remove_filename();
+    std::filesystem::path p(metadata.ProductPath);
+    p = p.parent_path();
     p /= file;
     return p.string();
 }

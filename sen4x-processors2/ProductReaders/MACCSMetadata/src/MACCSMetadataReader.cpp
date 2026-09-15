@@ -16,7 +16,7 @@
 #include <limits>
 
 #include <boost/algorithm/string/predicate.hpp>
-#include <boost/filesystem.hpp>
+#include <filesystem>
 
 #include "otbMacro.h"
 
@@ -587,8 +587,8 @@ static void FixProductOrganization(CommonProductOrganization &po)
             compareSuffix(file.LogicalName, "_FRE_R1", foundFRE_R1, name) ||
             compareSuffix(file.LogicalName, "_FRE_R2", foundFRE_R2, name)) {
             if (dir.empty()) {
-                boost::filesystem::path p(file.FileLocation);
-                p.remove_filename();
+                std::filesystem::path p(file.FileLocation);
+                p = p.parent_path();
 #ifdef _WIN32
                 dir = ConvertFromUtf16ToUtf8(p.native().c_str());
 #else   
