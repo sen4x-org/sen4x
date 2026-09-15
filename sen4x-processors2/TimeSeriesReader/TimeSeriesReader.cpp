@@ -286,7 +286,7 @@ TimeSeriesReader::GetProductMask(const std::unique_ptr<MetadataHelper<float, uin
 {
     // Return the mask associated with the product with 1 if one of the flags is present and 0
     // otherwise
-    MasksImageType::Pointer imgMsk = pHelper->GetMasksImage(ALL, true);
+    MasksImageType::Pointer imgMsk = pHelper->GetMasksImage(ALL, true, m_pixSize);
 
     // Resample if needed
     return getResampledBand<UInt8ImageType>(imgMsk, td, true);
