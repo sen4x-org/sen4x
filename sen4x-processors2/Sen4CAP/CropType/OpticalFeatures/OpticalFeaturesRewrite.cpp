@@ -123,6 +123,31 @@ std::vector<std::string> splitString(const std::string &value, char delimiter)
     return parts;
 }
 
+std::string replacePathPrefix(const std::string &path,
+                             const std::vector<std::pair<std::string, std::string>> &replacements)
+{
+    for (const auto &rep : replacements) {
+        if (path.starts_with(rep.first)) {
+            return rep.second + path.substr(rep.first.length());
+        }
+    }
+    return path;
+}
+
+std::vector<std::pair<std::string, std::string>>
+parsePathReplacements(const std::vector<std::string> &items)
+{
+    std::vector<std::pair<std::string, std::string>> res;
+    for (const auto &item : items) {
+        const auto delimPos = item.find(':');
+        if (delimPos != std::string::npos && delimPos != 0) {
+            res.emplace_back(item.substr(0, delimPos), item.substr(delimPos + 1));
+        }
+    }
+
+    return res;
+}
+
 typedef otb::Image<uint8_t, 2> UInt8ImageType;
 typedef otb::ImageFileReader<UInt8ImageType> UInt8ImageReaderType;
 typedef otb::StreamingResampleImageFilter<UInt8ImageType, UInt8ImageType, double>
@@ -190,19 +215,19 @@ public:
                    const std::string &granuleName,
                    const std::string &filePrefix,
                    const std::string &acquisitionDateTime,
-                   const std::map<int, float> &boaOffsetsByBandId)
+                   const std::map<int, float> &boaOffsetsByBandId,
+                   const std::vector<std::pair<std::string, std::string>> &pathReplacements = {})
         : m_MtdPath(mtdPath),
-          m_ProductRoot(productRoot),
+          m_ProductRoot(replacePathPrefix(productRoot, pathReplacements)),
           m_GranuleName(granuleName),
           m_AcquisitionDateTime(acquisitionDateTime),
           m_FilePrefix(filePrefix),
           m_BoaOffsetsByBandId(boaOffsetsByBandId)
     {
-        fs::path granulePath = fs::path(m_ProductRoot) / "GRANULE" / m_GranuleName;
-        fs::path imgDataPath = granulePath / "IMG_DATA";
-        m_GranulePath = granulePath.string();
-        m_R10mPath = (imgDataPath / "R10m").string();
-        m_R20mPath = (imgDataPath / "R20m").string();
+        m_GranulePath = joinPath(joinPath(m_ProductRoot, "GRANULE"), m_GranuleName);
+        const std::string imgDataPath = joinPath(m_GranulePath, "IMG_DATA");
+        m_R10mPath = joinPath(imgDataPath, "R10m");
+        m_R20mPath = joinPath(imgDataPath, "R20m");
     }
 
     std::string GetBandPath(Sentinel2Band band) const override
@@ -365,9 +390,10 @@ public:
     MajaProduct(const std::string &mtdPath,
                 const std::string &productRoot,
                 const std::string &filePrefix,
-                const std::string &acquisitionDateTime)
+                const std::string &acquisitionDateTime,
+                const std::vector<std::pair<std::string, std::string>> &pathReplacements = {})
         : m_MtdPath(mtdPath),
-          m_ProductRoot(productRoot),
+          m_ProductRoot(replacePathPrefix(productRoot, pathReplacements)),
           m_FilePrefix(filePrefix),
           m_AcquisitionDateTime(acquisitionDateTime)
     {
@@ -376,8 +402,7 @@ public:
     std::string GetBandPath(Sentinel2Band band) const override
     {
         const std::string normalizedBand = GetBandToken(band);
-        return (fs::path(m_ProductRoot) / (m_FilePrefix + "_FRE_" + normalizedBand + ".tif"))
-            .string();
+        return joinPath(m_ProductRoot, m_FilePrefix + "_FRE_" + normalizedBand + ".tif");
     }
 
     std::string GetAcquisitionDateYYYYMMDD() const override
@@ -393,7 +418,7 @@ public:
                                           UInt8ImageType::Pointer &outMask) const override
     {
         const std::string suffix = (targetPixelSizeMeters == 10) ? "_R1.tif" : "_R2.tif";
-        const std::string maskDir = (fs::path(m_ProductRoot) / "MASKS").string();
+        const std::string maskDir = joinPath(m_ProductRoot, "MASKS");
 
         const std::string mg2Path = joinPath(maskDir, m_FilePrefix + "_MG2" + suffix);
         const std::string edgPath = joinPath(maskDir, m_FilePrefix + "_EDG" + suffix);
@@ -476,7 +501,9 @@ public:
 class ProductReader
 {
 public:
-    std::unique_ptr<Sentinel2Product> Read(const std::string &mtdPath) const
+    std::unique_ptr<Sentinel2Product>
+    Read(const std::string &mtdPath,
+         const std::vector<std::pair<std::string, std::string>> &pathReplacements = {}) const
     {
         const fs::path mtdFsPath(mtdPath);
         const fs::path productRootPath = mtdFsPath.parent_path();
@@ -520,7 +547,7 @@ public:
 
             return std::unique_ptr<Sentinel2Product>(
                 new Sen2CorProduct(mtdPath, productRoot, granuleName, filePrefix, sensingDateTime,
-                                   boaOffsetsByBandId));
+                                   boaOffsetsByBandId, pathReplacements));
         } else {
             const std::string productRoot = productRootPath.string();
             const std::string filename = mtdFsPath.filename().string();
@@ -538,7 +565,8 @@ public:
             std::string acquisitionDateTime = parts[1];
 
             return std::unique_ptr<Sentinel2Product>(
-                new MajaProduct(mtdPath, productRoot, filePrefix, acquisitionDateTime));
+                new MajaProduct(mtdPath, productRoot, filePrefix, acquisitionDateTime,
+                                pathReplacements));
         }
     }
 
@@ -722,7 +750,7 @@ private:
     {
         SetName("OpticalFeaturesRewrite");
         SetDescription(
-            "Computes NDVI, NDWI, and Brightness features from a time series of S2 descriptors.");
+            "Computes optical features statistics from a time series of S2 descriptors.");
 
         AddParameter(ParameterType_StringList, "il", "Input metadata files");
 
@@ -743,7 +771,7 @@ private:
                      "Debug output pre-gapfill masks stack image");
         MandatoryOff("outmasks");
 
-        AddParameter(ParameterType_StringList, "sp", "Sampling preferences (MISSION:PRIO:RATE)");
+        AddParameter(ParameterType_StringList, "sp", "Temporal sampling rate");
         MandatoryOff("sp");
 
         AddParameter(ParameterType_Choice, "mode", "Mode");
@@ -767,6 +795,10 @@ private:
 
         AddParameter(ParameterType_Bool, "rededge", "Include Sentinel-2 vegetation red edge bands");
         MandatoryOff("rededge");
+
+        AddParameter(ParameterType_StringList, "pathreplace", "Prefix replacement for paths");
+        MandatoryOff("pathreplace");
+        SetDocExampleParameterValue("pathreplace", "/eodata:/vsis3/eodata");
 
         AddRAMParameter();
     }
@@ -818,6 +850,8 @@ private:
     {
         auto inputList = GetParameterStringList("il");
         auto spList = GetParameterStringList("sp");
+        auto pathReplaceList = GetParameterStringList("pathreplace");
+        auto pathReplacements = parsePathReplacements(pathReplaceList);
         const bool redEdge = GetParameterInt("rededge") != 0;
         const double targetPixelSizeMeters = redEdge ? 20.0 : 10.0;
         const std::string mainMission = GetParameterString("mission");
@@ -883,7 +917,7 @@ private:
 
         for (const auto &f : inputList) {
             ProductReader productReader;
-            std::unique_ptr<Sentinel2Product> product = productReader.Read(f);
+            std::unique_ptr<Sentinel2Product> product = productReader.Read(f, pathReplacements);
             std::vector<Sentinel2Band> selectedBands;
             if (redEdge) {
                 selectedBands = { Sentinel2Band::B5, Sentinel2Band::B6, Sentinel2Band::B7,
