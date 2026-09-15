@@ -66,7 +66,7 @@ def export_mdb_csv_practice_file(config, vect_data_path, practiceFile, prd_date)
     
     with open(os.path.join(vect_data_path, practiceFile)) as f:
         reader = csv.reader(f, delimiter=';')
-        with open(new_file_path,"wb") as result:
+        with open(new_file_path, "w") as result:
             wtr= csv.writer( result )
             i = 0;
             header_idxs = []

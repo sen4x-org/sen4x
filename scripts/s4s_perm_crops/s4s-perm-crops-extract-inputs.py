@@ -57,7 +57,7 @@ def get_site_name(conn, site_id):
 
 
 def save_to_csv(rows, path, headers):
-    with open(path, "wb") as csvfile:
+    with open(path, "w") as csvfile:
         writer = csv.writer(csvfile, quoting=csv.QUOTE_MINIMAL)
         writer.writerow(headers)
         for row in rows:
