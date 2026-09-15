@@ -42,13 +42,13 @@ def run_command(config,args, env=None):
     try:
         ret1 = subprocess.call(args, env=env)
         if ret1 != 0 :
-            print "bad subprocess.call"
+            print("bad subprocess.call")
             ret=False
     except subprocess.CalledProcessError:
-        print "run_cmd error"
+        print("run_cmd error")
         ret = False # handle errors in the called executable
     except OSError:
-        print "os error"
+        print("os error")
         ret = False # executable not found    
     
     return ret
