@@ -1,2 +1,1 @@
-add_subdirectory(OpticalFeatures)
 add_subdirectory(classification)

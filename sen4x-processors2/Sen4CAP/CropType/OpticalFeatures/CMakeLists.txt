@@ -2,27 +2,6 @@ include(${OTB_USE_FILE})
 
 otb_create_application(
   NAME
-  OpticalFeatures
-  SOURCES
-  OpticalFeatures.cpp
-  ../Filters/otbCropTypeFeatureExtractionFilter.h
-  ../Filters/otbCropTypeFeatureExtractionFilter.txx
-  ../Filters/otbTemporalResamplingFilter.h
-  ../Filters/otbTemporalResamplingFilter.txx
-  ../Filters/CropTypePreprocessing.h
-  ../Filters/RedEdgeBandsExtractor.h
-  LINK_LIBRARIES
-  ${OTB_LIBRARIES}
-  MACCSMetadata
-  TimeSeriesReader)
-
-include_directories(../../../Common/OTBExtensions)
-include_directories(../../../Common/Filters)
-
-install(TARGETS otbapp_OpticalFeatures DESTINATION usr/lib/otb/applications/)
-
-otb_create_application(
-  NAME
   OpticalFeaturesRewrite
   SOURCES
   OpticalFeaturesRewrite.cpp
