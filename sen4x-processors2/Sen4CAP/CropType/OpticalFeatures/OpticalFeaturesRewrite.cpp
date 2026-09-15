@@ -1165,7 +1165,7 @@ private:
         m_StatsFilter->SetInputLabelImage(classForStats);
         m_StatsFilter->SetNoDataValue(-10000);
         m_StatsFilter->SetUseNoDataValue(true);
-        m_StatsFilter->GetStreamer()->SetTileDimensionTiledStreaming(2048);
+        m_StatsFilter->GetStreamer()->SetTileDimensionTiledStreaming(1024);
 
         AddProcess(m_StatsFilter->GetStreamer(), "Computing features...");
 
