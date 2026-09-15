@@ -133,9 +133,9 @@ void TimeSeriesReader::updateRequiredImageSize(const std::vector<std::string> &d
             td.m_imageHeight = img->GetLargestPossibleRegion().GetSize()[1] / scale;
 
             auto origin = img->GetOrigin();
-            ImageType::SpacingType spacing = img->GetSpacing();
-            td.m_imageOrigin[0] = origin[0] + 0.5 * spacing[0] * (scale - 1.0);
-            td.m_imageOrigin[1] = origin[1] + 0.5 * spacing[1] * (scale - 1.0);
+            double centerShift = 0.5 * (m_pixSize - curRes);
+            td.m_imageOrigin[0] = origin[0] + centerShift;
+            td.m_imageOrigin[1] = origin[1] - centerShift;
 
             td.m_projection = img->GetProjectionRef();
             break;
