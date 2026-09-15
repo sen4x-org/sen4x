@@ -2,6 +2,8 @@
 #include "MetadataHelperFactory.h"
 #include "TimeFunctions.h"
 
+#include <fstream>
+
 int getDaysFromEpoch(const std::string &date)
 {
     struct tm tm = {};

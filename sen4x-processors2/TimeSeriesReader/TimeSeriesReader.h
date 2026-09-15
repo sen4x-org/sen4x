@@ -44,7 +44,6 @@
 #include <string>
 
 #include "MetadataHelper.h"
-#include <boost/filesystem.hpp>
 
 typedef otb::VectorImage<float, 2> ImageType;
 typedef otb::Wrapper::UInt8VectorImageType MaskType;

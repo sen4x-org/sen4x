@@ -1,7 +1,5 @@
 include(${OTB_USE_FILE})
 
-find_package(Boost REQUIRED COMPONENTS filesystem)
-
 set(TimeSeriesReader_HEADERS
     TimeSeriesReader.h
     otbSentinelMaskFilter.h
@@ -17,7 +15,6 @@ add_library(TimeSeriesReader STATIC ${TimeSeriesReader_HEADERS} ${TimeSeriesRead
 target_link_libraries(TimeSeriesReader
     Sen2AgriProductReaders
     Sen2AgriCommonUtils
-    "${Boost_LIBRARIES}"
     "${OTBCommon_LIBRARIES}"
     "${OTBTinyXML_LIBRARIES}"
     "${OTBITK_LIBRARIES}")
