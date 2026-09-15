@@ -54,7 +54,7 @@ def get_overview_levels(size, min_size):
     levels = []
     f = 1
     while size > min_size:
-        size = size / 2
+        size = size // 2
         f = f * 2
         levels.append(f)
     return levels
