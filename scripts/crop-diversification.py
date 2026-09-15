@@ -416,7 +416,7 @@ def main():
                         newrow[field] = debug[agri][field]
 
             for agri in aggDict:
-                firstKey = aggDict[agri].keys()[0]
+                firstKey = next(iter(aggDict[agri]))
                 row = aggDict[agri][firstKey]
                 newrow = {}
                 for field in agri_fields:
