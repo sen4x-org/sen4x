@@ -1198,7 +1198,7 @@ private:
                   tileGeoposition.ulx = coord.x;
                   tileGeoposition.uly = coord.y;
                   tileGeoposition.xdim = output->GetSpacing()[0];
-                  tileGeoposition.ydim = output->GetSpacing()[1];
+                  tileGeoposition.ydim = -output->GetSpacing()[1];
                   tileInfoEl.tileMetadata.TileGeometricInfo.TileGeopositionList.emplace_back(tileGeoposition);
               }
 

@@ -120,6 +120,7 @@ public:
 
          // Evaluate spacing
          ResamplerInputImgSpacingType spacing = image->GetSpacing();
+         spacing[1] = -spacing[1];
          ResamplerInputImgSpacingType OutputSpacing;
          OutputSpacing[0] = std::round(spacing[0] * scale[0]);
          OutputSpacing[1] = std::round(spacing[1] * scale[1]);
@@ -162,6 +163,7 @@ public:
                               Interpolator_Type interpolatorType=Interpolator_Linear) {
         typename TOutput::PointType orig = inOrtho->GetOrigin();
         typename TOutput::SpacingType spacing = inOrtho->GetSpacing();
+        spacing[1] = -spacing[1];
         typename TOutput::SizeType size = inOrtho->GetLargestPossibleRegion().GetSize();
         m_OutputProjectionRef = inOrtho->GetProjectionRef();
         int outputssizex = size[0];
@@ -252,4 +254,3 @@ private:
 };
 
 #endif // GENERIC_RS_IMAGE_RESAMPLER_H
-

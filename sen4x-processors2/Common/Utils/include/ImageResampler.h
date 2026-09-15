@@ -113,7 +113,7 @@ public:
         typename TOutput::PointType origin = image->GetOrigin();
         typename TOutput::PointType outputOrigin;
         outputOrigin[0] = std::round(origin[0] + 0.5 * spacing[0] * (scale[0] - 1.0));
-        outputOrigin[1] = std::round(origin[1] + 0.5 * spacing[1] * (scale[1] - 1.0));
+        outputOrigin[1] = std::round(origin[1] - 0.5 * spacing[1] * (scale[1] - 1.0));
 
         return getResampler(image, scale, forcedWidth, forcedHeight, outputOrigin, interpolatorType);
     }
@@ -157,7 +157,7 @@ public:
          ResamplerInputImgSpacingType spacing = image->GetSpacing();
          ResamplerInputImgSpacingType OutputSpacing;
          OutputSpacing[0] = std::round(spacing[0] * scale[0]);
-         OutputSpacing[1] = std::round(spacing[1] * scale[1]);
+         OutputSpacing[1] = -std::round(spacing[1] * scale[1]);
 
          resampler->SetOutputSpacing(OutputSpacing);
          resampler->SetOutputOrigin(origin);
