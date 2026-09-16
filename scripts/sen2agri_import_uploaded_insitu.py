@@ -6,7 +6,6 @@ from configparser import ConfigParser
 import os
 import os.path
 import glob
-import pipes
 import psycopg2
 from psycopg2.sql import SQL, Literal
 import psycopg2.extras

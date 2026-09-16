@@ -6,7 +6,7 @@ import multiprocessing.dummy
 import os
 import os.path
 import shutil
-import pipes
+import shlex
 import psycopg2
 from psycopg2.sql import SQL, Literal, Identifier
 import psycopg2.extras
@@ -91,7 +91,7 @@ def get_export_table_command(destination, source, *options):
 
 def run_command(args, env=None):
     args = list(map(str, args))
-    cmd_line = " ".join(map(pipes.quote, args))
+    cmd_line = " ".join(map(shlex.quote, args))
     print(cmd_line)
     subprocess.call(args, env=env)
 

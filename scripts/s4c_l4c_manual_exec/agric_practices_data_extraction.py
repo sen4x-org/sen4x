@@ -13,7 +13,7 @@ import os.path
 from osgeo import osr
 from osgeo import gdal
 from gdal import gdalconst
-import pipes
+import shlex
 import psycopg2
 from psycopg2.sql import SQL, Literal
 import psycopg2.extras
@@ -157,7 +157,7 @@ def run_command(args, allCmds, env=None):
     global executed_cmds_cnt
     
     args = list(map(str, args))
-    cmd_line = " ".join(map(pipes.quote, args))
+    cmd_line = " ".join(map(shlex.quote, args))
     print(cmd_line)
 
     ret = True

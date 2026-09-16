@@ -3,7 +3,7 @@ from __future__ import print_function
 
 import argparse
 import os
-import pipes
+import shlex
 import subprocess
 import sys
 
@@ -13,7 +13,7 @@ from gdal import gdalconst
 
 def run_command(args, env=None):
     args = list(map(str, args))
-    cmd_line = " ".join(map(pipes.quote, args))
+    cmd_line = " ".join(map(shlex.quote, args))
     print(cmd_line)
     subprocess.call(args, env=env)
 

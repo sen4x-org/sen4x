@@ -8,7 +8,7 @@ import dateutil.parser
 import errno
 import os
 import os.path
-import pipes
+import shlex
 import shutil
 import subprocess
 import sys
@@ -16,7 +16,7 @@ import sys
 
 def run_command(args, env=None):
     args = list(map(str, args))
-    cmd_line = " ".join(map(pipes.quote, args))
+    cmd_line = " ".join(map(shlex.quote, args))
 
     print(cmd_line)
     result = subprocess.call(args, env=env)

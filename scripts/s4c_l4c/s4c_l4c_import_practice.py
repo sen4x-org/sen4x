@@ -3,7 +3,7 @@ from __future__ import print_function
 
 import argparse
 from configparser import ConfigParser
-import pipes
+import shlex
 import psycopg2
 from psycopg2.sql import SQL, Literal, Identifier
 import psycopg2.extras
@@ -72,7 +72,7 @@ def get_import_export_table_command(ogr2ogr_path, destination, source, *options)
 
 def run_command(args, env=None):
     args = list(map(str, args))
-    cmd_line = " ".join(map(pipes.quote, args))
+    cmd_line = " ".join(map(shlex.quote, args))
     print(cmd_line)
     subprocess.call(args, env=env)
 

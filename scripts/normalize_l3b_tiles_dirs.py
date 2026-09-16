@@ -20,7 +20,7 @@ from datetime import date
 from datetime import datetime
 from datetime import timedelta
 import fnmatch
-import pipes
+import shlex
 import subprocess
 
 def parse_date(str):
@@ -34,7 +34,7 @@ def get_bool_value(value):
     
 def run_command(config,args, env=None):
     args = list(map(str, args))
-    cmd_line = " ".join(map(pipes.quote, args))
+    cmd_line = " ".join(map(shlex.quote, args))
     print(cmd_line)
     ret = True
     if config.verify_only==True:

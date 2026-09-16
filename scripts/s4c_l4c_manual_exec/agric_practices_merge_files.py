@@ -13,7 +13,7 @@ import os.path
 from osgeo import osr
 from osgeo import gdal
 from gdal import gdalconst
-import pipes
+import shlex
 import psycopg2
 from psycopg2.sql import SQL, Literal
 import psycopg2.extras
@@ -193,7 +193,7 @@ def get_radar_products(config, conn, site_id):
 
 def run_command(args, env=None):
     args = list(map(str, args))
-    cmd_line = " ".join(map(pipes.quote, args))
+    cmd_line = " ".join(map(shlex.quote, args))
     print(cmd_line)
 
     subprocess.call(args, env=env)

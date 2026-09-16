@@ -15,7 +15,6 @@ import glob
 import sys
 import time, datetime
 from time import gmtime, strftime
-import pipes
 import shutil
 import psycopg2
 import psycopg2.errorcodes

@@ -5,7 +5,7 @@ import argparse
 from configparser import ConfigParser
 import os
 import os.path
-import pipes
+import shlex
 import psycopg2
 from psycopg2.sql import SQL, Literal
 import psycopg2.extras
@@ -38,7 +38,7 @@ class Config(object):
 
 def run_command(args, env=None):
     args = list(map(str, args))
-    cmd_line = " ".join(map(pipes.quote, args))
+    cmd_line = " ".join(map(shlex.quote, args))
     print(cmd_line)
     subprocess.call(args, env=env)
 

@@ -5,7 +5,7 @@ import argparse
 import os
 import os.path
 import glob
-import pipes
+import shlex
 import subprocess
 from shutil import copyfile
 import re
@@ -74,7 +74,7 @@ class Config(object):
     
 def run_command(args, env=None):
     args = list(map(str, args))
-    cmd_line = " ".join(map(pipes.quote, args))
+    cmd_line = " ".join(map(shlex.quote, args))
     print(cmd_line)
     subprocess.call(args, env=env)
 

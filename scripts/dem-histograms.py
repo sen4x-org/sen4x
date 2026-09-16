@@ -2,7 +2,7 @@
 from concurrent.futures import ThreadPoolExecutor
 import logging
 import psycopg2
-import pipes
+import shlex
 import subprocess
 from osgeo import ogr
 
@@ -15,7 +15,7 @@ class Command(object):
 
     def run(self):
         args = list(map(str, self.args))
-        cmd_line = " ".join(map(pipes.quote, args))
+        cmd_line = " ".join(map(shlex.quote, args))
         logging.debug(cmd_line)
         if self.stdout:
             with open(self.stdout, "w") as stdout:

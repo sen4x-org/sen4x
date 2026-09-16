@@ -5,7 +5,7 @@ import multiprocessing
 import multiprocessing.dummy
 import os
 import os.path
-import pipes
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -183,7 +183,7 @@ def save_dates_file(path, site_id, satellite_id, dates):
 
 def run_command(args, env=None, retry=False):
     args = list(map(str, args))
-    cmd_line = " ".join(map(pipes.quote, args))
+    cmd_line = " ".join(map(shlex.quote, args))
 
     retries = 5 if retry else 1
     while retries > 0:

@@ -5,7 +5,7 @@ import sys
 import psycopg2
 from psycopg2.sql import SQL, Literal
 import psycopg2.extras
-import pipes
+import shlex
 import subprocess
 
 try:
@@ -30,7 +30,7 @@ class Config(object):
         
 def run_command(args, env=None):
     args = list(map(str, args))
-    cmd_line = " ".join(map(pipes.quote, args))
+    cmd_line = " ".join(map(shlex.quote, args))
     print(cmd_line)
     subprocess.call(args, env=env)
     return

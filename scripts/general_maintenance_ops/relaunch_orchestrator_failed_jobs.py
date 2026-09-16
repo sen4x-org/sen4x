@@ -2,7 +2,6 @@
 
 import argparse
 import os
-import pipes
 import subprocess
 import sys
 import re

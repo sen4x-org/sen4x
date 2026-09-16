@@ -5,7 +5,7 @@ import os
 import errno
 import csv
 import re
-import pipes
+import shlex
 import subprocess
 
 try:
@@ -20,7 +20,7 @@ IPC_TO_CSV_SCRIPT="ipc_to_csv.py"
  
 def run_command(args, env=None):
     args = list(map(str, args))
-    cmd_line = " ".join(map(pipes.quote, args))
+    cmd_line = " ".join(map(shlex.quote, args))
     print(cmd_line)
     subprocess.call(args, env=env)
     

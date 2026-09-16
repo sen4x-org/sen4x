@@ -6,7 +6,7 @@ from glob import glob
 import multiprocessing
 import multiprocessing.dummy
 import os.path
-import pipes
+import shlex
 import re
 import subprocess
 import tempfile
@@ -14,7 +14,7 @@ import tempfile
 
 def run_command(args, env=None, retry=False):
     args = list(map(str, args))
-    cmd_line = " ".join(map(pipes.quote, args))
+    cmd_line = " ".join(map(shlex.quote, args))
 
     retries = 5 if retry else 1
     while retries > 0:
