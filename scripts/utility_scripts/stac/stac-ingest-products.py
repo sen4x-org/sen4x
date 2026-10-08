@@ -41,8 +41,9 @@ class ProductType(Enum):
     L3B_FAPAR = 38
     L3B_FCOVER = 39
     L3B_NDWI = 40
-    L3B_BRIGH = 41 
+    L3B_BRIGH = 41
     DUMMY = 99
+
 
 def read_l2a(root: Path):
     entries = list(root.glob("*"))
@@ -109,7 +110,15 @@ def build_item(row):
     full_path = Path(row["full_path"])
     if product_type == ProductType.L2A:
         metadata = read_l2a(full_path)
-    elif product_type == ProductType.L3B or product_type == ProductType.L3B_NDVI or product_type == ProductType.L3B_LAI or product_type == ProductType.L3B_FAPAR or product_type == ProductType.L3B_FCOVER or product_type == ProductType.L3B_NDWI or product_type == ProductType.L3B_BRIGH :
+    elif (
+        product_type == ProductType.L3B
+        or product_type == ProductType.L3B_NDVI
+        or product_type == ProductType.L3B_LAI
+        or product_type == ProductType.L3B_FAPAR
+        or product_type == ProductType.L3B_FCOVER
+        or product_type == ProductType.L3B_NDWI
+        or product_type == ProductType.L3B_BRIGH
+    ):
         metadata, product_assets, preview = read_l3b(full_path)
     if metadata:
         assets["metadata"] = {
