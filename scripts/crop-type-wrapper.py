@@ -17,9 +17,7 @@ def run_command(args, env=None):
     print(cmd_line)
     result = subprocess.call(args, env=env)
     if result != 0:
-        raise RuntimeError(
-            f"Command `{cmd_line}` failed with exit code {result}"
-        )
+        raise RuntimeError(f"Command `{cmd_line}` failed with exit code {result}")
 
 
 def check_file(p):
@@ -397,13 +395,13 @@ def main():
             sar_features,
             sar_temporal,
         ]
-        infixes = ["OPT_MAIN", "OPT_RE", "SAR_MAIN", "SAR_RE"]
+        infixes = ["OPT_MAIN", "OPT_RE", "SAR_MAIN", "SAR_TEMP"]
         product_types = [20, 21, 22, 23]
-        for (features, infix, product_type) in zip(
-            feature_files, infixes, product_types
-        ):
+        for features, infix, product_type in zip(feature_files, infixes, product_types):
             if features:
-                product_name = f"SEN4CAP_MDB_L4A_{infix}_V{season_start}_{season_end}_{now}"
+                product_name = (
+                    f"SEN4CAP_MDB_L4A_{infix}_V{season_start}_{season_end}_{now}"
+                )
                 product_dir = os.path.join(args.target_path, product_name)
                 os.makedirs(product_dir, exist_ok=True)
                 product_path = os.path.join(product_dir, product_name + ".ipc")
