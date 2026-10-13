@@ -59,6 +59,8 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+RUN ln -s /usr/bin/python3 /usr/bin/python
+
 COPY --from=build /install/bin/* /app/otb/bin/
 COPY --from=build /install/usr/bin/* /usr/bin/
 COPY --from=build /install/usr/lib/otb/applications/* /app/otb/lib/otb/applications/
@@ -78,6 +80,15 @@ COPY agric_practices_merge_files.sh /usr/bin/
 COPY agric_practices_tsa.sh /usr/bin/
 COPY extract_practices_infos.sh /usr/bin/
 COPY launch_agric_practices.sh /usr/bin/
+
+COPY generate_grassland_mowing_input_shp_wrp.py /usr/bin/
+COPY generic_product_formatter_wrp.py /usr/bin/
+COPY l3b_indices_processor.py /usr/bin/
+COPY s4c-crop-type-wrp.py /usr/bin/
+COPY s4c-heterog-wrp.py /usr/bin/
+COPY s4c-l4b-extract-products-wrp.py /usr/bin/
+COPY s4c-mdb1-wrp.py /usr/bin/
+
 
 # TODO(lnicola): try this again when OTB supports Ubuntu 26
 # FROM docker.io/sen4x/otb:9.1.1_ubuntu26 AS builder
