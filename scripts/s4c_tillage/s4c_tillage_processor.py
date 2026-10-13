@@ -12,13 +12,14 @@ class Config(object):
         self.coh_thr = args.coh_thr
         self.ndvi_thr = 0.25  # Fixed in v2 (hardcoded in filter_detections_by_ndvi)
         self.s2_window_days = args.s2_window_days
-        self.amp_db_thr_vv = args.amp_db_thr_vv
-        self.amp_db_thr_vh = args.amp_db_thr_vh
+        self.sigma0_db_thr_vv = args.amp_db_thr_vv
+        self.sigma0_db_thr_vh = args.amp_db_thr_vh
         self.cr_thr = args.cr_thr
         self.s1_window_days = args.s1_window_days
         self.poi = [args.start_date, args.end_date]
         # Empty set means "all orbits accepted"; populated set filters to those values only
         self.valid_orb_nrs = set(args.orb_nrs) if args.orb_nrs else set()
+        self.min_frac_valid_ndvi = args.min_frac_valid_ndvi
 
 
 def _parse_columns(column_names, cols_var):
@@ -65,7 +66,7 @@ def _extract_coh_vv(mdb_df, coh_cols, valid_orb_nrs):
     df["orb_nr"] = pd.to_numeric(parts.str[-1], errors="coerce")
 
     if valid_orb_nrs:
-        df = df[df["orb_nr"].isin(valid_orb_nrs)]
+        df = df[df["orb_nr"].isin(valid_orb_nrs)].copy()
     return df[["NewID", "date", "orb_nr", "coh_vv"]]
 
 
@@ -81,10 +82,14 @@ def _extract_amp(mdb_df, amp_cols, valid_orb_nrs):
 
     if valid_orb_nrs:
         df = df[df["orb_nr"].isin(valid_orb_nrs)]
-    return df[["NewID", "date", "orb_nr", "pol", "amp_dB"]]
+    
+    # Convert to sigma0_dB: amplitude x 2   
+    df["sigma0_dB"] = df["amp_dB"] * 2
+
+    return df[["NewID", "date", "orb_nr", "pol", "amp_dB", "sigma0_dB"]]
 
 
-def _extract_s2(mdb_df, s2_cols):
+def _extract_s2(mdb_df, s2_cols, min_frac_valid_ndvi=0.9):
     """Extract and parse S2/NDVI timeseries."""
     df = _melt_subset(mdb_df, "NewID", s2_cols, "value")
     df = df.dropna(subset=["value"])
@@ -102,30 +107,52 @@ def _extract_s2(mdb_df, s2_cols):
         df["valid_pixels_cnt_NDVI"]
         / (df["valid_pixels_cnt_NDVI"] + df["invalid_pixels_cnt_NDVI"])
     )
+    
+    # Keep only observations with more than 90% valid pixels
+    df = df[df["frac_valid_NDVI"] > min_frac_valid_ndvi].copy()
+    
     df["mean_NDVI"] = df["mean_NDVI"] / 1000
+    
     return df
 
 
-def _build_amp_wide(mdb1_amp):
-    """
-    Build a wide-format amplitude table with separate VV and VH columns,
-    plus the Cross-Ratio (CR = linear VH / linear VV) required by v2.
-    """
-    amp_vv = (
-        mdb1_amp[mdb1_amp["pol"] == "VV"]
-        .rename(columns={"amp_dB": "amp_vv_dB"})
-        [["NewID", "date", "orb_nr", "amp_vv_dB"]]
-    )
-    amp_vh = (
-        mdb1_amp[mdb1_amp["pol"] == "VH"]
-        .rename(columns={"amp_dB": "amp_vh_dB"})
-        [["NewID", "date", "orb_nr", "amp_vh_dB"]]
-    )
-    amp_wide = amp_vv.merge(amp_vh, on=["NewID", "date", "orb_nr"], how="left")
-    amp_wide["CR"] = (
-        10 ** (amp_wide["amp_vh_dB"] / 10) / 10 ** (amp_wide["amp_vv_dB"] / 10)
-    )
-    return amp_wide
+def _build_sigma0_wide(amp_df):
+    """Build wide-format sigma0 table (VV, VH) with cross-ratio (CR)."""
+    cols = ["NewID", "date", "orb_nr"]
+
+    vv = (amp_df[amp_df["pol"] == "VV"]
+          .rename(columns={"sigma0_dB": "sigma0_vv_dB"})
+          [cols + ["sigma0_vv_dB"]])
+    vh = (amp_df[amp_df["pol"] == "VH"]
+          .rename(columns={"sigma0_dB": "sigma0_vh_dB"})
+          [cols + ["sigma0_vh_dB"]])
+
+    wide = vv.merge(vh, on=cols, how="left").reset_index(drop=True)
+
+    # CR = sigma0_vh / sigma0_vv (linear scale)
+    wide["CR"] = 10 ** (wide["sigma0_vh_dB"] / 10) / 10 ** (wide["sigma0_vv_dB"] / 10)
+    return wide
+    
+# def _build_amp_wide(mdb1_amp):
+#     """
+#     Build a wide-format amplitude table with separate VV and VH columns,
+#     plus the Cross-Ratio (CR = linear VH / linear VV) required by v2.
+#     """
+#     amp_vv = (
+#         mdb1_amp[mdb1_amp["pol"] == "VV"]
+#         .rename(columns={"amp_dB": "amp_vv_dB"})
+#         [["NewID", "date", "orb_nr", "amp_vv_dB"]]
+#     )
+#     amp_vh = (
+#         mdb1_amp[mdb1_amp["pol"] == "VH"]
+#         .rename(columns={"amp_dB": "amp_vh_dB"})
+#         [["NewID", "date", "orb_nr", "amp_vh_dB"]]
+#     )
+#     amp_wide = amp_vv.merge(amp_vh, on=["NewID", "date", "orb_nr"], how="left")
+#     amp_wide["CR"] = (
+#         10 ** (amp_wide["amp_vh_dB"] / 10) / 10 ** (amp_wide["amp_vv_dB"] / 10)
+#     )
+#     return amp_wide
 
 
 class TillageProcessor:
@@ -281,11 +308,11 @@ class TillageProcessor:
         Replaces identify_tillage() from v1.
 
         Flags detected events as ploughing based on both VV and VH backscatter.
-        s1_timeseries_wide must contain: NewID, date, orb_nr, amp_vv_dB, amp_vh_dB.
+        s1_timeseries_wide must contain: NewID, date, orb_nr, sigma0_vv_dB, sigma0_vh_dB.
         Produces boolean columns detection_VV and detection_VH.
         """
         s1_sub = s1_timeseries_wide[
-            ["NewID", "date", "amp_vv_dB", "amp_vh_dB", "orb_nr"]
+            ["NewID", "date", "sigma0_vv_dB", "sigma0_vh_dB", "orb_nr"]
         ].copy()
 
         df_detect_ws1 = df_detections.merge(
@@ -293,11 +320,11 @@ class TillageProcessor:
         )
 
         df_detect_ws1["detection_VV"] = np.where(
-            df_detect_ws1["event"] & (df_detect_ws1["amp_vv_dB"] > threshold_vv_dB),
+            df_detect_ws1["event"] & (df_detect_ws1["sigma0_vv_dB"] > threshold_vv_dB),
             True, False,
         )
         df_detect_ws1["detection_VH"] = np.where(
-            df_detect_ws1["event"] & (df_detect_ws1["amp_vh_dB"] > threshold_vh_dB),
+            df_detect_ws1["event"] & (df_detect_ws1["sigma0_vh_dB"] > threshold_vh_dB),
             True, False,
         )
 
@@ -339,41 +366,43 @@ class TillageProcessor:
             ["NewID", "consecutive_true", "frac_ploughing_VV", "frac_ploughing_VH"]
         ]
 
-
 def handle_batch_record(config, cols_var, mdb_df, tillage_results_all):
     # --- Pre-classify columns once per batch ---
     coh_cols, amp_cols, s2_cols = _parse_columns(mdb_df.columns.tolist(), cols_var)
 
     # --- Melt only the relevant column subsets ---
     mdb1_cohe_vv = _extract_coh_vv(mdb_df, coh_cols, config.valid_orb_nrs)
-    mdb1_amp = _extract_amp(mdb_df, amp_cols, config.valid_orb_nrs)
-    mdb1_s2 = _extract_s2(mdb_df, s2_cols)
+    mdb1_amp = _extract_amp(mdb_df, amp_cols, config.valid_orb_nrs) # now includes sigma0_dB
+    mdb1_s2 = _extract_s2(mdb_df, s2_cols, config.min_frac_valid_ndvi)
 
     # --- Build wide-format amplitude table with CR column (new in v2) ---
-    mdb1_amp_wide = _build_amp_wide(mdb1_amp)
+    # mdb1_amp_wide = _build_amp_wide(mdb1_amp)
+    
+    # --- Wide-format sigma0 table (VV, VH) with CR column ---
+    mdb1_sigma0_wide = _build_sigma0_wide(mdb1_amp)
 
-    # --- Detection pipeline (v2 order) ---
+    # --- Detection pipeline ---
     # 1. Coherence change detection
     out_detections = TillageProcessor.detect_event_coh(
         mdb1_cohe_vv, "coh_vv", "NewID", config.coh_thr, groupby=["orb_nr"]
     )
-    # 2. Filter to period of interest (no exclude_periods in v2)
+    # 2. Filter to period of interest
     out_filt_poi = TillageProcessor.filter_periods(out_detections, config.poi)
     # 3. Suppress detections followed by NDVI recovery
     out_filt_ndvi = TillageProcessor.filter_detections_by_ndvi(
         out_filt_poi, mdb1_s2, ndvi_thr=config.ndvi_thr,
         s2_window_days=config.s2_window_days,
     )
-    # 4. Suppress detections followed by high CR (new in v2)
+    # 4. Suppress detections followed by high CR
     out_filt_ndvi_cr = TillageProcessor.filter_detections_by_cr(
-        out_filt_ndvi, mdb1_amp_wide,
+        out_filt_ndvi, mdb1_sigma0_wide,
         cr_thr=config.cr_thr, s1_window_days=config.s1_window_days,
     )
-    # 5. Flag ploughing using VV and VH thresholds (replaces identify_tillage)
+    # 5. Flag ploughing using sigma0 VV and VH thresholds
     out_ploughing = TillageProcessor.flag_ploughing(
-        out_filt_ndvi_cr, mdb1_amp_wide,
-        threshold_vv_dB=config.amp_db_thr_vv,
-        threshold_vh_dB=config.amp_db_thr_vh,
+        out_filt_ndvi_cr, mdb1_sigma0_wide,
+        threshold_vv_dB=config.sigma0_db_thr_vv,
+        threshold_vh_dB=config.sigma0_db_thr_vh,
     )
     # 6. Summarise
     tillage_results = TillageProcessor.summarize_detections(out_ploughing)
@@ -381,7 +410,6 @@ def handle_batch_record(config, cols_var, mdb_df, tillage_results_all):
     # --- Accumulate results in a list (avoids O(n²) pd.concat in a loop) ---
     tillage_results_all.append(tillage_results)
     return tillage_results_all
-
 
 def handle_ipc_file(config, input_file):
     # Use a list for accumulation; concat once at the end
@@ -474,6 +502,8 @@ def main():
                         help="Cross-Ratio threshold for CR-based false positive filter")
     parser.add_argument("--s1-window-days", type=int, default=7,
                         help="Days after detection to search for S1 CR observations")
+    parser.add_argument("--min-frac-valid-ndvi", type=float, default=0.9,
+                        help="Min fraction of valid NDVI pixels ")
     parser.add_argument("--start-date", required=True)
     parser.add_argument("--end-date", required=True)
     parser.add_argument(
