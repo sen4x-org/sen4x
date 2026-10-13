@@ -44,8 +44,10 @@ def main():
     )
     parser.add_argument("--request-context-file", required=True,
                         help="JSON containing the information about the execution context (site, request parameters etc.)")
-    parser.add_argument("-i", "--input-products-json", required=True,
-                        help="Input JSON file containing products extracted from STAC")
+    parser.add_argument("--l3b-input-products-json", required=False,
+                        help="Input JSON file containing L3B products extracted from STAC")
+    parser.add_argument("--s1-input-products-json", required=False,
+                        help="Input JSON file containing S1 products extracted from STAC")
     parser.add_argument("--out-l3b-products-file", help="output optical products", default="")
     parser.add_argument("--out-s1-products-file", help="output radar products", default="")
     

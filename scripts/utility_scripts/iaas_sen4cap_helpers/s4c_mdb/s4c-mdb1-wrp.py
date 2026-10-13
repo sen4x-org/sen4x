@@ -20,6 +20,20 @@ try:
 except ImportError:
     from urlparse import urlparse
     
+PRODUCT_MAP = {
+    "L2A":       (1),
+    "NDVI":      (36),
+    "NDWI":      (40),
+    "BRIGHT":    (41),
+    "LAI":       (37),
+    "FAPAR":     (38),
+    "FCOVER":    (39),
+    "AMP":       (10),
+    "COHE":      (11),
+    "BCK":       (10)
+    
+    # add more mappings here, if needed
+}
 
 class LpisInfos(object):
     def __init__(self,
@@ -146,8 +160,12 @@ def extract_feature_info(feature):
 
     # Extract only product_metadata href
     feature_properties = feature.get("properties")
+
     product_path = feature_properties.get("sen4x:disk_path", {})
     result["product_path"] = product_path
+
+    product_type_id = feature_properties.get("product_type_id", {})
+    result["product_type_id"] = product_type_id
 
     metadata_asset = feature.get("assets", {}).get("product_metadata", {})
     metadata_href = metadata_asset.get("href")
@@ -324,10 +342,18 @@ def extract_input_products(input_products_json_file, product_type, product_subty
             for feature in features:
                 info = extract_feature_info(feature)
                 prd_path = info["product_path"]
+                product_type_id = info["product_type_id"]
+                if product_type_id is not None:
+                    product_type_id = int(product_type_id)
+                    product_type_id_map = PRODUCT_MAP[product_type]
+                    if product_type_id_map != product_type_id:
+                        print("Product {} will be ignored as product type ({}) differs from the one requested ({}<->{})".format(info["id"], product_type_id, product_type, product_type_id_map))
+                        continue                
                 if product_type in ["L2A"]:
                     prd_path = info["metadata_path"]
                 raster_paths = get_product_raster(prd_path, product_type, product_subtype)
                 products += raster_paths
+                print("Using reaster {} ...".format(raster_paths))
     
     return products
 
@@ -336,6 +362,7 @@ def process_file(file, prd_type, lpis_file, out_dir):
     if prd_type in ["NDVI", "LAI", "FAPAR", "FCOVER", "NDWI", "BRGHT"]:
         prd_type = "L3B_" + prd_type
         
+    print("Processing product type {}, input product path {}, LPIS file {} ...".format(prd_type, file, lpis_file))    
     cmd_flags = [
         "otbcli", "Markers1Extractor",
         "-field", "NewID",
@@ -343,8 +370,8 @@ def process_file(file, prd_type, lpis_file, out_dir):
         "-outdir", out_dir,
         "-il", file,
         "-vec", lpis_file,
-        "-validpixelscnt", "0",
-        "-invalidpixelscnt", "0",
+        "-validpixelscnt", "1",
+        "-invalidpixelscnt", "1",
         "-minmax", "0",
         "-median", "0",
         "-p25", "0",
@@ -394,7 +421,7 @@ def main():
     
     products = extract_input_products(args.input_products_json, product_type, product_subtype)
     
-    print(products)
+    # print(products)
     
     parcel_prd_file_patterns = ParcelPrdFilePatterns()
     lpis_infos = extract_lpis_infos(site_id, lpis_prd_path, parcel_prd_file_patterns)
@@ -402,7 +429,11 @@ def main():
     if product_type in ["L2A", "L3B", "NDVI", "LAI", "FAPAR", "FCOVER", "NDWI", "BRGHT"]:
         lpis_file = lpis_infos.optical_ids_geom_shape_path
     elif product_type in ["AMP", "BCK", "COHE"]:
-        lpis_file = lpis_infos.sar_geom_shape_paths
+        lpis_file = lpis_infos.sar_geom_shape_paths.get("3035")
+        if lpis_file is None:
+            lpis_file = next(iter(lpis_infos.sar_geom_shape_paths.values()), None)
+    
+    print("Using lpis file {} ...".format(lpis_file))
     
     output_files = []
     pool = Pool(processes=args.parallelism)

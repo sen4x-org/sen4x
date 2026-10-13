@@ -510,6 +510,9 @@ class InputProductInfo(object):
         
     def set_processed_product(self, processor_id, product_type_id, site_id, l2a_processed_tiles, full_path, product_name, footprint, sat_id, acquisition_date, orbit_id, mosaic_img):
         product_id = None
+        
+        tao_job_id = os.environ.get("TAO_JOBID")
+        
         if not self.database_connect():
             return product_id
         try:
@@ -531,7 +534,7 @@ class InputProductInfo(object):
                                     "processor_id": processor_id,
                                     "satellite_id": sat_id,
                                     "site_id": site_id,
-                                    "job_id": None,
+                                    "job_id": tao_job_id,
                                     "full_path": full_path,
                                     "created_timestamp": acquisition_date,
                                     "name": product_name,
@@ -741,7 +744,7 @@ def main():
     parser.add_argument("-i", "--input-products-json", help="Input JSON file containing products descriptions")
 
     parser.add_argument("--product-full-path", help="Full path of a single product")
-    parser.add_argument("--product-type-id", help="Product type id of the single product")
+    parser.add_argument("--product-type-id", help="Product type id of the single product (ex. MDB1)")
 
     parser.add_argument("--output-json", required=True, help="Output JSON file containing the produced products")
     

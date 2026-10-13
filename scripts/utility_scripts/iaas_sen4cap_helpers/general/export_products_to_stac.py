@@ -21,6 +21,7 @@ import psycopg2.errorcodes
 import optparse
 import subprocess, sys
 import json
+from pathlib import Path
 
 try:
     from configparser import ConfigParser
@@ -234,6 +235,9 @@ class DBHelper(object):
         # footprint
         if not self.database_connect():
             return -1
+        
+        tao_job_id = os.environ.get("TAO_JOBID")
+        
         try:
             if len(l2a_processed_tiles) > 0:
                 # normally , sp_insert_product should upsert the record
@@ -254,7 +258,7 @@ class DBHelper(object):
                                         "processor_id": processor_id,
                                         "satellite_id": sat_id,
                                         "site_id": site_id,
-                                        "job_id": None,
+                                        "job_id": tao_job_id,
                                         "full_path": full_path,
                                         "created_timestamp": acquisition_date,
                                         "name": product_name,
@@ -469,7 +473,8 @@ def export_product(config, product_type_id, product_id):
         text=True
     )
     stac_items = result.stdout
-    stac_items = stac_items.replace(config.host, config.orig_host)
+    # stac_items = stac_items.replace(config.host, config.orig_host)
+    stac_items = stac_items.replace("http://" + config.host + ":8082", "https://sen4x.tao.c-s.ro/stac")
 
     print("stac-ingest-products.py Return code:", result.returncode)
     print("stac-ingest-products.py STDOUT:")
@@ -500,9 +505,12 @@ def copy_product_to_output_dir(product_path, site_short_name, product_type, dest
         dest_path = os.path.join(dest_root_dir, folder_name)
 
         try:
-            print("Copying {} to {}...".format(folder_name, dest_root_dir))
-            shutil.copytree(product_path, dest_path)
-            print("Successfully copied {}".format(folder_name))
+            print("Copying {} to {}...".format(product_path, dest_path))
+            if Path(product_path).resolve() == Path(dest_path).resolve():
+                print("The source and destination folders are the same. Skipping copying ...")
+            else:
+                shutil.copytree(product_path, dest_path)
+                print("Successfully copied {}".format(folder_name))
         except shutil.Error as e:
             print("Error copying directory {} - {}".format(folder_name, e))
         except OSError as e:
@@ -519,9 +527,12 @@ def copy_product_to_output_dir(product_path, site_short_name, product_type, dest
         dest_path = os.path.join(dest_folder, file_name)
 
         try:
-            print("Copying {} to {}...".format(file_name, dest_folder))
-            shutil.copy2(product_path, dest_path)
-            print("Successfully copied {}".format(file_name))
+            print("Copying {} to {}...".format(product_path, dest_path))
+            if Path(product_path).resolve() == Path(dest_path).resolve():
+                print("The source and destination files are the same. Skipping copying ...")
+            else:
+                shutil.copy2(product_path, dest_path)
+                print("Successfully copied {}".format(file_name))
         except OSError as e:
             print("OS error during copy of {}: {}".format(file_name, e))
 

@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 # Copyright (C) 2019 CS ROMANIA — GPL v3 or later
 """
 sentinel1_l2_pipeline.py
@@ -42,6 +44,7 @@ from copy import copy
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Set, Tuple
+from xml.etree import ElementTree as ET
 
 import sys 
 
@@ -61,13 +64,39 @@ try:
 except ImportError:
     HAS_SQLALCHEMY = False
 
-
 try:
     from configparser import ConfigParser
 except ImportError:
     from ConfigParser import ConfigParser
 
+try:
+    from pyproj import Transformer
+    HAS_PYPROJ = True
+except ImportError:
+    HAS_PYPROJ = False
 
+
+S1_PROCESSOR_ID = 7
+S1_PROCESSOR_SHORT_NAME = "l2s1"
+
+_PARENT_PRODUCTS_LOCK = threading.Lock()
+_PARENT_PRODUCTS: Dict[str, List[str]] = {}   # output product name -> [master_path, (slave_path)]
+
+
+def _record_parent_products(product_name: str, master_path: str,
+                             slave_path: Optional[str]) -> None:
+    parents = [master_path]
+    if slave_path and slave_path != master_path:
+        parents.append(slave_path)
+    with _PARENT_PRODUCTS_LOCK:
+        _PARENT_PRODUCTS[product_name] = parents
+
+
+def _get_recorded_parents(product_name: str) -> Optional[List[str]]:
+    with _PARENT_PRODUCTS_LOCK:
+        return _PARENT_PRODUCTS.get(product_name)
+        
+        
 class MainScriptConfig(object):
     def __init__(self, args):
         parser = ConfigParser()
@@ -130,51 +159,76 @@ class ProductType(IntEnum):
         return self.name.replace("L2A_", "")
 
 
+class OrbitType(IntEnum):
+    ASCENDING = 1
+    DESCENDING = 2
+
+    @property
+    def description(self) -> str:
+        descriptions = {
+            OrbitType.ASCENDING: "ASC",
+            OrbitType.DESCENDING: "DESC",
+        }
+        return descriptions[self]
+
+    def friendly_name(self) -> str:
+        return self.description
+
+    def value_of(self) -> int:
+        return int(self)
+
 # ===========================================================================
 # Configuration keys
 # ===========================================================================
 
 class ConfigurationKeys:
-    S1_PROCESSOR_ENABLED              = "s1.processor.enabled"
-    S1_PROCESSOR_VERSION              = "s1.processor.version"
-    S1_PROCESSOR_OUTPUT_PATH          = "s1.processor.output_path"
-    S1_PROCESSOR_PARALLELISM          = "s1.processor.parallelism"
-    S1_PROCESSOR_INTERVAL             = "s1.processor.interval"
-    S1_PROCESSOR_REVERSE_ACQUISITION_DATE = "s1.processor.reverse_acquisition_date"
-    S1_PROCESSOR_WAIT_FOR_ORBIT_FILES = "s1.processor.wait_for_orbit_files"
-    S1_PROCESSOR_DAYS_BACK            = "s1.processor.days_back"
-    S1_PROCESSOR_MTF_INTERVAL         = "s1.processor.mtf_interval"
-    S1_PROCESSOR_COHERENCE_ENABLED    = "s1.processor.coherence_enabled"
-    S1_PROCESSOR_AMPLITUDE_ENABLED    = "s1.processor.amplitude_enabled"
-    S1_PROCESSOR_POLARISATIONS        = "s1.processor.polarisations"
-    S1_PROCESSOR_MASTER               = "s1.processor.master"
-    S1_PROCESSOR_RESOLVE_LINKS        = "s1.processor.resolve_links"
-    S1_PROCESSOR_WORK_DIR             = "s1.processor.work_dir"
-    S1_PROCESSOR_MIN_S2_INTERSECTION  = "s1.processor.min_s2_intersection"
-    S1_PROCESSOR_OVERWRITE            = "s1.processor.overwrite"
-    S1_PROCESSOR_PROJECTION           = "s1.processor.projection"
-    S1_PROCESSOR_MIN_MEMORY           = "s1.processor.min_memory"
-    S1_PROCESSOR_MIN_DISK             = "s1.processor.min_disk"
-    S1_PROCESSOR_KEEP_INTERMEDIATE    = "s1.processor.keep_intermediate"
-    S1_PROCESSOR_OUTPUT_FORMAT        = "s1.processor.output_format"
-    S1_PROCESSOR_OUTPUT_EXTENSION     = "s1.processor.output_extension"
-    S1_PROCESSOR_CROP_ENABLED         = "s1.processor.crop_enabled"
-    S1_PROCESSOR_CONVERT_INT16        = "s1.processor.convert_int16"
-    S1_PROCESSOR_COMPRESS_ENABLED     = "s1.processor.compress_enabled"
-    S1_PROCESSOR_RESOLUTION_METERS    = "s1.processor.resolution_meters"
-    S1_PROCESSOR_RESOLUTION_DEGREES   = "s1.processor.resolution_degrees"
-    S1_PROCESSOR_DEM_NAME             = "s1.processor.dem_name"
-    S1_PROCESSOR_DEM_NODATA           = "s1.processor.dem_nodata"
-    S1_PROCESSOR_DEM_LOCAL_PATH       = "s1.processor.dem_local_path"
-    S1_PROCESSOR_PARALLEL_STEPS       = "s1.processor.parallel_steps"
-    S1_PROCESSOR_MONITOR_DISK         = "s1.processor.monitor_disk_interval"
-    SNAP_USE_DOCKER                   = "snap.use_docker"
-    GDAL_USE_DOCKER                   = "gdal.use_docker"
-    DOCKER_SNAP_IMAGE                 = "docker.snap_image"
-    DOCKER_GDAL_IMAGE                 = "docker.gdal_image"
-    SNAP_HOME_PATH                    = "snap.home_path"
-    IGNORE_PREVIOUS_ORBIT_FAILURE     = "s1.processor.ignore_previous_orbit_failure"
-    S1_DOWNLOAD_OFFSET                = "s1.download.offset"
+    S1_PROCESSOR_ENABLED                  = "processor.l2s1.enabled"
+    S1_PROCESSOR_VERSION                  = "processor.l2s1.version"
+    S1_PROCESSOR_OUTPUT_PATH              = "processor.l2s1.path"
+    S1_PROCESSOR_PARALLELISM              = "processor.l2s1.parallelism"
+    S1_PROCESSOR_INTERVAL                 = "processor.l2s1.interval"
+    S1_PROCESSOR_REVERSE_ACQUISITION_DATE = "processor.l2s1.process.newest"
+    S1_PROCESSOR_WAIT_FOR_ORBIT_FILES     = "processor.l2s1.acquisition.delay"
+    S1_PROCESSOR_DAYS_BACK                = "processor.l2s1.temporal.offset"
+    S1_PROCESSOR_MTF_INTERVAL             = "processor.l2s1.temporal.filter.interval"
+    S1_PROCESSOR_COHERENCE_ENABLED        = "processor.l2s1.compute.coherence"
+    S1_PROCESSOR_AMPLITUDE_ENABLED        = "processor.l2s1.compute.amplitude"
+    S1_PROCESSOR_POLARISATIONS            = "processor.l2s1.polarisations"
+    S1_PROCESSOR_MASTER                   = "processor.l2s1.master"
+    S1_PROCESSOR_RESOLVE_LINKS            = "processor.l2s1.resolve.links"
+    S1_PROCESSOR_WORK_DIR                 = "processor.l2s1.work.dir"
+    S1_PROCESSOR_MIN_INTERSECTION         = "processor.l2s1.min.intersection"
+    S1_PROCESSOR_MIN_S2_INTERSECTION      = "processor.l2s1.min.s2.intersection"
+    S1_PROCESSOR_OVERWRITE                = "processor.l2s1.overwrite.existing"
+    S1_PROCESSOR_PROJECTION               = "processor.l2s1.projection"
+    S1_PROCESSOR_MIN_MEMORY               = "processor.l2s1.min.memory"
+    S1_PROCESSOR_MIN_DISK                 = "processor.l2s1.min.disk"
+    S1_PROCESSOR_KEEP_INTERMEDIATE        = "processor.l2s1.keep.intermediate"
+    S1_PROCESSOR_OUTPUT_FORMAT            = "processor.l2s1.output.format"
+    S1_PROCESSOR_OUTPUT_EXTENSION         = "processor.l2s1.output.extension"
+    S1_PROCESSOR_CROP_ENABLED             = "processor.l2s1.crop.enabled"
+    S1_PROCESSOR_CONVERT_INT16            = "processor.l2s1.convert.int"
+    S1_PROCESSOR_COMPRESS_ENABLED         = "processor.l2s1.compress.enabled"
+    S1_PROCESSOR_RESOLUTION_METERS        = "processor.l2s1.pixel.spacing"
+    S1_PROCESSOR_COPY_LOCALLY             = "processor.l2s1.copy.locally"
+    S1_PROCESSOR_STEP_TIMEOUT             = "processor.l2s1.step.timeout"
+    S1_PROCESSOR_CROP_NO_DATA             = "processor.l2s1.crop.nodata"
+    S1_PROCESSOR_SUBSET_SITE_AOI          = "processor.l2s1.subset_site_aoi"
+    S1_PROCESSOR_DEM_NAME                 = "dem.name"
+    S1_PROCESSOR_DEM_NODATA               = "dem.no_data_value"
+    S1_PROCESSOR_DEM_LOCAL_PATH           = "processor.l2a.srtm-path"
+    S1_PROCESSOR_PARALLEL_STEPS           = "processor.l2s1.parallel.steps.enabled"
+    S1_PROCESSOR_MONITOR_DISK             = "disk.monitor.interval"
+    S1_PROCESSOR_JAR_PATH                 = "processor.l2s1.jar.path"
+    S1_PROCESSOR_JAVA_BIN                 = "processor.l2s1.java.bin"
+    S1_PROCESSOR_S2_TILES                 = "processor.l2s1.s2.tiles"
+    SNAP_USE_DOCKER                       = "general.orchestrator.use_docker"
+    GDAL_USE_DOCKER                       = "general.orchestrator.use_docker"
+    DOCKER_SNAP_IMAGE                     = "processor.l2s1.processors_image"
+    DOCKER_GDAL_IMAGE                     = "processor.l2s1.gdal_image"
+    SNAP_HOME_PATH                        = "snap.home_path"
+    IGNORE_PREVIOUS_ORBIT_FAILURE         = "processor.l2s1.ignore.previous.orbit.failure"
+    S1_DOWNLOAD_OFFSET                    = "downloader.S1.query.days.back"
 
 
 # ===========================================================================
@@ -264,7 +318,7 @@ class DownloadProduct:
         self.id=0; self.product_name=""; self.full_path=""
         self.original_path=None; self.status_id=Status.PROCESSING
         self.status_reason=None; self.no_of_retries=0; self.footprint=None
-        self.orbit_id=0; self.orbit_type=""; self.product_date=None
+        self.orbit_id=0; self.orbit_type=None; self.product_date=None
         self.site_id=0; self.satellite_id=Satellite.Sentinel1; self.tiles=None
 
     def get_product_name(self): return self.product_name
@@ -292,10 +346,13 @@ class HighLevelProduct:
     def __init__(self):
         self.id=0; self.product_name=""; self.full_path=None
         self.inserted=None; self.created=None; self.product_type=None
-        self.processor_id=0; self.orbit_type=""; self.satellite=Satellite.Sentinel1
+        self.processor_id=0; self.orbit_type=None; self.satellite=Satellite.Sentinel1
         self.site_id=0; self.relative_orbit=0; self.download_product_id=0
         self.footprint=None; self.quick_look_path=None; self.product_details=None
         self.archived=False; self.tiles=None
+        self.footprint_ring: Optional[List[List[float]]] = None
+        self.job_id: Optional[int] = None
+        self.parent_names: List[str] = []   
 
     def get_product_name(self): return self.product_name
     def get_product_details(self): return self.product_details
@@ -433,18 +490,18 @@ class ProcessorRuntimeConfiguration:
         return Config.get_as_integer_for_site(self._s, ConfigurationKeys.S1_PROCESSOR_DAYS_BACK, 6)
     def overwrite_existing_products(self) -> bool:
         return Config.get_as_boolean(self._s, ConfigurationKeys.S1_PROCESSOR_OVERWRITE, False)
-    def should_replace_links(self) -> bool:
-        return Config.get_as_boolean(self._s, "s1.processor.replace_links", False)
+    def should_resolve_links(self) -> bool:
+        return Config.get_as_boolean(self._s, ConfigurationKeys.S1_PROCESSOR_RESOLVE_LINKS, False)
     def copy_products_locally(self) -> bool:
-        return Config.get_as_boolean(self._s, "s1.processor.copy_locally", False)
+        return Config.get_as_boolean(self._s, ConfigurationKeys.S1_PROCESSOR_COPY_LOCALLY, True)
     def intersection_threshold(self) -> float:
-        return float(Config.get_setting_for_site(self._s, "s1.processor.intersection_threshold", "0.0"))
+        return float(Config.get_setting_for_site(self._s, ConfigurationKeys.S1_PROCESSOR_MIN_INTERSECTION, "0.05"))
     def processor_id(self) -> int:
-        return Config.get_as_integer_for_site(self._s, "s1.processor.processor_id", 1)
+        return S1_PROCESSOR_ID
     def processor(self) -> str:
-        return Config.get_setting_for_site(self._s, "s1.processor.short_name", "s1_l2a")
+        return S1_PROCESSOR_SHORT_NAME
     def step_timeout(self) -> int:           # minutes
-        return Config.get_as_integer_for_site(self._s, "s1.processor.step_timeout_minutes", 60)
+        return Config.get_as_integer_for_site(self._s, ConfigurationKeys.S1_PROCESSOR_STEP_TIMEOUT, 60)
     def amplitude_enabled(self) -> bool:
         return Config.get_as_boolean(self._s, ConfigurationKeys.S1_PROCESSOR_AMPLITUDE_ENABLED, True)
     def coherence_enabled(self) -> bool:
@@ -457,8 +514,6 @@ class ProcessorRuntimeConfiguration:
         return Config.get_as_boolean(self._s, ConfigurationKeys.S1_PROCESSOR_KEEP_INTERMEDIATE, False)
     def resolution_in_meters(self) -> str:
         return Config.get_setting_for_site(self._s, ConfigurationKeys.S1_PROCESSOR_RESOLUTION_METERS, "10")
-    def resolution_in_degrees(self) -> str:
-        return Config.get_setting_for_site(self._s, ConfigurationKeys.S1_PROCESSOR_RESOLUTION_DEGREES, "0.0001")
     def dem_name(self) -> str:
         return Config.get_setting_for_site(self._s, ConfigurationKeys.S1_PROCESSOR_DEM_NAME, "SRTM 1Sec HGT")
     def dem_no_data_value(self) -> float:
@@ -470,7 +525,9 @@ class ProcessorRuntimeConfiguration:
     def monitor_disk_activity_interval(self) -> int:
         return Config.get_as_integer_for_site(self._s, ConfigurationKeys.S1_PROCESSOR_MONITOR_DISK, 0)
     def should_crop_no_data(self) -> bool:
-        return Config.get_as_boolean(self._s, "s1.processor.crop_nodata", False)
+        return Config.get_as_boolean(self._s, ConfigurationKeys.S1_PROCESSOR_CROP_NO_DATA, False)
+    def should_subset_site_aoi(self) -> bool:
+        return Config.get_as_boolean(self._s, ConfigurationKeys.S1_PROCESSOR_SUBSET_SITE_AOI, True)
 
     @staticmethod
     def get(site_id: int) -> "ProcessorRuntimeConfiguration":
@@ -500,11 +557,16 @@ def _get_extension(fp: str) -> str:
     return Path(fp).suffix.lower()
 
 def _copy_tree(src: Path, dst: Path) -> int:
+    target_root = dst / src.name
     count = 0
-    dst.mkdir(parents=True, exist_ok=True)
+    target_root.mkdir(parents=True, exist_ok=True)    
     for item in src.rglob("*"):
+        rel = item.relative_to(src)
+        target = target_root / rel
+        if item.is_dir():
+            target.mkdir(parents=True, exist_ok=True)
         if item.is_file():
-            t = dst / item.relative_to(src)
+            t = target_root  / item.relative_to(src)
             t.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(item, t)
             count += 1
@@ -515,8 +577,11 @@ def _delete_tree(p: Path):
         shutil.rmtree(p)
 
 def _decompress_zip(zp: Path, dest: Path):
+    target_root = dest / zp.stem
+    target_root.mkdir(parents=True, exist_ok=True)
+    
     with zipfile.ZipFile(zp, "r") as zf:
-        zf.extractall(dest)
+        zf.extractall(target_root)
 
 def _resolve_symlinks(p: Path) -> Path:
     return p.resolve()
@@ -551,13 +616,26 @@ class Sentinel1ProductHelper:
         self._match = S1_PATTERN.match(product_name)
 
     def get_orbit(self) -> str:
-        """Zero-padded 3-digit relative orbit (mirrors Java helper)."""
         if not self._match:
             return "000"
         abs_orbit = int(self._match.group(10))
         sat = self._match.group(1)
-        rel = ((abs_orbit - 73) % 175 + 1) if sat.endswith("A") \
-              else ((abs_orbit - 27) % 175 + 1)
+
+        if sat.endswith("A"):
+            rel = ((abs_orbit - 73) % 175) + 1
+        elif sat.endswith("B"):
+            rel = ((abs_orbit - 27) % 175) + 1
+        elif sat.endswith("C"):
+            sensingDate = self._match.group(8);
+            if sensingDate < "20260624T000000" :
+                relOrbit = ((abs_orbit - 172) % 175) + 1
+            else :
+                relOrbit = ((abs_orbit - 99) % 175) + 1
+        elif sat.endswith("D"):
+            rel = ((abs_orbit - 42) % 175) + 1
+        else:
+            return "000"
+
         return f"{rel:03d}"
 
     def get_sensing_date(self) -> str:
@@ -574,6 +652,125 @@ class Sentinel1ProductHelper:
         return Sentinel1ProductHelper(name)
 
 
+def _mtd_path_for(product_full_path: str) -> Path:
+    p = Path(product_full_path)
+    return p.with_name(p.name + ".mtd")
+#    return Path(product_full_path).with_suffix(".mtd")
+
+
+def _wkt_polygon_to_ring(wkt_str: str) -> Optional[List[List[float]]]:
+    """Returns [[x, y], ...] for a simple POLYGON((...)) WKT string."""
+    if not wkt_str:
+        return None
+    if HAS_SHAPELY:
+        try:
+            geom = shapely_wkt.loads(wkt_str)
+            return [list(pt) for pt in geom.exterior.coords]
+        except Exception:
+            pass
+    # Fallback: minimal regex parse for a single, hole-free POLYGON(( ... ))
+    m = re.search(r"POLYGON\s*\(\(([^()]+)\)\)", wkt_str, re.IGNORECASE)
+    if not m:
+        return None
+    ring = []
+    for pair in m.group(1).split(","):
+        parts = pair.strip().split()
+        if len(parts) >= 2:
+            ring.append([float(parts[0]), float(parts[1])])
+    return ring or None
+
+
+def _epsg_code(projection: str) -> Optional[int]:
+    m = re.search(r"EPSG:(\d+)", projection or "", re.IGNORECASE)
+    return int(m.group(1)) if m else None
+
+
+def _ring_to_geojson_polygon(ring: List[List[float]]) -> dict:
+    return {"type": "Polygon", "coordinates": [ring]}
+
+
+def _reproject_ring(ring: List[List[float]], epsg_from: int) -> Optional[List[List[float]]]:
+    if not HAS_PYPROJ:
+        return None
+    try:
+        transformer = Transformer.from_crs(
+            f"EPSG:{epsg_from}", "EPSG:4326", always_xy=True)
+        return [list(transformer.transform(x, y)) for x, y in ring]
+    except Exception:
+        return None
+
+def _ring_to_wkt_polygon(ring: List[List[float]]) -> str:
+    """Standard WKT, for casting straight to ::geography (assumes SRID 4326)."""
+    coord_str = ", ".join(f"{x} {y}" for x, y in ring)
+    return f"POLYGON(({coord_str}))"
+
+def _parse_mtd(mtd_path: Path) -> Optional[dict]:
+    """
+    Parses a processor-written .mtd sidecar file into a plain dict.
+    Returns None if the file is missing or malformed.
+    """
+    if not mtd_path.exists():
+        return None
+    try:
+        root = ET.parse(str(mtd_path)).getroot()
+    except ET.ParseError:
+        return None
+
+    def _text(tag: str, parent=root) -> Optional[str]:
+        el = parent.find(tag)
+        return el.text.strip() if el is not None and el.text else None
+
+    def _parse_side(tag: str) -> Optional[dict]:
+        el = root.find(tag)
+        if el is None:
+            return None
+        return {
+            "name":         _text("name", el),
+            "sensing_date": _text("sensingDate", el),
+            "footprint":    _text("footprint", el),   # already lon/lat
+        }
+
+    return {
+        "product_type_tag": root.attrib.get("type"),
+        "name":             _text("name"),
+        "acquisition":      _text("acquisition"),
+        "projection":       _text("projection"),
+        "footprint":        _text("footprint"),         # native projection
+        "wgs84footprint":   _text("wgs84footprint"),
+        "relative_orbit":   _text("relativeOrbit"),
+        "orbit_type":       _text("orbitType"),
+        "polarisation":     _text("polarisation"), 
+        "master":           _parse_side("master"),
+        "slave":            _parse_side("slave"),
+    }
+
+
+def _build_footprint_ring(mtd: dict) -> Optional[List[List[float]]]:
+    wgs84 = mtd.get("wgs84footprint")
+    if wgs84 and wgs84.strip().lower() != "n/a":
+        ring = _wkt_polygon_to_ring(wgs84)
+        if ring:
+            return ring
+
+    epsg = _epsg_code(mtd.get("projection") or "")
+    native_ring = _wkt_polygon_to_ring(mtd.get("footprint") or "")
+    if epsg and native_ring:
+        reprojected = _reproject_ring(native_ring, epsg)
+        if reprojected:
+            return reprojected
+
+    master = mtd.get("master") or {}
+    master_ring = _wkt_polygon_to_ring(master.get("footprint") or "")
+    if master_ring:
+        return master_ring
+
+    return None
+
+
+def _build_geometry(mtd: dict) -> Optional[dict]:
+    ring = _build_footprint_ring(mtd)
+    return _ring_to_geojson_polygon(ring) if ring else None
+    
 # ===========================================================================
 # JobHelper
 # ===========================================================================
@@ -695,7 +892,7 @@ class PersistenceManager:
     # --- internal helpers ---
 
     def _fetch_all(self, sql: str, params: dict = None) -> List[dict]:
-        with self._engine.connect() as conn:
+        with self._engine.begin() as conn:
             res = conn.execute(text(sql), params or {})
             keys = list(res.keys())
             return [dict(zip(keys, row)) for row in res.fetchall()]
@@ -705,7 +902,7 @@ class PersistenceManager:
         return rows[0] if rows else None
 
     def _execute(self, sql: str, params: dict = None):
-        with self._engine.connect() as conn:
+        with self._engine.begin() as conn:
             conn.execute(text(sql), params or {})
             conn.commit()
 
@@ -729,6 +926,18 @@ class PersistenceManager:
             "FROM public.site WHERE enabled = true ORDER BY id")
         return [self._to_site(r) for r in rows]
 
+    def get_site_aoi(self, site_id: int) -> Optional[str]:
+        row = self._fetch_one(
+            """
+            SELECT ST_AsText(ST_GeometryN(geog::geometry, 1)) AS wkt
+            FROM site
+            WHERE id = :id
+            """,
+            {"id": site_id},
+        )
+
+        return row["wkt"] if row else None
+        
     def save_site(self, site: Site) -> Site:
         self._execute(
             "UPDATE public.site SET name=:n, short_name=:sn, enabled=:en "
@@ -782,7 +991,7 @@ class PersistenceManager:
         
         rows = self._fetch_all(
             f"""SELECT id, product_name, full_path, status_id, status_reason,
-                       no_of_retries, orbit_id, product_date, site_id, satellite_id
+                       no_of_retries, orbit_id, product_date, site_id, satellite_id, orbit_type_id
                 FROM downloader_history
                 WHERE site_id = :sid
                   AND satellite_id = :sat
@@ -804,7 +1013,7 @@ class PersistenceManager:
         rows = self._fetch_all(
             """SELECT dh.id, dh.product_name, dh.full_path, dh.status_id,
                       dh.status_reason, dh.no_of_retries, dh.orbit_id,
-                      dh.product_date, dh.site_id, dh.satellite_id
+                      dh.product_date, dh.site_id, dh.satellite_id, dh.orbit_type_id
                FROM downloader_history dh
                WHERE dh.site_id = :sid
                  AND dh.status_id = '5'
@@ -821,7 +1030,7 @@ class PersistenceManager:
                      reason_contains: str) -> List[DownloadProduct]:
         rows = self._fetch_all(
             """SELECT id, product_name, full_path, status_id, status_reason,
-                      no_of_retries, orbit_id, product_date, site_id, satellite_id
+                      no_of_retries, orbit_id, product_date, site_id, satellite_id, orbit_type_id
                FROM downloader_history
                WHERE site_id=:sid AND satellite_id=:sat
                  AND status_id=:st
@@ -834,33 +1043,18 @@ class PersistenceManager:
     def get_intersecting_products(
             self, site_id: int, product_name: str,
             days_back: int, threshold: float) -> List[DownloadProduct]:
-        """
-        Translated from DownloadProductRepository.findIntersectingProducts.
-        Finds S1 products that spatially overlap the reference product
-        within a time window.
-        """
         rows = self._fetch_all(
-            """SELECT dh.id, dh.product_name, dh.full_path, dh.status_id,
-                      dh.status_reason, dh.no_of_retries, dh.orbit_id,
-                      dh.product_date, dh.site_id, dh.satellite_id
-               FROM downloader_history dh
-               JOIN downloader_history ref
-                    ON ref.product_name = :pname AND ref.site_id = :sid
-               WHERE dh.site_id = :sid
-                 AND dh.id <> ref.id
-                 AND dh.satellite_id = ref.satellite_id
-                 AND dh.status_id IN
-                     ('2','5','7','6')
-                 AND dh.product_date BETWEEN
-                     ref.product_date - CAST(:days || ' days' AS INTERVAL) AND
-                     ref.product_date + CAST(:days || ' days' AS INTERVAL)
-                 AND ST_Area(ST_Intersection(
-                         dh.footprint::geometry,
-                         ref.footprint::geometry))
-                     / NULLIF(ST_Area(ref.footprint::geometry), 0)
-                     >= :thresh""",
+            """SELECT dh.id, dh.site_id, dh.satellite_id, dh.product_name, dh.full_path, dh.created_timestamp, 
+                      dh.status_id, dh.no_of_retries, dh.product_date, dh.orbit_id, dh.status_reason, dh.tiles, dh.footprint, dh.orbit_type_id 
+                FROM public.downloader_history i JOIN public.downloader_history dh on dh.site_id = i.site_id 
+                        AND dh.satellite_id = i.satellite_id AND dh.orbit_id = i.orbit_id 
+                WHERE i.site_id = :sid AND i.product_name = :pname AND ST_INTERSECTS(dh.footprint, i.footprint) 
+                    AND DATE_PART('day', i.product_date - dh.product_date) BETWEEN :neg_days AND :pos_days 
+                    AND st_area(st_intersection(dh.footprint, i.footprint)) / st_area(dh.footprint) > :thresh 
+                ORDER BY st_area(st_intersection(dh.footprint, i.footprint)) / st_area(dh.footprint) DESC, i.product_date ASC""",
             {"pname": product_name, "sid": site_id,
-             "days": days_back, "thresh": threshold})
+             "neg_days": days_back - 1, "pos_days": days_back + 1,
+             "thresh": threshold})
         return [self._to_dld(r) for r in rows]
 
     def get_produced_products(self,
@@ -877,6 +1071,72 @@ class PersistenceManager:
             out.append(p)
         return out
 
+    def get_configuration(
+            self) -> Tuple[Dict[str, str], Dict[int, Dict[str, str]]]:
+        """
+        Loads all rows from the config table and splits them into a
+        global dict (site_id IS NULL) and a per-site dict, in the same
+        shape Config.setup() expects.
+        """
+        rows = self._fetch_all(
+            "SELECT key, site_id, value FROM config")
+
+        global_cfg: Dict[str, str] = {}
+        per_site_cfg: Dict[int, Dict[str, str]] = {}
+
+        for r in rows:
+            key   = r["key"]
+            value = r["value"]
+            sid   = r.get("site_id")
+            if value is None:
+                continue
+            if sid is None:
+                global_cfg[key] = str(value)
+            else:
+                per_site_cfg.setdefault(int(sid), {})[key] = str(value)
+
+        return global_cfg, per_site_cfg
+        
+    def get_full_path_by_product_name(self, product_name: str) -> Optional[str]:
+        row = self._fetch_one(
+            "SELECT full_path FROM downloader_history "
+            "WHERE product_name = :pname LIMIT 1",
+            {"pname": product_name})
+        return row["full_path"] if row else None
+    
+    def get_site_products(self, site_id: int) -> List[dict]:
+        """
+        Every AMP/COHE product recorded for a site. Geometry and parent
+        (master/slave) information is read from each product's .mtd
+        sidecar file, not from the DB, since that's the only place this
+        is recorded for products created before the current run.
+        """
+        rows = self._fetch_all(
+            """
+            SELECT id, name, full_path, orbit_id, orbit_type_id, product_type_id
+            FROM product
+            WHERE site_id = :sid
+              AND product_type_id IN (:amp, :cohe)
+            ORDER BY id
+            """,
+            {"sid": site_id,
+             "amp": ProductType.L2A_AMP.value,
+             "cohe": ProductType.L2A_COHE.value})
+        return rows
+    
+    def get_product_id_by_name(self, site_id: int, name: str) -> Optional[int]:
+        """
+        Looks up an existing `product` row by name. Used to resolve
+        provenance parents - only succeeds if the parent (e.g. a master or
+        slave SLC) has itself been registered as a `product` row by some
+        other processor; for plain S1 preprocessing this will normally
+        return None, since SLCs live in downloader_history only.
+        """
+        row = self._fetch_one(
+            "SELECT id FROM product WHERE site_id = :sid AND name = :name LIMIT 1",
+            {"sid": site_id, "name": name})
+        return row["id"] if row else None    
+    
     @staticmethod
     def _to_dld(r: dict) -> DownloadProduct:
         p = DownloadProduct()
@@ -896,6 +1156,11 @@ class PersistenceManager:
             p.satellite_id = Satellite(r["satellite_id"])
         except ValueError:
             p.satellite_id = Satellite.Sentinel1
+        try:
+            p.orbit_type = OrbitType(r["orbit_type_id"])
+        except ValueError:
+            p.orbit_type = OrbitType.ASCENDING
+
         return p
 
     # ------------------------------------------------------------------
@@ -981,60 +1246,119 @@ class PersistenceManager:
     # ------------------------------------------------------------------
     # HighLevelProduct  (ProductRepository)
     # ------------------------------------------------------------------
-
     def save_product(self, product: HighLevelProduct) -> HighLevelProduct:
-        if product.id:
-            self._execute(
-                "UPDATE product "
-                "SET full_path=:fp, inserted=:ins, created=:cr, "
-                "    quick_look_path=:ql "
-                "WHERE id=:id",
-                {"fp": product.full_path, "ins": product.inserted,
-                 "cr": product.created, "ql": product.quick_look_path,
-                 "id": product.id})
-        else:
-            row = self._fetch_one(
-                "INSERT INTO product "
-                "(name, full_path, created_timestamp, inserted_timestamp, processor_id, "
-                " product_type_id, satellite_id, site_id, orbit_type_id, "
-                " orbit_id, downloader_history_id) "
-                "VALUES (:pn,:fp,:cr,:ins,:proc,:pt,:sat,:sid,:ot,:ro,:dhi) "
-                "RETURNING id",
-                {"pn": product.product_name, "fp": product.full_path,
-                 "cr": product.created, "ins": product.inserted,
-                 "proc": product.processor_id,
-                 "pt": product.product_type,
-                 "sat": product.satellite.value
-                       if product.satellite else 1,
-                 "sid": product.site_id,
-                 "ot": product.orbit_type,
-                 "ro": product.relative_orbit,
-                 "dhi": product.download_product_id})
-            if row:
-                product.id = row["id"]
-        return product
+        self._logger.info("Saving product with name %s ...", product.product_name)
 
+        ring = getattr(product, "footprint_ring", None)
+        footprint_wkt = _ring_to_wkt_polygon(ring) if ring else None
+
+        orbit_type_val = (product.orbit_type.value
+                           if isinstance(product.orbit_type, OrbitType) else None)
+        satellite_val  = (product.satellite.value
+                           if isinstance(product.satellite, Satellite) else product.satellite)
+
+        tiles_json = json.dumps(list(product.tiles) if product.tiles else [])
+
+        parent_ids = [
+            pid for pid in (
+                self.get_product_id_by_name(product.site_id, n)
+                for n in getattr(product, "parent_names", []) or []
+            )
+            if pid is not None
+        ]
+        parents_json = json.dumps(parent_ids) if parent_ids else None
+
+        row = self._fetch_one(
+            """
+            SELECT sp_insert_product(
+                _product_type_id       => CAST(:pt AS smallint),
+                _processor_id          => CAST(:proc AS smallint),
+                _satellite_id          => CAST(:sat AS integer),
+                _site_id               => CAST(:sid AS smallint),
+                _job_id                => CAST(:job_id AS integer),
+                _full_path             => CAST(:fp AS character varying),
+                _created_timestamp     => CAST(:cr AS timestamp with time zone),
+                _name                  => CAST(:name AS character varying),
+                _quicklook_image       => CAST(:ql AS character varying),
+                _footprint             => CAST(:footprint_wkt AS geography),
+                _orbit_id              => CAST(:ro AS integer),
+                _tiles                 => CAST(:tiles_json AS json),
+                _orbit_type_id         => CAST(:ot AS smallint),
+                _downloader_history_id => CAST(:dhi AS integer),
+                _parent_product_ids    => CAST(:parents_json AS json)
+            ) AS id
+            """,
+            {"pt": product.product_type,
+             "proc": product.processor_id,
+             "sat": satellite_val,
+             "sid": product.site_id,
+             "job_id": product.job_id,
+             "fp": product.full_path,
+             "cr": product.created,
+             "name": product.product_name,
+             "ql": product.quick_look_path,
+             "footprint_wkt": footprint_wkt,
+             "ro": product.relative_orbit,
+             "tiles_json": tiles_json,
+             "ot": orbit_type_val,
+             "dhi": product.download_product_id,
+             "parents_json": parents_json,
+            })
+
+        if row:
+            product.id = row["id"]
+
+        self._logger.info("Saved product with name %s and id = %s!",
+                          product.product_name, product.id)
+        return product
     # ------------------------------------------------------------------
     # ProductDetails  (NonMappedEntitiesRepository → product_stats)
     # ------------------------------------------------------------------
+    def check_product_stats(self):
+        statement = """
+            CREATE TABLE IF NOT EXISTS public.product_stats (
+                product_id integer NOT NULL,
+                min_value real NOT NULL,
+                max_value real NOT NULL,
+                mean_value real NOT NULL,
+                std_dev real NOT NULL,
+                histogram integer[256] NULL,
+
+                CONSTRAINT pk_product_details
+                    PRIMARY KEY (product_id),
+
+                CONSTRAINT fk_product
+                    FOREIGN KEY (product_id)
+                    REFERENCES product (id)
+                    ON DELETE CASCADE
+            )
+        """
+
+        try:
+            self._execute(statement)
+
+        except Exception as ex:
+            self._logger.error(
+                f"SQL Statement failed: {ex}"
+            )
 
     def save_product_details(self,
                               details: ProductDetails) -> ProductDetails:
         if details.id and self._fetch_one(
-                "SELECT id FROM product_stats WHERE id=:id",
-                {"id": details.id}):
+                "SELECT product_id FROM product_stats WHERE product_id=:product_id",
+                {"product_id": details.id}):
             self._execute(
                 "UPDATE product_stats "
-                "SET min_val=:mn, max_val=:mx, mean_val=:me, std_dev=:sd "
-                "WHERE id=:id",
+                "SET min_value=:mn, max_value=:mx, mean_value=:me, std_dev=:sd "
+                "WHERE product_id=:product_id",
                 {"mn": details.min_value, "mx": details.max_value,
                  "me": details.mean_value, "sd": details.std_dev_value,
-                 "id": details.id})
+                 "product_id": details.id})
         else:
             self._execute(
-                "INSERT INTO product_stats (id,min_val,max_val,mean_val,std_dev) "
-                "VALUES (:id,:mn,:mx,:me,:sd)",
-                {"id": details.id, "mn": details.min_value,
+                "INSERT INTO product_stats (product_id,min_value,max_value,mean_value,std_dev) "
+                "VALUES (:product_id,:mn,:mx,:me,:sd)",
+                {"product_id": details.id, "mn": details.min_value,
                  "mx": details.max_value, "me": details.mean_value,
                  "sd": details.std_dev_value})
         return details
@@ -1234,7 +1558,7 @@ class ProductLog:
 
     @classmethod
     def setup_handler(cls, name: str, folder: Path):
-        h = logging.FileHandler(str(folder / "output.log"))
+        h = logging.FileHandler(str(folder / "site_processing_output.log"))
         h.setLevel(logging.DEBUG)
         cls._handlers[name] = h
 
@@ -1289,12 +1613,13 @@ class Sentinel1Level2Worker:
         download_product_id: int,
         site: Site,
         polarisation: Polarisation,
-        orbit_type: str,
+        orbit_type: OrbitType,
         master_product: Path,
         slave_product: Optional[Path],
         use_master_band: bool,
         flag: int,
         timeout_minutes: int,
+        aoi_wkt: Optional[str] = None,
     ) -> Optional[str]:
         """
         Returns None on success, semicolon-joined error string on failure.
@@ -1315,8 +1640,16 @@ class Sentinel1Level2Worker:
                 slave_product.name).get_sensing_date()
         
         site_id     = site.get_id()
+        
+        newer_date, older_date = master_date, slave_date
+        if slave_date and master_date and slave_date > master_date:
+            newer_date, older_date = slave_date, master_date
+
+        newer_dt = (datetime.strptime(newer_date, _PRODUCT_DATE_FMT)
+                    if newer_date else master_dt)
+            
         name        = self._build_product_name(
-            site_id, master_date, slave_date, polarisation, rel_orbit)
+            site_id, newer_date, older_date, polarisation, rel_orbit)
         product_folder = self._tmp_path / name
         product_folder_name  = product_folder.name
         status               = False
@@ -1340,8 +1673,18 @@ class Sentinel1Level2Worker:
                 p.processor_id        = self._cfg.processor_id()
                 p.orbit_type          = orbit_type
                 p.satellite           = Satellite.Sentinel1
+                p.job_id              = job.get_id()
                 p.full_path           = str(
                     self._target_path / name / (p.product_name + ext))
+                
+                _record_parent_products(
+                    p.product_name, str(master_product),
+                    str(slave_product) if slave_product else None)
+                
+                p.parent_names = [master_product.name]        
+                if slave_product and slave_product.name != master_product.name:
+                    p.parent_names.append(slave_product.name)  
+                    
                 if Path(p.full_path).exists() and \
                         ProcessFlag.is_reset(process_flag, ProcessFlag.OVERWRITE):
                     self._logger.warning(
@@ -1366,8 +1709,8 @@ class Sentinel1Level2Worker:
                     f"Slave: {slave_product.name if slave_product else 'n/a'}")
 
                 steps = self._build_execution_steps(
-                    job, polarisation, master_product, slave_product,
-                    pt.value, use_master_band, name, work_dir, p.full_path)
+                    job, polarisation, p.orbit_type, master_product, slave_product,
+                    pt.value, use_master_band, name, work_dir, p.full_path, aoi_wkt)
 
                 for step_name, commands in steps.items():
                     task = JobHelper.get_task_or_create(job, step_name)
@@ -1411,7 +1754,7 @@ class Sentinel1Level2Worker:
 
                         if result.returncode != 0:
                             msg = (f"Step {step_name} failed "
-                                   f"[exit={result.returncode}]: {out[:500]}")
+                                   f"[exit={result.returncode}]: {out}")
                             ProductLog.error(product_folder_name, msg)
                             self._errors.append(msg)
                             status = False
@@ -1461,16 +1804,26 @@ class Sentinel1Level2Worker:
                     p_path = Path(p.full_path) if p.full_path else None
                     if p_path and p_path.exists():
                         p.inserted = datetime.now()
-                        p.created  = master_dt
+                        p.created  = newer_dt
                         p.site_id  = site_id
                         p.relative_orbit = int(rel_orbit)
                         self._attach_statistics(p, p_path)
+
+                        mtd_path = _mtd_path_for(p.full_path)
+                        mtd = _parse_mtd(mtd_path)
+                        if mtd:
+                            p.footprint_ring = _build_footprint_ring(mtd)
+                            if not p.footprint_ring:
+                                self._logger.warning(
+                                    "Could not derive a footprint from %s", mtd_path)
+                        else:
+                            self._logger.warning(
+                                "No/invalid .mtd at %s; footprint not stored.", mtd_path)
                     else:
                         msg = f"Expected output not found: {p.full_path}"
                         self._logger.warning(msg)
                         self._errors.append(msg)
                         status = False
-
         except Exception:
             msg = traceback.format_exc()
             ProductLog.error(product_folder_name, msg)
@@ -1506,6 +1859,7 @@ class Sentinel1Level2Worker:
         self,
         job: Job,
         polarisation: Polarisation,
+        orbit_type: OrbitType,
         master_product: Path,
         slave_product: Optional[Path],
         product_type : ProductType,
@@ -1513,6 +1867,7 @@ class Sentinel1Level2Worker:
         target_name: str,
         work_dir: str, 
         out_s1l2 : str,
+        aoi_wkt: Optional[str] = None,
     ) -> Dict[str, List[dict]]:
         """
         Builds a single execution step invoking the external Java processor jar,
@@ -1521,14 +1876,14 @@ class Sentinel1Level2Worker:
         """
         steps: Dict[str, List[dict]] = {}
 
-        jar_path  = Config.get_setting("s1.processor.jar_path",
-                                       "/app/app.jar")
-        java_bin  = Config.get_setting("s1.processor.java_bin", "java")
+        jar_path  = Config.get_setting(ConfigurationKeys.S1_PROCESSOR_JAR_PATH, "/app/app.jar")
+        java_bin  = Config.get_setting(ConfigurationKeys.S1_PROCESSOR_JAVA_BIN, "java")
 
         dem_name  = self._cfg.dem_name()
         dem_nodata= self._cfg.dem_no_data_value()
         spacing   = self._cfg.resolution_in_meters()
         keep_inter= "y" if self._cfg.keep_intermediate() else "n"
+        subset_site_aoi= self._cfg.should_subset_site_aoi()
 
         # Projection: prefer snap-wkt; fall back to gdal-srs if it looks like EPSG
         projection = self._cfg.projection_wkt()
@@ -1538,7 +1893,7 @@ class Sentinel1Level2Worker:
             proj_args = ["--snap-wkt", projection]
 
         # Tiles: optional CSV of S2 tile IDs for cropping
-        tiles_csv = Config.get_setting("s1.processor.tiles", "")
+        tiles_csv = Config.get_setting(ConfigurationKeys.S1_PROCESSOR_S2_TILES, "")
 
         def _base_args(mode: str) -> List[str]:
             args = [
@@ -1546,6 +1901,7 @@ class Sentinel1Level2Worker:
                 "--first",  str(master_product),
                 "--second", str(slave_product) if slave_product else str(master_product),
                 "--polarisation", polarisation.name,
+                "--orbit-type", str(orbit_type.value),
                 "--mode",         mode,
                 "--work-dir",     work_dir,
                 "--out",          out_s1l2,
@@ -1557,6 +1913,10 @@ class Sentinel1Level2Worker:
             args += proj_args
             if tiles_csv:
                 args += ["--tiles", tiles_csv]
+            
+            if subset_site_aoi and aoi_wkt:
+                args += ["--aoi", aoi_wkt]
+                
             return args
 
         print ("product_type = {}, L2A_AMP = {}, enabled = {}".format(product_type, ProductType.L2A_AMP, self._cfg.amplitude_enabled()))
@@ -1685,7 +2045,11 @@ class Sentinel1Level2Worker:
         moved = False
         if status and self._tmp_path != self._target_path:
             try:
-                shutil.move(str(product_folder), str(self._target_path))
+                src = Path(product_folder)
+                dst = Path(self._target_path) / src.name
+                shutil.copytree(src, dst, dirs_exist_ok=True)
+                shutil.rmtree(src)
+                # shutil.move(str(product_folder), str(self._target_path))
                 moved = True
                 self._logger.debug("Moved %s → %s",
                                    product_folder, self._target_path)
@@ -1877,10 +2241,65 @@ class Sentinel1L2ProcessorV1:
         self._logger  = logging.getLogger(self.__class__.__name__)
         self._flags:   Dict[str, int] = {}
         self._cfgs:    Dict[int, ProcessorRuntimeConfiguration] = {}
+        self._aois:    Dict[int, Optional[str]] = {}   # site_id -> AOI WKT (cached)
 
     def get_version(self) -> int:
         return 1
 
+    def _get_site_aoi(self, site_id: int) -> Optional[str]:
+        if site_id not in self._aois:
+            self._aois[site_id] = self._pm.get_site_aoi(site_id)
+        return self._aois[site_id]
+    
+    def _all_outputs_exist(self, master_p: DownloadProduct, slave_p: DownloadProduct,
+            site: Site, target_root: Path, enabled_polarisations: Set[Polarisation],
+            cfg: ProcessorRuntimeConfiguration, ) -> bool:
+        """
+        Returns True only when every (polarisation × product_type) output
+        file that _would_ be produced for this master/slave pair already
+        exists on disk.
+        """
+        from pathlib import Path as _Path
+
+        ext = cfg.output_extension()
+
+        for pol in enabled_polarisations:
+            master_helper = Sentinel1ProductHelper.create(
+                master_p.get_product_name())
+            slave_helper  = Sentinel1ProductHelper.create(
+                slave_p.get_product_name())
+
+            master_date = master_helper.get_sensing_date()
+            slave_date  = slave_helper.get_sensing_date()
+            rel_orbit   = master_helper.get_orbit()
+
+            # Mirror the newer/older date logic in create_products()
+            newer_date = master_date
+            older_date = slave_date
+            if slave_date and master_date and slave_date > master_date:
+                newer_date, older_date = slave_date, master_date
+
+            folder_name = Sentinel1Level2Worker._build_product_name(
+                site.get_id(), newer_date, older_date, pol, rel_orbit)
+
+            for pt, fbit, enabled in [
+                (ProductType.L2A_COHE, ProcessFlag.COHERENCE, cfg.coherence_enabled()),
+                (ProductType.L2A_AMP,  ProcessFlag.AMPLITUDE, cfg.amplitude_enabled()),
+            ]:
+                if not enabled:
+                    continue
+                flag = self._flags.get(master_p.get_product_name(), 0)
+                if ProcessFlag.is_reset(flag, fbit):
+                    continue
+
+                product_name = folder_name + "_" + pt.suffix()
+                output_path  = target_root / folder_name / (product_name + ext)
+
+                if not output_path.exists():
+                    return False   # at least one output is missing
+
+        return True
+    
     def process_acquisition(
         self,
         product: DownloadProduct,
@@ -1930,9 +2349,7 @@ class Sentinel1L2ProcessorV1:
                     product, Status.PROCESSING_FAILED, "No previous product")
                 return
 
-            if self._already_processed(
-                    product, len(intersecting),
-                    len(enabled_polarisations)):
+            if self._already_processed(product, len(intersecting), enabled_polarisations):
                 self._update_fields(product, Status.PROCESSED, None)
                 return
 
@@ -1956,7 +2373,25 @@ class Sentinel1L2ProcessorV1:
                 master_p, slave_p = self._choose_master_slave(
                     master, product, iprod)
 
-                if cfg.should_replace_links():
+                # ==== NEW: pre-flight output check =================================
+                # Build what the output product name(s) would be and check whether
+                # they already exist on disk for every enabled polarisation.
+                # If all outputs are present and OVERWRITE is not set, skip the
+                # copy entirely for this pair.
+                if not (overwrite or cfg.overwrite_existing_products()):
+                    all_exist = self._all_outputs_exist(
+                        master_p, slave_p, site, target_root,
+                        enabled_polarisations, cfg)
+                    if all_exist:
+                        self._logger.info(
+                            "All outputs already exist for pair [%s, %s]; skipping copy.",
+                            master_p.get_product_name(), slave_p.get_product_name())
+                        # Still need to count this pair toward status
+                        status = Status.PROCESSED
+                        continue
+                # ===================================================================
+
+                if cfg.should_resolve_links():
                     try:
                         self._copy_locally(Path(master_p.get_full_path()))
                         self._copy_locally(Path(slave_p.get_full_path()))
@@ -2003,7 +2438,7 @@ class Sentinel1L2ProcessorV1:
                     self._cleanup_product(master_p)
                     self._cleanup_product(slave_p)
 
-                if cfg.should_replace_links():
+                if cfg.should_resolve_links():
                     try:
                         self._replace_with_link(
                             Path(master_p.get_full_path()))
@@ -2013,9 +2448,9 @@ class Sentinel1L2ProcessorV1:
                         self._logger.error(
                             "Cannot replace with symlink: %s", ex)
 
-                if not ProcessFlag.is_set(
-                        self._flags[pname], ProcessFlag.COHERENCE):
-                    break
+#                if not ProcessFlag.is_set(
+#                        self._flags[pname], ProcessFlag.COHERENCE):
+#                    break
 
             self._update_fields(product, status, error)
 
@@ -2052,6 +2487,7 @@ class Sentinel1L2ProcessorV1:
                       target_root, pol, use_master_band,
                       process_flag) -> Optional[str]:
         cfg  = self._cfgs[site.get_id()]
+        aoi_wkt = self._get_site_aoi(site.get_id())
         job  = JobHelper.create_job(
             site, cfg.processor(),
             json.dumps({"master": master_p.get_product_name()}))
@@ -2093,7 +2529,8 @@ class Sentinel1L2ProcessorV1:
                 master_p.get_orbit_type(),
                 Path(master_p.get_full_path()),
                 Path(slave_p.get_full_path()),
-                use_master_band, process_flag, cfg.step_timeout())
+                use_master_band, process_flag, cfg.step_timeout(),
+                aoi_wkt)
 
             if msg:
                 error = (f"Intersecting: {slave_p.get_product_name()}, "
@@ -2124,15 +2561,20 @@ class Sentinel1L2ProcessorV1:
         return error
 
     def _already_processed(self, product, intersections,
-                             polarisations) -> bool:
+                        enabled_polarisations) -> bool:
         produced = self._pm.get_produced_products(product.get_id())
         if not produced:
             return False
-        expected = (intersections + 1) * polarisations
-        if len(produced) < expected:
+        pol_tokens = [f"_{p.name}_" for p in enabled_polarisations]
+        relevant = [p for p in produced
+                    if any(tok in p.get_product_name() for tok in pol_tokens)]
+        expected = (intersections + 1) * len(enabled_polarisations)
+        if len(relevant) < expected:
             self._logger.warning(
-                "Product %s: expected %d outputs, found %d",
-                product.get_product_name(), expected, len(produced))
+                "Product %s (%s): expected %d outputs, found %d",
+                product.get_product_name(),
+                ",".join(p.name for p in enabled_polarisations),
+                expected, len(relevant))
             return False
         return True
 
@@ -2178,68 +2620,153 @@ class Sentinel1L2ProcessorV1:
         coh_on = ProcessFlag.is_set(
             self._flags.get(p1.get_product_name(), 0), ProcessFlag.COHERENCE)
         if coh_on and is_s1a and p2.get_product_name().startswith("S1A"):
-            self._logger.warning("Both from same sensor [%s]",
-                                 p1.get_product_name())
+            self._logger.warning("Both from same sensor [%s]", p1.get_product_name())
         if coh_on:
             if config == MasterChoice.S1A:
                 return (p1, p2) if is_s1a else (p2, p1)
             elif config in (MasterChoice.S1B, MasterChoice.S1C):
                 return (p2, p1) if is_s1a else (p1, p2)
             elif config == MasterChoice.OLDEST:
-                return p2, p1
+                return (p1, p2) if p1.get_product_date() <= p2.get_product_date() else (p2, p1)
+            elif config == MasterChoice.NEWEST:
+                return (p1, p2) if p1.get_product_date() >= p2.get_product_date() else (p2, p1)
             else:
                 return p1, p2
         return p2, p1
+    
+    # TODO : remove this implementation
+    # def _choose_master_slave(self, config, p1, p2):
+    #     is_s1a = p1.get_product_name().startswith("S1A")
+    #     coh_on = ProcessFlag.is_set(
+    #         self._flags.get(p1.get_product_name(), 0), ProcessFlag.COHERENCE)
+    #     if coh_on and is_s1a and p2.get_product_name().startswith("S1A"):
+    #         self._logger.warning("Both from same sensor [%s]",
+    #                              p1.get_product_name())
+    #     if coh_on:
+    #         if config == MasterChoice.S1A:
+    #             return (p1, p2) if is_s1a else (p2, p1)
+    #         elif config in (MasterChoice.S1B, MasterChoice.S1C):
+    #             return (p2, p1) if is_s1a else (p1, p2)
+    #         elif config == MasterChoice.OLDEST:
+    #             return p2, p1
+    #         else:
+    #             return p1, p2
+    #     return p2, p1
+
+    # def _get_intersecting(self, site_id, product, days_back):
+    #     cfg = self._cfgs.get(product.get_site_id())
+    #     results = self._pm.get_intersecting_products(
+    #         site_id, product.get_product_name(), days_back,
+    #         cfg.intersection_threshold() if cfg else 0.0)
+    #     if results:
+    #         orbit = Sentinel1ProductHelper.create(
+    #             product.get_product_name()).get_orbit()
+    #         results = [p for p in results
+    #                    if Sentinel1ProductHelper.create(
+    #                        p.get_product_name()).get_orbit() == orbit]
+    #         fp = product.get_footprint()
+    #         if fp and HAS_SHAPELY:
+    #             results.sort(
+    #                 key=lambda p: (p.get_footprint().intersection(fp).area
+    #                                if p.get_footprint() else 0),
+    #                 reverse=True)
+    #     return results or []
 
     def _get_intersecting(self, site_id, product, days_back):
         cfg = self._cfgs.get(product.get_site_id())
+        # print("Site_id = {}, product_name = {}, Days back = {}, intersection threshold = {}".format(site_id, product.get_product_name(), days_back, cfg.intersection_threshold()))
         results = self._pm.get_intersecting_products(
             site_id, product.get_product_name(), days_back,
             cfg.intersection_threshold() if cfg else 0.0)
-        if results:
-            orbit = Sentinel1ProductHelper.create(
-                product.get_product_name()).get_orbit()
-            results = [p for p in results
-                       if Sentinel1ProductHelper.create(
-                           p.get_product_name()).get_orbit() == orbit]
-            fp = product.get_footprint()
-            if fp and HAS_SHAPELY:
-                results.sort(
-                    key=lambda p: (p.get_footprint().intersection(fp).area
-                                   if p.get_footprint() else 0),
-                    reverse=True)
-        return results or []
+        if not results:
+            return []
 
+        orbit    = Sentinel1ProductHelper.create(
+            product.get_product_name()).get_orbit()
+        ref_date = product.get_product_date()
+        if ref_date is None:
+            return []
+
+        same_orbit = [
+            p for p in results
+            if Sentinel1ProductHelper.create(p.get_product_name()).get_orbit() == orbit
+        ]
+        for element in results:
+            print("Result {}".format(product.get_product_name()))
+            
+        for element in same_orbit:
+            print("Same orbit {}".format(product.get_product_name()))
+
+        # Backward only: a "previous" acquisition can never be one that
+        # hasn't happened yet, regardless of how the days_back window
+        # is bounded.
+        prior = [
+            p for p in same_orbit
+            if p.get_product_date() is not None
+            and p.get_product_date() < ref_date
+        ]
+        if not prior:
+            return []
+
+        # Group by *calendar day* difference, not exact elapsed time. A
+        # single overpass can be split into several scenes a few minutes
+        # apart (different frames along the same orbit track) - all of
+        # them belong to the same "day back" and should be kept together.
+        # Only the single closest prior day is kept; anything from an
+        # earlier day, even if still inside the days_back window, is
+        # discarded.
+        def day_diff(p):
+            return (ref_date.date() - p.get_product_date().date()).days
+
+        closest_day_diff = min(day_diff(p) for p in prior)
+        results = [p for p in prior if day_diff(p) == closest_day_diff]
+
+        fp = product.get_footprint()
+        if fp and HAS_SHAPELY:
+            results.sort(
+                key=lambda p: (p.get_footprint().intersection(fp).area
+                               if p.get_footprint() else 0),
+                reverse=True)
+                
+        return results
+        
     def _is_zipped(self, product) -> bool:
         return _get_extension(product.get_full_path()) == ".zip"
 
     def _ensure_uncompressed(self, product, site):
-        if product.original_path is None:
-            try:
-                wd = (Path(Config.get_setting(
-                    ConfigurationKeys.S1_PROCESSOR_WORK_DIR)
-                    or "/mnt/archive/s1_preprocessing_work_dir")
-                      / site.get_short_name()
-                      / str(uuid.uuid4()))
-                _ensure_exists(wd)
-                if not _is_path_writeable(wd):
-                    raise IOError(f"Folder '{wd}' not writable.")
-                cfg = self._cfgs.get(site.get_id())
-                if self._is_zipped(product):
-                    orig = product.get_full_path()
-                    _decompress_zip(Path(orig), wd)
-                    product.set_original_path(orig)
-                    product.set_full_path(
-                        str(wd / product.get_product_name()))
-                elif cfg and cfg.copy_products_locally():
-                    orig = product.get_full_path()
-                    _copy_tree(Path(orig), wd)
-                    product.set_original_path(orig)
-                    product.set_full_path(
-                        str(wd / product.get_product_name()))
-            except Exception as ex:
-                self._logger.error("Cannot uncompress/copy %s: %s",
-                                   product.get_product_name(), ex)
+        if product.original_path is not None:
+            return
+
+        cfg = self._cfgs.get(site.get_id())
+        needs_copy = cfg and cfg.copy_products_locally()
+        needs_unzip = self._is_zipped(product)
+
+        if not needs_unzip and not needs_copy:
+            return
+
+        try:
+            wd = (Path(Config.get_setting(
+                ConfigurationKeys.S1_PROCESSOR_WORK_DIR)
+                or "/mnt/archive/s1_preprocessing_work_dir")
+                  / site.get_short_name()
+                  / str(uuid.uuid4()))
+            _ensure_exists(wd)
+            if not _is_path_writeable(wd):
+                raise IOError(f"Folder '{wd}' not writable.")
+
+            if needs_unzip:
+                orig = product.get_full_path()
+                _decompress_zip(Path(orig), wd)
+                product.set_original_path(orig)
+                product.set_full_path(str(wd / product.get_product_name()))
+            elif needs_copy:
+                orig = product.get_full_path()
+                _copy_tree(Path(orig), wd)
+                product.set_original_path(orig)
+                product.set_full_path(str(wd / product.get_product_name()))
+        except Exception as ex:
+            self._logger.error("Cannot uncompress/copy %s: %s",
+                               product.get_product_name(), ex)
 
     def _cleanup_product(self, product):
         if product and product.original_path:
@@ -2695,19 +3222,132 @@ class Sentinel1Level2Job:
             return Sentinel1L2ProcessorV1(self._pm)
         raise ValueError(f"Unsupported processor version: {version}")
 
+def str_to_bool(value):
+    if value.lower() in ("true", "1", "yes", "y", "on"):
+        return True
+    if value.lower() in ("false", "0", "no", "n", "off"):
+        return False
+    raise argparse.ArgumentTypeError("Expected a boolean value")
 
+def build_stac_entries(pm: PersistenceManager, rows: List[dict]) -> List[dict]:
+    logger = logging.getLogger("stac_export")
+    entries = []
+    for r in rows:
+        mtd_path = _mtd_path_for(r["full_path"])
+        mtd = _parse_mtd(mtd_path)
+        if mtd is None:
+            logger.warning("No/invalid .mtd for product %s (%s); "
+                           "exporting with minimal metadata.",
+                           r["name"], mtd_path)
+            entries.append({
+                "id": r["name"],
+                "product": r["full_path"],
+                "product_metadata": str(mtd_path),
+                "relative_orbit": r["orbit_id"],
+                "orbit_type": None,
+                "polarisation": None,
+                "geometry": None,
+                "parent_products": [],
+                "product_db_id": r["id"],
+                "product_type_id": r["product_type_id"],
+            })
+            continue
+
+        parents = []
+        for side in ("master", "slave"):
+            info = mtd.get(side)
+            if not info or not info.get("name"):
+                continue
+            full_path = pm.get_full_path_by_product_name(info["name"])
+            parents.append(full_path or info["name"])
+
+        entries.append({
+            "id": r["name"],
+            "product": r["full_path"],
+            "product_metadata": str(mtd_path),
+            "relative_orbit": r["orbit_id"],
+            "orbit_type": (mtd.get("orbit_type") or "").lower() or None,
+            "polarisation": mtd.get("polarisation") or None,
+            "geometry": _build_geometry(mtd),
+            "parent_products": parents,
+            "product_db_id": r["id"],
+            "product_type_id": r["product_type_id"],
+        })
+    return entries
+    
+def write_stac_products(products, output_file):
+    with open(output_file, "w") as f:
+        for entry in products:
+            product_id = entry["id"]
+            product_path = entry["product"]
+            product_metadata_path = entry["product_metadata"]
+            relative_orbit = entry["relative_orbit"]
+            orbit_type = entry["orbit_type"]
+            polarisation = entry.get("polarisation")
+            geometry = entry["geometry"]
+            parent_products = entry.get("parent_products", [])
+            product_db_id = entry.get("product_db_id")
+            product_type_id = entry.get("product_type_id")
+            item = {
+                "id": product_id,
+                "geometry": geometry,
+                "type": "Feature",
+                "properties": {
+                    "product_db_id": product_db_id,
+                    "sen4x:disk_path": product_path,
+                    "sat:relative_orbit": relative_orbit,
+                    "sat:orbit_state": orbit_type,
+                    "sar:polarization": polarisation,
+                    "product_type_id": product_type_id
+                },
+                "assets": {
+                    "product_metadata": {
+                        "href": product_metadata_path
+                    }
+                },
+                "links": []
+            }
+            if parent_products:
+                for parent in parent_products:
+                    item["links"].append({
+                        "rel": "derived_from",
+                        "href": parent
+                    })
+            json.dump(item, f)
+            f.write("\n")
+
+def read_request_context_file(request_context_file):
+
+    with open(request_context_file) as f:
+        data = json.load(f)
+
+    # "site_info" contains : "site_short_name", "season_id", "season_start", "season_end", "insitu_path", "site_tiles", "tile_bounds"
+    return {
+        "site_info": data.get("site_info", {}),
+        "request_parameters": data.get("request_parameters", {})
+    }
+
+            
 def main():
     parser = argparse.ArgumentParser(
-        description="Extracts radar input data for the S4C L4B processor"
+        description="Performs the pre-processing of the S1 SLC products"
     )
-    parser.add_argument(
-        "-c",
-        "--config-file",
-        default="/mnt/tao/cfg/sen4cap/sen2agri.conf",
-        help="configuration file location",
-    )
+    parser.add_argument("-c", "--config-file", default="/mnt/tao/cfg/sen4cap/sen2agri.conf", help="configuration file location",)
+    parser.add_argument("--request-context-file", required=False,
+                        help="JSON containing the information about the execution context (site, request parameters etc.)")
+    parser.add_argument("-s", "--site-id", type=int, help="Site ID", required=False, default = 0)
+    parser.add_argument("-i", "--input-products-json", required=False, help="Input JSON file containing products extracted from STAC")
+    parser.add_argument("--output-json", required=True, help="Path to write the STAC product catalog (JSON Lines) to")
     
     args = parser.parse_args()
+    
+    if args.request_context_file:
+        result = read_request_context_file(args.request_context_file)
+        req_params = result["request_parameters"]
+        site_info = result["site_info"]
+        site_id = site_info["site_id"]
+    else:
+        site_id = args.site_id
     
     mainScriptConfig = MainScriptConfig(args)
 
@@ -2720,7 +3360,7 @@ def main():
     Config.setup({
         ConfigurationKeys.S1_PROCESSOR_ENABLED:              "false",
         ConfigurationKeys.S1_PROCESSOR_VERSION:              "1",
-        ConfigurationKeys.S1_PROCESSOR_OUTPUT_PATH:          "/mnt/output/s1/{site}",
+        ConfigurationKeys.S1_PROCESSOR_OUTPUT_PATH:          "/mnt/archive/{site}/l2a-s1",
         ConfigurationKeys.S1_PROCESSOR_PARALLELISM:          "2",
         ConfigurationKeys.S1_PROCESSOR_DAYS_BACK:            "6",
         ConfigurationKeys.S1_PROCESSOR_MTF_INTERVAL:         "0",
@@ -2728,39 +3368,53 @@ def main():
         ConfigurationKeys.S1_PROCESSOR_AMPLITUDE_ENABLED:    "true",
         ConfigurationKeys.S1_PROCESSOR_POLARISATIONS:        "VV;VH",
         ConfigurationKeys.S1_PROCESSOR_MASTER:               "S1C",
-        ConfigurationKeys.S1_PROCESSOR_WORK_DIR:             "/mnt/tmp/s1_work",
+        ConfigurationKeys.S1_PROCESSOR_WORK_DIR:             "/mnt/archive/s1_preprocessing_work_dir",
         ConfigurationKeys.S1_PROCESSOR_WAIT_FOR_ORBIT_FILES: "0",
         ConfigurationKeys.S1_DOWNLOAD_OFFSET:                "6",
         ConfigurationKeys.S1_PROCESSOR_OUTPUT_FORMAT:        "GeoTIFF",
         ConfigurationKeys.S1_PROCESSOR_OUTPUT_EXTENSION:     ".tif",
-        "snap.gpt_path":    "gpt",
-        "snap.graphs_dir":  "/opt/sen4cap/graphs",
-         "s1.processor.jar_path":  "/app/app.jar",
-        "s1.processor.java_bin":  "java",
-        "s1.processor.tiles":     "",        # e.g. "32UNU,32UMU" to crop to tiles
+        ConfigurationKeys.S1_PROCESSOR_SUBSET_SITE_AOI:      "true",
+        ConfigurationKeys.S1_PROCESSOR_JAR_PATH:             "/app/app.jar",
+        ConfigurationKeys.S1_PROCESSOR_JAVA_BIN:             "java",
+        ConfigurationKeys.S1_PROCESSOR_S2_TILES:             "",                        # e.g. "32UNU,32UMU" to crop to tiles
     })
-
-    # 2. Enable feature flags for site 1
-    Config.set_setting(19, ConfigurationKeys.S1_PROCESSOR_ENABLED, "true")
-
-    # 3. Connect to PostgreSQL (override via env var POSTGRES_DSN)
-    # dsn = os.environ.get(
-    #     "POSTGRES_DSN",
-    #     "postgresql+psycopg2://sen4cap:sen4cap@localhost/sen4cap",
-    # )
 
     dsn = f"postgresql+psycopg2://{mainScriptConfig.user}:{mainScriptConfig.password}@{mainScriptConfig.host}:{mainScriptConfig.port}/{mainScriptConfig.dbname}"
     
     pm = PersistenceManager(dsn)
+    pm.check_product_stats()
+    
+    db_global_cfg, db_per_site_cfg = pm.get_configuration()
+    Config.setup(db_global_cfg, db_per_site_cfg)    
+    
+    processed_site_ids: List[int] = []
+    
+    if site_id == 0:
+        sites = pm.get_enabled_sites()
+        for site in sites:
+            job = Sentinel1Level2Job(pm)
+            job.execute_for_site(site)
+            processed_site_ids.append(site.get_id())
+    else:
+        site = pm.get_site_by_id(site_id)
+        if site is None:
+            logging.getLogger(__name__).error("Site id %d not found.", site_id)
+            return
 
-    # 4. Execute
-    site = pm.get_site_by_id(19)
-    if site:
         job = Sentinel1Level2Job(pm)
         job.execute_for_site(site)
-    else:
-        logging.getLogger(__name__).error(
-            "Site id=1 not found in database.")
+        processed_site_ids.append(site.get_id())
+
+
+# ---- STAC export: all AMP/COHE products for every processed site ----
+    all_entries: List[dict] = []
+    for sid in processed_site_ids:
+        rows = pm.get_site_products(sid)
+        all_entries.extend(build_stac_entries(pm, rows))
+
+    write_stac_products(all_entries, args.output_json)
+    logging.getLogger(__name__).info(
+        "Wrote %d STAC product entries to %s", len(all_entries), args.output_json)
 
 # ===========================================================================
 # Entry point

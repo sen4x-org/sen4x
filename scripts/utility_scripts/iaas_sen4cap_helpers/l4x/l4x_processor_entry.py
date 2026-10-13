@@ -8,6 +8,16 @@ import os
 
 MISSING = object()
 
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    v = v.lower()
+    if v in ("true", "1", "yes", "y", "t"):
+        return True
+    if v in ("false", "0", "no", "n", "f"):
+        return False
+    raise argparse.ArgumentTypeError("Boolean value expected (true/false).")
+    
 def build_initialize_user_site(args, out_site_info_file):
     cmd = ["initialize_user_site.py",
             "--season-start", args.start_date,
@@ -26,6 +36,15 @@ def build_initialize_user_site(args, out_site_info_file):
         if args.lut is not None and args.lut is not MISSING:
             cmd += ["--lut", args.lut]
         
+        if args.parcel_id_cols is not None and args.parcel_id_cols is not MISSING:
+            cmd += ["--parcel-id-cols", args.parcel_id_cols]
+
+        if args.crop_code_col is not None and args.crop_code_col is not MISSING:
+            cmd += ["--crop-code-col", args.crop_code_col]
+
+        if args.holding_id_cols is not None and args.holding_id_cols is not MISSING:
+            cmd += ["--holding-id-cols", args.holding_id_cols]
+
     return cmd
 
 
@@ -55,7 +74,7 @@ def wrap_site_json(args, input_file, output_file):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="L3B Processor Entry script"
+        description="General Sen4X Processor Entry script"
     )
     parser.add_argument(
         "-c",
@@ -76,7 +95,11 @@ def main():
 
     parser.add_argument("--parcels", help="Optional parcels.shp", nargs="?", const=MISSING, default=None)
     parser.add_argument("--lut", help="Optional lut.csv", nargs="?", const=MISSING, default=None)
-    parser.add_argument("--skip-insitu-import", action="store_true", help="Skip insitu import")
+    parser.add_argument("--skip-insitu-import", type=str2bool, nargs="?", const=True, default=False, help="Skip insitu import (true/false)")
+    
+    parser.add_argument("--parcel-id-cols", help="Original parcel ID column name (optional)", nargs="?", const=MISSING, default=None)
+    parser.add_argument("--crop-code-col", help="Original crop code column name  (optional)", nargs="?", const=MISSING, default=None)
+    parser.add_argument("--holding-id-cols", help="Original holding id column name  (optional)", nargs="?", const=MISSING, default=None)
         
     args = parser.parse_args()
 

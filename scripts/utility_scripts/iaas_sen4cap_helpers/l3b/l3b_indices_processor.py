@@ -36,6 +36,29 @@ spectral_indices_mapping = {
     "BI2": "Soil:BI2"
 }
 
+def str_to_bool(value):
+    if value.lower() in ("true", "1", "yes"):
+        return True
+    if value.lower() in ("false", "0", "no"):
+        return False
+    raise argparse.ArgumentTypeError(
+        "Expected true or false"
+    )
+    
+def get_tile_bbox_query(site_info, tile_id, resolution="10"):
+    try:
+        tile_bounds = site_info.get("tile_bounds") or {}
+        level_tiles = tile_bounds.get(str(resolution)) or []
+        for tile in level_tiles:
+            if tile.get("id") == tile_id:
+                bbox = tile.get("bbox")
+                if (isinstance(bbox, (list, tuple)) and len(bbox) == 4 and all(v is not None for v in bbox)):
+                    return "?&box={0}:{1}:{2}:{3}".format(bbox[0], bbox[1], bbox[2], bbox[3])
+        return None
+    except Exception:
+        return None
+    
+
 def get_full_spectral_index_name(spectral_index):
     return spectral_indices_mapping.get(spectral_index)
 
@@ -84,7 +107,7 @@ def generate_ipp_xml_file(full_xml_path, spectral_indicator, out_dir):
 
     return ipp_filepath
     
-def run_spectral_indicator_processing(xml_path, site_id, tile_id, spectral_indicator, workdir, out_dir):
+def run_spectral_indicator_processing(xml_path, site_id, tile_id, tile_bbox, spectral_indicator, cog, zarr, workdir, out_dir):
 
     mask_dir = os.path.join(workdir, spectral_indicator + "-processor-mask-flags")
     spectral_indicator_dir = os.path.join(workdir, spectral_indicator + "-processor-extractor")
@@ -104,9 +127,9 @@ def run_spectral_indicator_processing(xml_path, site_id, tile_id, spectral_indic
         "otbcli",
         "GenerateLaiMonoDateMaskFlags",
         "-inxml", xml_path,
-        "-out", mask_path, #  + "?&box=4363:3583:4731:3955",
+        "-out", mask_path + tile_bbox,
         "-outres", "10",
-        "-outresampled", mask_resampled_path  + "?&box=4363:3583:4731:3955"
+        "-outresampled", mask_resampled_path + tile_bbox
     ]
 
     cmd_radiometric_indice = [
@@ -115,7 +138,7 @@ def run_spectral_indicator_processing(xml_path, site_id, tile_id, spectral_indic
         "-xml", xml_path,
         # "-msks", mask_path,
         "-list", get_full_spectral_index_name(spectral_indicator),
-        "-out", spectral_indicator_path, #  + "?&box=4363:3583:4731:3955",
+        "-out", spectral_indicator_path  + tile_bbox
     ]
 
     cmd_product_formatter = [
@@ -135,7 +158,9 @@ def run_spectral_indicator_processing(xml_path, site_id, tile_id, spectral_indic
         "-il", xml_path,
         "-processor.vegetation.laistatusflgs", "TILE_" + tile_id, mask_resampled_path,
         "-processor.vegetation." + spectral_indicator.lower(), "TILE_" + tile_id, spectral_indicator_path,
-        "-aggregatetiles", "0"
+        "-aggregatetiles", "0",
+        "-cog", "1" if cog else "0",
+        "-zarr", "1" if zarr else "0"
     ]
 
     run_command(cmd_flags)
@@ -148,7 +173,7 @@ def run_spectral_indicator_processing(xml_path, site_id, tile_id, spectral_indic
     return line
 
 
-def run_biophysical_indicator_processing(xml_path, site_id, tile_id, indicator_name, workdir, out_dir):
+def run_biophysical_indicator_processing(xml_path, site_id, tile_id, tile_bbox, indicator_name, cog, zarr, workdir, out_dir):
     
     bi_bands_cfg = "/usr/share/sen2agri/Lai_Bands_Cfgs_Belcam.cfg"
    
@@ -182,9 +207,9 @@ def run_biophysical_indicator_processing(xml_path, site_id, tile_id, indicator_n
         "otbcli",
         "GenerateLaiMonoDateMaskFlags",
         "-inxml", xml_path,
-        "-out", mask_path + "?&box=4363:3583:4731:3955",
+        "-out", mask_path + tile_bbox,
         "-outres", "10",
-        "-outresampled", mask_resampled_path
+        "-outresampled", mask_resampled_path + tile_bbox
     ]
 
     cmd_angles = [ "otbcli", "CreateAnglesRaster",
@@ -215,7 +240,7 @@ def run_biophysical_indicator_processing(xml_path, site_id, tile_id, indicator_n
         "BVLaiNewProcessor",
         "-xml", xml_path,
         "-angles", angles_path,
-        "-out" + indicator_name.lower(), indicator_path + "?&box=4363:3583:4731:3955",
+        "-out" + indicator_name.lower(), indicator_path + tile_bbox,
         "-outres", "10",
         "-laicfgs", bi_bands_cfg
     ]
@@ -256,7 +281,9 @@ def run_biophysical_indicator_processing(xml_path, site_id, tile_id, indicator_n
         "-il", xml_path,
         "-processor.vegetation.laistatusflgs", "TILE_" + tile_id, mask_resampled_path,
         "-processor.vegetation." + indicator_name.lower() + "monodate", "TILE_" + tile_id, quantified_bi_path,
-        "-aggregatetiles", "0"
+        "-aggregatetiles", "0",
+        "-cog", "1" if cog else "0",
+        "-zarr", "1" if zarr else "0"
     ]
 
     run_command(cmd_flags)
@@ -319,7 +346,7 @@ def extract_feature_info(feature):
     )
     result["result_product"] = result_product
 
-    print(result)
+    # print(result)
     
     return result
 
@@ -328,7 +355,7 @@ def read_request_context_file(request_context_file):
     with open(request_context_file) as f:
         data = json.load(f)
 
-    # "site_info" contains : "site_id", "season_id", "season_start", "season_end", "wkt"
+    # "site_info" contains : "site_short_name", "season_id", "season_start", "season_end", "insitu_path", "site_tiles", "tile_bounds"
     return {
         "site_info": data.get("site_info", {}),
         "request_parameters": data.get("request_parameters", {})
@@ -357,7 +384,7 @@ def write_stac_products(products, output_file):
             json.dump(item, f)
             f.write("\n")
             
-def process_input_products_file(input_products_json, site_info, indicator_name, working_dir, out_dir) :
+def process_input_products_file(input_products_json, site_info, indicator_name, cog, zarr, working_dir, out_dir) :
     products = []
     site_id = site_info["site_id"]
     
@@ -371,7 +398,7 @@ def process_input_products_file(input_products_json, site_info, indicator_name, 
             except ValueError:
                 continue
 
-            print(data)
+            # print(data)
             if "features" in data:
                 features = data["features"]
             else:
@@ -380,22 +407,29 @@ def process_input_products_file(input_products_json, site_info, indicator_name, 
             for feature in features:
                 info = extract_feature_info(feature)
                 tile_id = info['tile']
-                print("tile:", tile_id)
-
+                l2a_prd_path = info["product_path"]
+                l2a_prd_name = info["id"]
+                
+                tile_bbox = get_tile_bbox_query(site_info, tile_id)
+                tile_bbox = (tile_bbox or "")
+                # print("tile = {}, bbox = {}".format(tile_id, tile_bbox))
+                
                 # If product is already processed, it will not be reprocessed but instead we will use the processed product
                 if info["processing_status"] == "PROCESSED":
                     prd_path = info["result_product"]
+                    print("Product {} (path: {}) was found processed in {} for {}. It will not be processed again!".format(l2a_prd_name, l2a_prd_path, info["result_product"], indicator_name))
                 else:
+                    print("Product {} (path: {}) was NOT found processed for {}. It will be processed ...".format(l2a_prd_name, l2a_prd_path, info["result_product"], indicator_name))
                     workdir = create_product_processing_workdir(working_dir)
                     indicator_name_uc = indicator_name.upper()
                     if indicator_name_uc == "NDVI" or indicator_name_uc == "NDWI" or indicator_name_uc == "BRIGHTNESS": 
-                        prd_path = run_spectral_indicator_processing( info["metadata_path"], site_id, tile_id, indicator_name, workdir, out_dir)
+                        prd_path = run_spectral_indicator_processing( info["metadata_path"], site_id, tile_id, tile_bbox, indicator_name, cog, zarr, workdir, out_dir)
                     elif indicator_name_uc == "LAI" or indicator_name_uc == "FAPAR" or indicator_name_uc == "FCOVER": 
-                        prd_path = run_biophysical_indicator_processing( info["metadata_path"], site_id, tile_id, indicator_name, workdir, out_dir)
+                        prd_path = run_biophysical_indicator_processing( info["metadata_path"], site_id, tile_id, tile_bbox, indicator_name, cog, zarr, workdir, out_dir)
                 
                 products .append({
                     "product": prd_path,
-                    "parent_products": [info["product_path"]]
+                    "parent_products": [l2a_prd_path]
                 })            
     return products
     
@@ -425,6 +459,9 @@ def main():
     
     parser.add_argument("--indicator-name", nargs="?", const=MISSING, default=None)
     
+    parser.add_argument("--cog", type=str_to_bool, default=True)
+    parser.add_argument("--zarr", type=str_to_bool, default=False)
+    
     args = parser.parse_args()
     
     result = read_request_context_file(args.request_context_file)
@@ -446,7 +483,7 @@ def main():
     
     out_dir = os.path.join(args.out_root_dir, "site_" + str(site_id))
     
-    products = process_input_products_file(args.input_products_json, site_info, indicator_name, working_dir, out_dir)
+    products = process_input_products_file(args.input_products_json, site_info, indicator_name, args.cog, args.zarr, working_dir, out_dir)
             
     write_stac_products(products, args.output_json)
 

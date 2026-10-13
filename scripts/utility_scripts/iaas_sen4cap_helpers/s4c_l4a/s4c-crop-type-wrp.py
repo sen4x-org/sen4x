@@ -399,8 +399,10 @@ def main():
     parser.add_argument('-c', '--config-file', default="/mnt/tao/cfg/sen4cap/sen2agri.conf", help="configuration file")
     parser.add_argument("--request-context-file", required=True,
                         help="JSON containing the information about the execution context (site, request parameters etc.)")
-    parser.add_argument("-i", "--input-products-json", required=True,
-                        help="Input JSON file containing products extracted from STAC")
+    parser.add_argument("--input-s2-products-json", required=True,
+                        help="Input S2 products JSON")
+    parser.add_argument("--input-s1-products-json", required=True,
+                        help="Input S1 AMP/COHE products JSON")
     parser.add_argument("--keep-temp-files", action="store_true", help="Skip insitu import")
     parser.add_argument("-w", "--working-dir", help="Working dir", required=True)
     parser.add_argument("-o", "--out-dir", help="Output Crop Type folder", required=True)
