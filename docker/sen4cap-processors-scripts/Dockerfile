@@ -8,7 +8,7 @@ RUN apt-get update && \
     apt-get install -y python3-lxml python3-pip python3-psycopg2 python3-toml && apt-get clean && \
     rm -rf /var/lib/apt/lists/* && python3 -m pip install docker
 
-RUN python3 -m pip install pandas~=1.1.5 numpy~=1.20.3 scipy~=1.5.3 lxml~=4.6.2 pyarrow~=5.0.0 scikit-learn mlxtend seaborn tqdm
+RUN python3 -m pip install pandas~=1.1.5 numpy~=1.20.3 scipy~=1.5.3 lxml~=4.6.2 pyarrow~=5.0.0 scikit-learn==0.24.2 mlxtend==0.19.0 seaborn==0.11.2 tqdm
 # RUN python3 -m pip install gdal pandas numpy scipy lxml
 
 COPY heterogeneity/* /usr/bin/
@@ -22,5 +22,5 @@ COPY import-product-details.py /usr/bin
 COPY s4c-baresoil-calibration-wrp.py /usr/bin/
 COPY s4c-baresoil-model-wrp.py /usr/bin/
 COPY s4c-baresoil-markers-wrp.py /usr/bin/
-
+COPY s4c-tillage-wrp.py /usr/bin/
 
