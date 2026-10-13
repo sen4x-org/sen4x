@@ -346,7 +346,7 @@ void S4CHeterogeneityHandler::HandleTaskFinishedImpl(EventProcessingContext &ctx
             const QString &prodFolderOutPath =
                 ctx.GetOutputPath(event.jobId, event.taskId, event.module,
                                   processorDescr.shortName) +
-                "/" + "prd_infos.txt";
+                "/" + PRODUCT_FORMATTER_OUT_PROPS_FILE;
 
             QFile file(prodFolderOutPath);
             if (file.open(QIODevice::ReadWrite)) {
@@ -395,6 +395,8 @@ ProcessorJobDefinitionParams S4CHeterogeneityHandler::GetProcessingDefinitionImp
         return params;
     }
 
+    seasonEndDate.setTime(QTime(23, 59, 59, 999));
+
     QDateTime limitDate = seasonEndDate.addMonths(2);
     if (qScheduledDate > limitDate) {
         Logger::debug(QStringLiteral("Scheduler Yield Features: Error scheduled date %1 greater than the "
@@ -428,7 +430,7 @@ ProcessorJobDefinitionParams S4CHeterogeneityHandler::GetProcessingDefinitionImp
     if ((waitForAvailProcInputs == false) || ((params.productList.size() > 0))) {
         params.isValid = true;
         Logger::debug(
-            QStringLiteral("Executing scheduled job. Scheduler extracted for S4C L4A a number "
+            QStringLiteral("Executing scheduled job. Scheduler extracted for S4C Heterogeneity a number "
                            "of %1 products for site ID %2 with start date %3 and end date %4!")
                 .arg(params.productList.size())
                 .arg(siteId)

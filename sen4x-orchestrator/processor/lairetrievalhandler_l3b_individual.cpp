@@ -530,6 +530,7 @@ void LaiRetrievalHandlerL3BIndividual::HandleTaskFinishedImpl(EventProcessingCon
         const QString &productFolder = GetOutputProductPath(ctx, event);
         const IndicatorDescription &indDescr = GetTaskSavedIndicator(ctx, event);
         GenericHighLevelProductHelper prdHelper(productFolder);
+        Logger::debug(QStringLiteral("Product formatter finished for product %1").arg(prodName));
         if(prodName != "" && prdHelper.HasValidStructure()) {
             const QString &quicklook = GetProductFormatterQuicklook(ctx, event);
             const QString &footPrint = GetProductFormatterFootprint(ctx, event);
@@ -806,6 +807,7 @@ void LaiRetrievalHandlerL3BIndividual::InitTileResultFiles(const ProductInfo &ti
 ProcessorJobDefinitionParams LaiRetrievalHandlerL3BIndividual::GetProcessingDefinitionImpl(SchedulingContext &ctx, int siteId, int scheduledDate,
                                                           const ConfigurationParameterValueMap &requestOverrideCfgValues)
 {
+    QString procPrefix("processor." + processorDescr.shortName + ".");
     ProcessorJobDefinitionParams params;
 
     QDateTime seasonStartDate;
@@ -829,10 +831,10 @@ ProcessorJobDefinitionParams LaiRetrievalHandlerL3BIndividual::GetProcessingDefi
         return params;
     }
 
-    ConfigurationParameterValueMap mapCfg = ctx.GetConfigurationParameters(QString(L3B_CFG_PREFIX), siteId, requestOverrideCfgValues);
+    ConfigurationParameterValueMap mapCfg = ctx.GetConfigurationParameters(procPrefix, siteId, requestOverrideCfgValues);
 
     // we might have an offset in days from starting the downloading products to start the L3B scheduling
-    int startSeasonOffset = mapCfg[QString(L3B_CFG_PREFIX) + "start_season_offset"].value.toInt();
+    int startSeasonOffset = mapCfg[procPrefix + "start_season_offset"].value.toInt();
     if (startSeasonOffset == 0) {
         startSeasonOffset = 14;
     }

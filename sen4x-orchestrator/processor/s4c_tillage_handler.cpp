@@ -120,7 +120,7 @@ void S4CTillageHandler::HandleTaskFinishedImpl(EventProcessingContext &ctx,
             const QString &prodFolderOutPath =
                 ctx.GetOutputPath(event.jobId, event.taskId, event.module,
                                   processorDescr.shortName) +
-                "/" + "prd_infos.txt";
+                "/" + PRODUCT_FORMATTER_OUT_PROPS_FILE;
 
             QFile file(prodFolderOutPath);
             if (file.open(QIODevice::ReadWrite)) {

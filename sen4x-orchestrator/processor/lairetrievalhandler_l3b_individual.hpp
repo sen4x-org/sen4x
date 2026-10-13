@@ -3,10 +3,6 @@
 
 #include "processorhandler.hpp"
 
-#define L3B_CFG_PREFIX   "processor.l3b."
-
-
-
 class LaiRetrievalHandlerL3BIndividual : public ProcessorHandler
 {
 public:
@@ -49,7 +45,7 @@ public:
                 QString procPrefix("processor." + parent->processorDescr.shortName + ".");
                 pCtx = pContext;
                 parameters = QJsonDocument::fromJson(evt.parametersJson.toUtf8()).object();
-                configParameters = pCtx->GetJobConfigurationParameters(evt.jobId, L3B_CFG_PREFIX);
+                configParameters = pCtx->GetJobConfigurationParameters(evt.jobId, procPrefix);
                 // siteShortName = pContext->GetSiteShortName(evt.siteId);
                 laiCfgFile = configParameters[procPrefix + "lai.laibandscfgfile"];
                 for (const IndicatorDescription &indexDescr: indicatorsDescriptions.values()) {

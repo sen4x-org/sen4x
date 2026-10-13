@@ -131,7 +131,7 @@ void AgricPracticesHandler::CreateSteps(QList<TaskToSubmit> &allTasksList,
                                                                           productFormatterFiles);
         steps.append(CreateTaskStep(productFormatterTask, "ProductFormatter", productFormatterArgs));
 
-        const auto & productFormatterPrdFileIdFile = productFormatterTask.GetFilePath("prd_infos.txt");
+        const auto & productFormatterPrdFileIdFile = productFormatterTask.GetFilePath(PRODUCT_FORMATTER_OUT_PROPS_FILE);
 
         // TO BE REMOVED - M1 - M5 are now extracted by MDB1 independtly
 //        if (jobCfg.isScheduledJob) {
@@ -207,7 +207,7 @@ void AgricPracticesHandler::HandleTaskFinishedImpl(EventProcessingContext &ctx,
                                 prodName, quicklook, footPrint, std::experimental::nullopt, TileIdList(), ProductIdsList()  });
 
             const QString &prodFolderOutPath = ctx.GetOutputPath(event.jobId, event.taskId, event.module, processorDescr.shortName) +
-                    "/" + "prd_infos.txt";
+                    "/" + PRODUCT_FORMATTER_OUT_PROPS_FILE;
 
             QFile file( prodFolderOutPath );
             if ( file.open(QIODevice::ReadWrite) )

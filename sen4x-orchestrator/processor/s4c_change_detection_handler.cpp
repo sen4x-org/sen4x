@@ -291,7 +291,7 @@ void S4CChangeDetectionHandler::HandleTaskFinishedImpl(EventProcessingContext &c
             const QString &prodFolderOutPath =
                 ctx.GetOutputPath(event.jobId, event.taskId, event.module,
                                   processorDescr.shortName) +
-                "/" + "prd_infos.txt";
+                "/" + PRODUCT_FORMATTER_OUT_PROPS_FILE;
 
             QFile file(prodFolderOutPath);
             if (file.open(QIODevice::ReadWrite)) {
@@ -368,7 +368,7 @@ ProcessorJobDefinitionParams S4CChangeDetectionHandler::GetProcessingDefinitionI
     if ((waitForAvailProcInputs == false) || ((params.productList.size() > 0))) {
         params.isValid = true;
         Logger::debug(
-            QStringLiteral("Executing scheduled job. Scheduler extracted for S4C L4A a number "
+            QStringLiteral("Executing scheduled job. Scheduler extracted for S4C Change Detection a number "
                            "of %1 products for site ID %2 with start date %3 and end date %4!")
                 .arg(params.productList.size())
                 .arg(siteId)

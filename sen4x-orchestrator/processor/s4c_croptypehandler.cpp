@@ -78,7 +78,7 @@ NewStepList S4CCropTypeHandler::CreateSteps(EventProcessingContext &ctx,
         prdFormatterTask, ctx, event, prdFinalFilesDir, cfg.startDate, cfg.endDate);
     allSteps.append(CreateTaskStep(prdFormatterTask, "ProductFormatter", productFormatterArgs));
 
-    const auto &productFormatterPrdFileIdFile = prdFormatterTask.GetFilePath("prd_infos.txt");
+    const auto &productFormatterPrdFileIdFile = prdFormatterTask.GetFilePath(PRODUCT_FORMATTER_OUT_PROPS_FILE);
     TaskToSubmit &exportCsvToShpProductTask = allTasksList[curTaskIdx++];
     const QStringList &exportCsvToShpProductArgs = { "-f", productFormatterPrdFileIdFile, "-o",
                                                      "CropType.gpkg" };
@@ -205,7 +205,7 @@ void S4CCropTypeHandler::HandleTaskFinishedImpl(EventProcessingContext &ctx,
             const QString &prodFolderOutPath =
                 ctx.GetOutputPath(event.jobId, event.taskId, event.module,
                                   processorDescr.shortName) +
-                "/" + "prd_infos.txt";
+                "/" + PRODUCT_FORMATTER_OUT_PROPS_FILE;
 
             QFile file(prodFolderOutPath);
             if (file.open(QIODevice::ReadWrite)) {

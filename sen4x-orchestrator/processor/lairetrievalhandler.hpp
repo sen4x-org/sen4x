@@ -28,6 +28,7 @@ private:
     LaiRetrievalHandlerL3B m_l3bHandler;
     LaiRetrievalHandlerL3BNew m_l3bHandlerNew;
     LaiRetrievalHandlerL3BIndividual m_l3bHandlerIndividual;
+    QString m_procPrefix;
 };
 
 #endif // LAIRETRIEVALHANDLERNEW_HPP

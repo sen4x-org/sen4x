@@ -104,16 +104,24 @@ class S4CHeterogeneityHandler : public ProcessorHandler
                                          .toStdString());
             }
 
-            const ProductList &l3bProducts = GetInputProducts(*pContext, parameters, configParameters, event.siteId,
-                                          ProductType::L3BProductTypeId, S4C_HETEROGENEITY_CFG_PREFIX);
+            ProductList l3bProducts = GetInputProducts(*pContext, parameters, configParameters, event.siteId,
+                                          ProductType::L3BNdviProductTypeId, S4C_HETEROGENEITY_CFG_PREFIX,
+                                                       &startDate, &endDate);
+            if (l3bProducts.size() == 0) {
+                Logger::info(QStringLiteral("Heterogeneity: No L3B NDVI products found in the database. Searching for old L3B products !")
+                                         .arg(siteShortName));
+                l3bProducts = GetInputProducts(*pContext, parameters, configParameters, event.siteId,
+                                               ProductType::L3BProductTypeId, S4C_HETEROGENEITY_CFG_PREFIX,
+                                               &startDate, &endDate);
+            }
             l3bProductDetails = ProcessorHandlerHelper::GetProductDetails(l3bProducts, *pCtx);
             if (l3bProductDetails.size() == 0) {
                 pCtx->MarkJobFailed(event.jobId);
-                throw std::runtime_error(QStringLiteral("No L3B input products found in database for the Heterogeneity "
+                throw std::runtime_error(QStringLiteral("No L3B or L3B NDVI input products found in database for the Heterogeneity "
                                                         "execution for site %1 and startDate = %2 and endDate = %3.")
                                          .arg(siteShortName)
                                          .arg(startDate.toString())
-                                         .arg(startDate.toString())
+                                         .arg(endDate.toString())
                                          .toStdString());
             }
             existingCTSARDir = ProcessorHandlerHelper::GetStringConfigValue(parameters, configParameters, "existing_ct_dir", S4C_HETEROGENEITY_CFG_PREFIX);
