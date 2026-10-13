@@ -6,7 +6,6 @@ import sys
 import argparse
 import fnmatch
 import re
-import configparser
 import ast
 import pandas as pd
 
@@ -29,6 +28,11 @@ from osgeo import ogr, osr, gdal
 gdal.UseExceptions()
 osr.UseExceptions()
 ogr.UseExceptions()
+
+try:
+    from configparser import ConfigParser
+except ImportError:
+    from ConfigParser import ConfigParser
 
 try:
     from pathlib import Path
@@ -304,7 +308,7 @@ def run_proc(tile_number, S2DataGlob, re_compile, segmentsFile,
 
         # second setp: erode
         if erode_pixels > 1:
-            erosion_mask = scipy.ndimage.binary_erosion(eroded_segs>0, structure=cross,iterations=(erode_pixels-1))
+            erosion_mask = scipy.ndimage.morphology.binary_erosion(eroded_segs>0, structure=cross,iterations=(erode_pixels-1))
             eroded_segs = eroded_segs*erosion_mask
 
     print("eroded_segs", eroded_segs)
@@ -589,7 +593,7 @@ def main_run(configFile, segmentsFile, data_x_detection, data_x_model, outputDir
     config = configparser.ConfigParser()
     config.read(configFile)
 
-    re_compile = r"(S2AGRI_L3B[A-Z]*_([A-Z]{5,11})_A([0-9]{8})T([0-9]{6})_T([0-9]{2}[A-Z]{3})\.)"
+    re_compile = "(S2AGRI_L3B[A-Z]*_([A-Z]{5,11})_A([0-9]{8})T([0-9]{6})_T([0-9]{2}[A-Z]{3})\.)"
     # [S2_input_data]
     # re_compile = config['S2_input_data']['re_compile']
     # data_x_detection = list(map(str.strip, config['S2_input_data']['data_x_detection'].split(',')))
@@ -598,7 +602,7 @@ def main_run(configFile, segmentsFile, data_x_detection, data_x_model, outputDir
     print("data_x_model", data_x_model)
 
     # [constants]
-    S2_time_interval = np.int32(config['S2_constants']['S2_time_interval'])
+    S2_time_interval = int(config['S2_constants']['S2_time_interval'])
     locAcqTime = config['S2_constants']['locAcqTime']
     print("S2_time_interval", S2_time_interval)
     print("locAcqTime", locAcqTime)
@@ -614,7 +618,7 @@ def main_run(configFile, segmentsFile, data_x_detection, data_x_model, outputDir
     modelDir = config['S2_model']['modelDir']
     NDVI_nomow_model_perc = np.float32(config['S2_model']['NDVI_nomow_model_perc'])  # 95.
     sampling_days = np.float32(config['S2_model']['sampling_days'])  # 1
-    p_n_th = np.int32(config['S2_model']['minimum_parcels_th'])  # 20
+    p_n_th = int(config['S2_model']['minimum_parcels_th'])  # 20
     model_temporal_range_str = list(ast.literal_eval(config['S2_model']['model_temporal_range_str']))
 #    start_params = [float(s) for s in config['S2_model']['start_params'].split(',')]
     start_params = ast.literal_eval(config['S2_model']['start_params'])
@@ -638,11 +642,11 @@ def main_run(configFile, segmentsFile, data_x_detection, data_x_model, outputDir
     low_abs_th = [np.float32(s) for s in config['S2_processing']['low_abs_th'].split(',')]
     high_abs_th = [np.float32(s) for s in config['S2_processing']['high_abs_th'].split(',')]
     invalid_data = [np.float32(s) for s in config['S2_processing']['invalid_data'].split(',')]
-    no_mowing_after_det = np.int32(config['S2_processing']['no_mowing_after_det'])
-    non_overlap_interval_days = np.int32(config['S2_processing']['non_overlap_interval_days'])
+    no_mowing_after_det = int(config['S2_processing']['no_mowing_after_det'])
+    non_overlap_interval_days = int(config['S2_processing']['non_overlap_interval_days'])
     options_layer_burning = list(map(str.strip, config['S2_processing']['options_layer_burning'].split(',')))
-    erode_pixels = np.int32(config['S2_processing']['erode_pixels'])
-    stat_smpl_n = np.int32(config['S2_processing']['stat_smpl_n'])
+    erode_pixels = int(config['S2_processing']['erode_pixels'])
+    stat_smpl_n = int(config['S2_processing']['stat_smpl_n'])
     print("prod_type_list",prod_type_list)
     print("sc_fact",sc_fact)
     print("corrupted_th",corrupted_th)
@@ -662,7 +666,7 @@ def main_run(configFile, segmentsFile, data_x_detection, data_x_model, outputDir
     if do_cmpl:
         cnt_crop_code = list(map(str.strip, config['compliancy']['crop_codes'].split(',')))
         cnt_crop_TR = list(ast.literal_eval(config['compliancy']['crop_time_intervals']))
-        cnt_crop_rule = [np.int32(s) for s in config['compliancy']['crop_rule'].split(',')]
+        cnt_crop_rule = [int(s) for s in config['compliancy']['crop_rule'].split(',')]
     else:
         cnt_crop_code = None
         cnt_crop_TR = None
@@ -777,7 +781,7 @@ class S4CConfig(object):
         self.end_date = args.end_date
         self.start_date = args.start_date
         self.seg_parcel_id_attribute = args.seg_parcel_id_attribute
-        self.output_shapefile = args.output_shapefile
+        self.output_shapefile = Path(args.output_shapefile)
         self.do_cmpl = args.do_cmpl
         self.test = args.test
         
@@ -786,6 +790,13 @@ class S4CConfig(object):
             self.output_data_dir = output_shapefile_path.parent / "working_dir"
             self.output_data_dir.mkdir(exist_ok=True)
         
+        if not self.output_shapefile.suffix.lower().endswith(".shp"):  
+            self.output_shapefile.mkdir(exist_ok=True)
+            self.output_shapefile = self.output_shapefile / "s1_s2_grassland_output.shp"
+            print ("The output shapefile changed to {} ".format(self.output_shapefile))
+
+        self.output_shapefile = str(self.output_shapefile)
+
 def read_l3b_products(file):
     products = []
     with open(file, 'r') as file:
@@ -843,8 +854,6 @@ def main() :
         if season_start:
             args.end_date = season_end
 
-    s4cConfig = S4CConfig(args)
-    
     if os.path.exists(args.input_shape_file) and os.path.isdir(args.input_shape_file):
         for f in os.listdir(args.input_shape_file):
                 if f.lower().endswith(".shp"):
@@ -854,6 +863,8 @@ def main() :
     if not os.path.isfile(args.input_shape_file) : 
         print("ERROR: the file for input-shape-file does not exists!!! Exiting ... ")
         sys.exit(1)
+
+    s4cConfig = S4CConfig(args)
     
     products = read_l3b_products(args.l3b_products_file)
     

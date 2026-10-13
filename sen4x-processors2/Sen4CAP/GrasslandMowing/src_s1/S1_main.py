@@ -4,7 +4,6 @@ import os, glob
 import sys
 
 import re
-import configparser
 import ast
 import pandas as pd
 
@@ -15,6 +14,7 @@ import scipy.ndimage as ndimage
 import fusion
 import compliancy
 import S1_gmd
+import json
 
 import dateutil.parser
 import datetime
@@ -25,6 +25,15 @@ from osgeo import ogr, gdal
 gdal.UseExceptions()
 ogr.UseExceptions()
 
+try:
+    from configparser import ConfigParser
+except ImportError:
+    from ConfigParser import ConfigParser
+
+try:
+    from pathlib import Path
+except ImportError:
+    from pathlib2 import Path
 
 import argparse
 try:
@@ -244,7 +253,7 @@ def run_proc(orbit_list, orbit_type, sarDataGlob, re_compile, segmentsFile,
 
         # second setp: erode
         if erode_pixels > 1:
-            erosion_mask = scipy.ndimage.binary_erosion(eroded_segs>0, structure=cross,iterations=(erode_pixels-1))
+            erosion_mask = scipy.ndimage.morphology.binary_erosion(eroded_segs>0, structure=cross,iterations=(erode_pixels-1))
             eroded_segs = eroded_segs*erosion_mask
 
     # Fill segments
@@ -469,7 +478,7 @@ def run_proc(orbit_list, orbit_type, sarDataGlob, re_compile, segmentsFile,
         print('Make a clone')
         fusion.cloneAndUpdateShapefile(segmentsFile, outputShapeFile)
 
-    print('Write file')
+    print("Write file {}".format(outputShapeFile))
     fusion.writeDetections_S1(outputShapeFile, unique_segments, det_cube, coheVHDateList1, coheVHDateList2,
                               mission_id='S1', max_dates=4, minimum_interval_days=non_overlap_interval_days)
 
@@ -493,7 +502,7 @@ def main_run(configFile, segmentsFile, data_x_detection, outputDir, new_acq_date
     config = configparser.ConfigParser()
     config.read(configFile)
 
-    re_compile = r"(SEN4CAP_L2A_(S[0-9]{1,2})_V([0-9]{8})T([0-9]{6})_([0-9]{8})T([0-9]{6})_([VH]{2})_([0-9]{3})_(?:.+)?(AMP|COHE)\.)"
+    re_compile = "(SEN4CAP_L2A_(S[0-9]{1,2})_V([0-9]{8})T([0-9]{6})_([0-9]{8})T([0-9]{6})_([VH]{2})_([0-9]{3})_(?:.+)?(AMP|COHE)\.)"
     # [S1_input_data]
     # re_compile = config['S1_input_data']['re_compile']
     # data_x_detection = list(map(str.strip, config['S1_input_data']['data_x_detection'].split(',')))
@@ -502,9 +511,9 @@ def main_run(configFile, segmentsFile, data_x_detection, outputDir, new_acq_date
 
     # [S1_constants]
     S1_time_interval = int(config['S1_constants']['S1_time_interval'])
-    SAR_spacing = float(config['S1_constants']['SAR_spacing'])
-    cohe_ENL = float(config['S1_constants']['cohe_ENL'])
-    min_cohe_var = float(config['S1_constants']['min_cohe_var'])
+    SAR_spacing = np.float32(config['S1_constants']['SAR_spacing'])
+    cohe_ENL = np.float32(config['S1_constants']['cohe_ENL'])
+    min_cohe_var = np.float32(config['S1_constants']['min_cohe_var'])
     locAcqTimeASC = config['S1_constants']['locAcqTimeASC']
     locAcqTimeDESC = config['S1_constants']['locAcqTimeASC']
     print("S1_time_interval", S1_time_interval)
@@ -515,7 +524,7 @@ def main_run(configFile, segmentsFile, data_x_detection, outputDir, new_acq_date
     print("locAcqTimeDESC", locAcqTimeDESC)
 
     # [S1_processing]
-    invalid_data = float(config['S1_processing']['invalid_data'])
+    invalid_data = np.float32(config['S1_processing']['invalid_data'])
     saturate_sigma_str = config['S1_processing']['saturate_sigma']
     if saturate_sigma_str == "True":
         saturate_sigma = True
@@ -524,7 +533,7 @@ def main_run(configFile, segmentsFile, data_x_detection, outputDir, new_acq_date
     else:
         print("saturate_sigma invalid")
         return 0, test_d
-    pfa = float(config['S1_processing']['pfa'])
+    pfa = np.float32(config['S1_processing']['pfa'])
     stat_smpl_n = int(config['S1_processing']['stat_smpl_n'])
     non_overlap_interval_days = int(config['S1_processing']['non_overlap_interval_days'])
     options_layer_burning = list(map(str.strip, config['S1_processing']['options_layer_burning'].split(',')))
@@ -618,7 +627,7 @@ class S4CConfig(object):
         self.end_date = args.end_date
         self.start_date = args.start_date
         self.seg_parcel_id_attribute = args.seg_parcel_id_attribute
-        self.output_shapefile = args.output_shapefile
+        self.output_shapefile = Path(args.output_shapefile)
         self.do_cmpl = args.do_cmpl
         self.test = args.test
         
@@ -627,6 +636,12 @@ class S4CConfig(object):
             self.output_data_dir = output_shapefile_path.parent / "working_dir"
             self.output_data_dir.mkdir(exist_ok=True)
 
+        if not self.output_shapefile.suffix.lower().endswith(".shp"):  
+            self.output_shapefile.mkdir(exist_ok=True)
+            self.output_shapefile = self.output_shapefile / "s1_s2_grassland_output.shp"
+            print ("The output shapefile changed to {} ".format(self.output_shapefile))
+
+        self.output_shapefile = str(self.output_shapefile)
 
 def getPathsAndOrbits(s4cConfig, products) :
 
@@ -690,16 +705,85 @@ def getPathsAndOrbits(s4cConfig, products) :
 
     return data_x_detection, orbit_list, orbit_type_list
 
+def extract_feature_info(feature):
+
+    result = {}
+    
+    # {"id": "SEN4CAP_L2A_S28_V20250323T172457_20250311T172431_VV_088_COHE", "geometry": {"type": "Polygon", "coordinates": [[[4.9757991, 50.2001443], [5.0143908, 49.8317645], [5.6922234, 49.8595403], [5.6588449, 50.2281673], [4.9757991, 50.2001443]]]}, "type": "Feature", "properties": {"product_db_id": 2969, "sen4x:disk_path": "/mnt/archive/../SEN4CAP_L2A_S28_V20250323T172457_20250311T172431_VV_088_COHE.tif", "sat:relative_orbit": 88, "sat:orbit_state": "ASC", "product_type_id": 11}, "assets": {"product_metadata": {"href": "SEN4CAP_L2A_S28_V20250323T172457_20250311T172431_VV_088_COHE.tif.mtd"}}, "links": [{"rel": "derived_from", "href": "S1A_IW_SLC__1SDV_20250311T172431_20250311T172459_058260_07334B_B86F.SAFE"}, {"rel": "derived_from", "href": "S1A_IW_SLC__1SDV_20250323T172457_20250323T172524_058435_073A34_1001.SAFE"}]}
+
+    # We need to extract:
+    #       name,orbit_type_id,orbit_id,polarization,radar_product_type,full_path
+    
+    product_name = feature.get("id")
+
+    # Extract only product_metadata href
+    feature_properties = feature.get("properties")
+
+    product_path = feature_properties.get("sen4x:disk_path", {})
+    product_type_id = feature_properties.get("product_type_id", {})
+    orbit_id = feature_properties.get("sat:relative_orbit")
+    orbit_type_id = feature_properties.get("sat:orbit_state")
+    polarisation = feature_properties.get("sar:polarisation")
+
+    return RadarProduct(product_name, orbit_type_id, orbit_id, polarization, product_type_id, product_path)
+
 def read_s1_products(file):
     products = []
-    with open(file, 'r') as file:
-        reader = csv.reader(file)
-        # skip headers
-        next(reader)
-        for row in reader:
-            # name,orbit_type_id,orbit_id,polarization,radar_product_type,full_path
-            products.append(RadarProduct(row[0], row[1], row[2], row[3], row[4], row[5]))
+    
+    file_path = Path(file)
+    if file_path.suffix.lower() == ".csv":
+        with open(file, 'r') as file:
+            reader = csv.reader(file)
+            # skip headers
+            next(reader)
+            for row in reader:
+                # name,orbit_type_id,orbit_id,polarization,radar_product_type,full_path
+                products.append(RadarProduct(row[0], row[1], row[2], row[3], row[4], row[5]))
+    elif file_path.suffix.lower() == ".json":
+        with open(file) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    data = json.loads(line)
+                except ValueError:
+                    continue
+
+                if "features" in data:
+                    features = data["features"]
+                else:
+                    features = [data]
+                
+                for feature in features:
+                    info = extract_feature_info(feature)
+                    prd_path = info["product_path"]
+                    product_type_id = info["product_type_id"]
+                    if product_type_id is not None:
+                        product_type_id = int(product_type_id)
+                        product_type_id_map = PRODUCT_MAP[product_type]
+                        if product_type_id_map != product_type_id:
+                            print("Product {} will be ignored as product type ({}) differs from the one requested ({}<->{})".format(info["id"], product_type_id, product_type, product_type_id_map))
+                            continue                
+                    if product_type in ["L2A"]:
+                        prd_path = info["metadata_path"]
+                    raster_paths = get_product_raster(prd_path, product_type, product_subtype)
+                    products += raster_paths
+                    print("Using reaster {} ...".format(raster_paths))
+
+
     return products
+
+def read_request_context_file(request_context_file):
+
+    with open(request_context_file) as f:
+        data = json.load(f)
+
+    # "site_info" contains : "site_id", "season_id", "season_start", "season_end", "wkt"
+    return {
+        "site_info": data.get("site_info", {}),
+        "request_parameters": data.get("request_parameters", {})
+    }
 
 def main() :
     parser = argparse.ArgumentParser(description="Executes grassland mowing S1 detection")
@@ -714,23 +798,41 @@ def main() :
     parser.add_argument('-x', '--output-shapefile', help="Output shapefile")
     parser.add_argument('-m', '--do-cmpl', help="Run compliancy")
     parser.add_argument('-t', '--test', help="Run test")
-    
-    parser.add_argument("--params-file", help="Input JSON parameters file overriding default values for the above parameters, if not provided")
+    parser.add_argument("--request-context-file", required=False,
+                    help="JSON containing the information about the execution context (site, request parameters etc.)")
+
+    # parser.add_argument("--params-file", help="Input JSON parameters file overriding default values for the above parameters, if not provided")
     
     args = parser.parse_args()
     
-    if args.params_file:
-        with open(path, "r") as f:
-            data = json.load(f)
-        parser.set_defaults(**data)
-        args = parser.parse_args()
+    #if args.params_file:
+    #    with open(path, "r") as f:
+    #        data = json.load(f)
+    #    parser.set_defaults(**data)
+    #    args = parser.parse_args()
     
-    s4cConfig = S4CConfig(args)
-    
+    if args.request_context_file:
+        result = read_request_context_file(args.request_context_file)
+        site_info = result["site_info"]
+        season_start = site_info["season_start"]
+        season_end = site_info["season_end"]
+        if season_start:
+            args.start_date = season_start
+        if season_start:
+            args.end_date = season_end
+
+    if os.path.exists(args.input_shape_file) and os.path.isdir(args.input_shape_file):
+        for f in os.listdir(args.input_shape_file):
+                if f.lower().endswith(".shp"):
+                    shp_path = os.path.join(args.input_shape_file, f)        
+                    args.input_shape_file = shp_path
+
     if not os.path.isfile(args.input_shape_file) : 
         print("ERROR: the file for input-shape-file does not exists!!! Exiting ... ")
         sys.exit(1)
 
+    s4cConfig = S4CConfig(args)
+    
     products = read_s1_products(args.s1_products_file)
     
     data_x_detection, orbit_list, orbit_type_list = getPathsAndOrbits(s4cConfig, products)
