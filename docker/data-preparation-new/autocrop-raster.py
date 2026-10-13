@@ -1,0 +1,1 @@
+../../scripts/autocrop-raster.py
