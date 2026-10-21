@@ -210,21 +210,22 @@ def read_from_defs(root: Path, defs: tuple) -> dict:
     return assets
 
 
-def read_s1_l2a(root: Path, tag: str, title: str) -> dict:
+def read_s1_l2a(path: Path, title: str) -> dict:
     assets = {}
-    if m := next(root.glob(f"*{tag}*.mtd"), None):
+    m = path.with_suffix(".mtd")
+    if m.is_file():
         assets["metadata"] = make_asset(m, roles=["metadata"], title="Product manifest")
-    if tif := next(root.glob(f"*{tag}*.tif"), None):
-        assets["data"] = make_asset(tif, roles=["data"], title=title)
+    if path.is_file():
+        assets["data"] = make_asset(path, roles=["data"], title=title)
     return assets
 
 
 def read_s1_l2a_amp(root: Path) -> dict:
-    return read_s1_l2a(root, "AMP", "Amplitude raster")
+    return read_s1_l2a(root, "Amplitude raster")
 
 
 def read_s1_l2a_cohe(root: Path) -> dict:
-    return read_s1_l2a(root, "COHE", "Coherence raster")
+    return read_s1_l2a(root, "Coherence raster")
 
 
 def read_l3b(root: Path) -> dict:
