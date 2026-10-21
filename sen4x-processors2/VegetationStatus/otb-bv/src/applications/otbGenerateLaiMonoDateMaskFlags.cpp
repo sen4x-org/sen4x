@@ -54,7 +54,7 @@ private:
         SetDocAuthors("CIU");
         SetDocSeeAlso(" ");        
         AddDocTag(Tags::Vector);
-        AddParameter(ParameterType_String,  "inxml",   "Input XML corresponding to the LAI mono date");
+        AddParameter(ParameterType_String,  "xml",   "Input XML corresponding to the LAI mono date");
         AddParameter(ParameterType_String,  "extmsk",   "Input external mask corresponding to the input L2A product");
         MandatoryOff("extmsk");
 
@@ -80,7 +80,7 @@ private:
 
     void DoExecute()
     {
-        const std::string &inXml = GetParameterAsString("inxml");
+        const std::string &inXml = GetParameterAsString("xml");
         const std::string &outImg = GetParameterAsString("out");
         std::string extMsk;
         if (HasValue("extmsk")) {
