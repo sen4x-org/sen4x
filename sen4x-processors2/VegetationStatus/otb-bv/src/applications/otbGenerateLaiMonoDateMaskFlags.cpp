@@ -13,10 +13,11 @@
 
  =========================================================================*/
  
+#include "otbExtendedFilenameHelper.h"
 #include "otbWrapperApplication.h"
 #include "otbWrapperApplicationFactory.h"
 
-#include <vector>
+#include <memory>
 #include "MetadataHelperFactory.h"
 #include "otbStreamingResampleImageFilter.h"
 #include "ImageResampler.h"
@@ -39,7 +40,6 @@ public:
 
     itkTypeMacro(GenerateLaiMonoDateMaskFlags, otb::Application)
 
-    typedef otb::ImageFileWriter<MetadataHelper<short>::SingleBandShortImageType> WriterType;
     typedef otb::StreamingResampleImageFilter<MetadataHelper<short>::SingleBandShortImageType,
                     MetadataHelper<short>::SingleBandShortImageType, double>     ResampleFilterType;
 
@@ -58,7 +58,8 @@ private:
         AddParameter(ParameterType_String,  "extmsk",   "Input external mask corresponding to the input L2A product");
         MandatoryOff("extmsk");
 
-        AddParameter(ParameterType_String,  "out",   "The out mask flags image corresponding to the LAI mono date");
+        AddParameter(ParameterType_OutputImage,  "out",   "The out mask flags image corresponding to the LAI mono date");
+        SetDefaultOutputPixelType("out", ImagePixelType_uint8);
         AddParameter(ParameterType_Int, "compress", "If set to a value different of 0, the output is compressed");
         MandatoryOff("compress");
         SetDefaultParameterInt("compress", 0);
@@ -69,8 +70,9 @@ private:
 
         AddParameter(ParameterType_Int, "outres", "Output resolution. If not specified, is the same as the input resolution.");
         MandatoryOff("outres");
-        AddParameter(ParameterType_String,  "outresampled",   "The out mask flags image corresponding to the LAI mono date resampled at the given resolution");
+        AddParameter(ParameterType_OutputImage,  "outresampled",   "The out mask flags image corresponding to the LAI mono date resampled at the given resolution");
         MandatoryOff("outresampled");
+        SetDefaultOutputPixelType("outresampled", ImagePixelType_uint8);
     }
 
     void DoUpdateParameters()
@@ -81,7 +83,6 @@ private:
     void DoExecute()
     {
         const std::string &inXml = GetParameterAsString("xml");
-        const std::string &outImg = GetParameterAsString("out");
         std::string extMsk;
         if (HasValue("extmsk")) {
             extMsk = GetParameterAsString("extmsk");
@@ -91,53 +92,54 @@ private:
         std::unique_ptr<MetadataHelper<short>> pHelper = factory->GetMetadataHelper<short>(inXml, extMsk);
         MetadataHelper<short>::SingleBandMasksImageType::Pointer imgMsk = pHelper->GetMasksImage(ALL, false);
 
-        WriteOutput(imgMsk, outImg, -1);
+        ConfigureOutput("out", imgMsk);
 
         if(HasValue("outres")) {
             if(HasValue("outresampled")) {
-                std::string outImgRes = GetParameterAsString("outresampled");
                 int nOutRes = GetParameterInt("outres");
                 if(nOutRes != 10 && nOutRes != 20) {
                     itkExceptionMacro("Invalid output resolution specified (only 10 and 20 accepted)" << nOutRes);
                 }
-                WriteOutput(imgMsk, outImgRes, nOutRes);
+                imgMsk->UpdateOutputInformation();
+                int curRes = imgMsk->GetSpacing()[0];
+                ConfigureOutput("outresampled", getResampledImage(curRes, nOutRes, imgMsk));
             } else {
                 itkExceptionMacro("If you provide the outres parameter you must also provide an outresampled file name!");
             }
+        } else {
+            DisableParameter("outresampled");
         }
+        RegisterPipeline();
     }
 
-    void WriteOutput(MetadataHelper<short>::SingleBandShortImageType::Pointer imgMsk, const std::string &outImg, int nRes) {
-        std::string fileName(outImg);
+    void ConfigureOutput(const std::string &key,
+                         MetadataHelper<short>::SingleBandShortImageType::Pointer image)
+    {
+        SetParameterOutputImage(key, image.GetPointer());
+        std::string fileName = GetParameterString(key);
+        if (fileName.empty()) {
+            return;
+        }
+        auto filenameHelper = otb::ExtendedFilenameHelper::New();
+        filenameHelper->SetExtendedFileName(fileName);
 
-        bool bCompress = (GetParameterInt("compress") != 0);
-        bool bClodOptimizedGeotiff = (GetParameterInt("cog") != 0);
-
-        if (bClodOptimizedGeotiff) {
-            fileName += "?gdal:co:TILED=YES&gdal:co:COPY_SRC_OVERVIEWS=YES&gdal:co:COMPRESS=DEFLATE";
-        } else if (bCompress) {
-            fileName += std::string("?gdal:co:COMPRESS=DEFLATE");
+        auto options = filenameHelper->GetOptionMap();
+        // Prevent a crash in OTB's adaptive splitter when using ?box
+        options.emplace("streaming:type", "tiled");
+        if (GetParameterInt("cog") != 0) {
+            options.emplace("gdal:co:TILED", "YES");
+            options.emplace("gdal:co:COPY_SRC_OVERVIEWS", "YES");
+        }
+        if (GetParameterInt("cog") != 0 || GetParameterInt("compress") != 0) {
+            options.emplace("gdal:co:COMPRESS", "DEFLATE");
         }
 
-        // Create an output parameter to write the current output image
-        OutputImageParameter::Pointer paramOut = OutputImageParameter::New();
-        // Set the filename of the current output image
-        paramOut->SetFileName(outImg);
-        if(nRes == -1) {
-            paramOut->SetValue(imgMsk);
-        } else {
-            // resample the image at the given resolution
-            imgMsk->UpdateOutputInformation();
-            int curRes = imgMsk->GetSpacing()[0];
-            paramOut->SetValue(getResampledImage(curRes, nRes, imgMsk));
+        fileName = filenameHelper->GetSimpleFileName();
+        fileName += '?';
+        for (const auto &option : options) {
+            fileName += '&' + option.first + '=' + option.second;
         }
-        paramOut->SetPixelType(ImagePixelType_uint8);
-        // Add the current level to be written
-        paramOut->InitializeWriters();
-        std::ostringstream osswriter;
-        osswriter<< "Wrinting flags "<< outImg;
-        AddProcess(paramOut->GetWriter(), osswriter.str());
-        paramOut->Write();
+        SetParameterString(key, fileName, false);
     }
 
     MetadataHelper<short>::SingleBandShortImageType::Pointer getResampledImage(int nCurRes, int nDesiredRes,
