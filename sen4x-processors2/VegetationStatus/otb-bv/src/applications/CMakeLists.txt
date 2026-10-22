@@ -2,6 +2,8 @@ otb_create_application(NAME           GenerateLaiMonoDateMaskFlags
   SOURCES        otbGenerateLaiMonoDateMaskFlags.cpp
   LINK_LIBRARIES Sen2AgriProductReaders ${OTB_LIBRARIES})
 
+target_include_directories(otbapp_GenerateLaiMonoDateMaskFlags PRIVATE ../../../../Filters)
+
 otb_create_application(NAME           BVLaiNewProcessor
   SOURCES        otbBVLaiNewProcessor.cxx
   LINK_LIBRARIES Sen2AgriProductReaders Sen2AgriCommonUtils ${OTB_LIBRARIES})

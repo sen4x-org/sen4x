@@ -12,7 +12,7 @@
   * limitations under the License.
 
  =========================================================================*/
- 
+
 #include "otbExtendedFilenameHelper.h"
 #include "otbWrapperApplication.h"
 #include "otbWrapperApplicationFactory.h"
@@ -21,6 +21,7 @@
 #include "MetadataHelperFactory.h"
 #include "otbStreamingResampleImageFilter.h"
 #include "ImageResampler.h"
+#include "otbRemoveNoDataFilter.h"
 
 namespace otb
 {
@@ -30,7 +31,7 @@ namespace Wrapper
 
 class GenerateLaiMonoDateMaskFlags : public Application
 {
-public:    
+public:
 
     typedef GenerateLaiMonoDateMaskFlags Self;
     typedef Application Superclass;
@@ -52,7 +53,7 @@ private:
         SetDocLongDescription("long description");
         SetDocLimitations("None");
         SetDocAuthors("CIU");
-        SetDocSeeAlso(" ");        
+        SetDocSeeAlso(" ");
         AddDocTag(Tags::Vector);
         AddParameter(ParameterType_String,  "xml",   "Input XML corresponding to the LAI mono date");
         AddParameter(ParameterType_String,  "extmsk",   "Input external mask corresponding to the input L2A product");
@@ -109,13 +110,17 @@ private:
         } else {
             DisableParameter("outresampled");
         }
-        RegisterPipeline();
     }
 
     void ConfigureOutput(const std::string &key,
                          MetadataHelper<short>::SingleBandShortImageType::Pointer image)
     {
-        SetParameterOutputImage(key, image.GetPointer());
+        auto noDataFilter = otb::RemoveNoDataFilter<MetadataHelper<short>::SingleBandShortImageType>::New();
+        noDataFilter->SetInput(image);
+        SetParameterOutputImage(key, noDataFilter->GetOutput());
+
+        RegisterPipeline();
+
         std::string fileName = GetParameterString(key);
         if (fileName.empty()) {
             return;
@@ -159,6 +164,3 @@ private:
 }
 }
 OTB_APPLICATION_EXPORT(otb::Wrapper::GenerateLaiMonoDateMaskFlags)
-
-
-
