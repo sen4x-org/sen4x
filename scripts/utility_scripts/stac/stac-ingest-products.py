@@ -369,7 +369,7 @@ def build_item(row):
     product_type = ProductType(row["product_type_id"])
 
     item = {
-        "stac_version": "1.0.0",
+        "stac_version": "1.1.0",
         "stac_extensions": [],
         "type": "Feature",
         "id": row["name"],
