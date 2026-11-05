@@ -27,6 +27,11 @@ def main():
         choices=["sentinel-1-slc", "sentinel-2-l1c", "sentinel-2-l2a"],
         help="STAC collection to query",
     )
+    parser.add_argument(
+        "--sar-instrument-mode",
+        default="IW",
+        help="Sentinel-1 SAR instrument mode (default: IW)",
+    )
     parser.add_argument("--tiles", nargs="+", help="Sentinel-2 tile IDs")
     parser.add_argument("--start-date", help="Start date (YYYY-MM-DD), inclusive")
     parser.add_argument("--end-date", help="End date (YYYY-MM-DD), inclusive")
@@ -36,12 +41,19 @@ def main():
 
     search_kwargs = {"collections": [args.collection]}
 
+    filters = []
     if args.tiles:
         if len(args.tiles) == 1:
-            search_kwargs["filter"] = f"grid:code = 'MGRS-{args.tiles[0]}'"
+            filters.append(f"grid:code = 'MGRS-{args.tiles[0]}'")
         else:
             tiles_str = ", ".join(f"'MGRS-{t}'" for t in args.tiles)
-            search_kwargs["filter"] = f"grid:code IN ({tiles_str})"
+            filters.append(f"grid:code IN ({tiles_str})")
+
+    if args.collection == "sentinel-1-slc":
+        filters.append(f"sar:instrument_mode = '{args.sar_instrument_mode}'")
+
+    if filters:
+        search_kwargs["filter"] = " AND ".join(filters)
 
     start_date_str = ".."
     if args.start_date:
