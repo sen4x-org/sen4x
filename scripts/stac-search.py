@@ -44,16 +44,36 @@ def main():
     filters = []
     if args.tiles:
         if len(args.tiles) == 1:
-            filters.append(f"grid:code = 'MGRS-{args.tiles[0]}'")
+            filters.append(
+                {
+                    "op": "=",
+                    "args": [{"property": "grid:code"}, f"MGRS-{args.tiles[0]}"],
+                }
+            )
         else:
-            tiles_str = ", ".join(f"'MGRS-{t}'" for t in args.tiles)
-            filters.append(f"grid:code IN ({tiles_str})")
+            filters.append(
+                {
+                    "op": "in",
+                    "args": [
+                        {"property": "grid:code"},
+                        [f"MGRS-{t}" for t in args.tiles],
+                    ],
+                }
+            )
 
     if args.collection == "sentinel-1-slc":
-        filters.append(f"sar:instrument_mode = '{args.sar_instrument_mode}'")
+        filters.append(
+            {
+                "op": "=",
+                "args": [{"property": "sar:instrument_mode"}, args.sar_instrument_mode],
+            }
+        )
 
     if filters:
-        search_kwargs["filter"] = " AND ".join(filters)
+        search_kwargs["filter"] = (
+            filters[0] if len(filters) == 1 else {"op": "and", "args": filters}
+        )
+        search_kwargs["filter_lang"] = "cql2-json"
 
     start_date_str = ".."
     if args.start_date:
