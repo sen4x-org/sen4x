@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-import sys
 import argparse
 import json
+import sys
 from datetime import datetime, timedelta
+from pathlib import PurePosixPath
+from urllib.parse import urlparse, urlunparse
+
 from osgeo import ogr
 from pystac_client import Client
 from pystac_client.stac_api_io import StacApiIO
 from urllib3 import Retry
-from urllib.parse import urlparse, urlunparse
-from pathlib import PurePosixPath
 
 CDSE_API_URL = "https://stac.dataspace.copernicus.eu/v1"
 SEN4X_SCHEMA_URL = "https://example.com/stac/sen4x/v1.0.0/schema.json"
@@ -64,7 +65,7 @@ def main():
     retry = Retry(
         total=20,
         backoff_factor=1,
-        status_forcelist=[429, 502, 503, 504],
+        status_forcelist=[429, 500, 502, 503, 504],
         allowed_methods=None,
     )
     stac_api_io = StacApiIO(max_retries=retry)
