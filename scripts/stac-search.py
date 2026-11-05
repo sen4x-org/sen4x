@@ -80,7 +80,10 @@ def main():
         status_forcelist=[429, 500, 502, 503, 504],
         allowed_methods=None,
     )
-    stac_api_io = StacApiIO(max_retries=retry)
+    stac_api_io = StacApiIO(
+        max_retries=retry,
+        headers={"User-Agent": "sen4x-stac-search"},
+    )
     client = Client.open(CDSE_API_URL, stac_io=stac_api_io)
     search = client.search(**search_kwargs)
 
