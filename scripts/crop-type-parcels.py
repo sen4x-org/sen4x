@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 import argparse
 import csv
-import multiprocessing
-import multiprocessing.dummy
 import os
 import os.path
 import shlex
@@ -10,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime, timedelta
 from glob import glob
 
@@ -123,9 +122,7 @@ def get_tile_hdr(tile, path):
                         ok = True
                         break
                 if not ok:
-                    print(
-                        f"No {pat} raster found for tile {tile} in {path}"
-                    )
+                    print(f"No {pat} raster found for tile {tile} in {path}")
                     return None
         return hdr
     pat = f"*_T{tile}_*/*_MTD_ALL.xml"
@@ -167,22 +164,24 @@ def save_dates_file(path, site_id, satellite_id, dates):
     return file_path
 
 
-def run_command(args, env=None, retry=False):
+def run_command(args, env=None, stdout=None) -> None:
     args = list(map(str, args))
     cmd_line = " ".join(map(shlex.quote, args))
 
-    retries = 5 if retry else 1
-    while retries > 0:
-        retries -= 1
-        print(cmd_line)
-        if env:
-            result = subprocess.call(args, env=env)
-        else:
-            result = subprocess.call(args)
-        if result != 0:
-            print(f"Exit code: {result}")
-        else:
-            break
+    print(cmd_line)
+    result = subprocess.call(args, env=env, stdout=stdout)
+    if result != 0:
+        raise RuntimeError(f"Command `{cmd_line}` failed with exit code {result}")
+
+
+def pool_map(pool, func, items):
+    futures = [pool.submit(func, item) for item in items]
+    try:
+        for future in as_completed(futures):
+            future.result()
+    except Exception:
+        pool.shutdown(wait=True, cancel_futures=True)
+        raise
 
 
 def extract_optical_features(
@@ -246,21 +245,18 @@ def get_lpis_map(lpis_path, resolution):
     return r
 
 
-def paste_files(file1, file2, out):
+def paste_files(file1, file2, out) -> None:
     fd, temp = tempfile.mkstemp(".csv")
     os.close(fd)
 
-    command = []
-    command += ["sh"]
-    command += ["-c", f"cut -d, -f2- {file2} > {temp}"]
-    run_command(command)
+    try:
+        with open(temp, "wb") as output:
+            run_command(["cut", "-d,", "-f2-", file2], stdout=output)
 
-    command = []
-    command += ["sh"]
-    command += ["-c", f"paste -d, {file1} {temp} >> {out}"]
-    run_command(command)
-
-    os.remove(temp)
+        with open(out, "ab") as output:
+            run_command(["paste", "-d,", file1, temp], stdout=output)
+    finally:
+        os.remove(temp)
 
 
 def process_optical(args, pool, satellite_id):
@@ -329,7 +325,7 @@ def process_optical(args, pool, satellite_id):
                         )
                     )
 
-        pool.map(lambda g: extract_optical_features(*g), work)
+        pool_map(pool, lambda g: extract_optical_features(*g), work)
 
         command = []
         command += ["merge-statistics"]
@@ -670,7 +666,9 @@ class CoherenceSeasonGroup:
         return (self.tile_id, self.polarization)
 
     def format(self, site_id):
-        return f"SEN4CAP_L2A_PRD_S{site_id}_S_T{self.tile_id}_{self.polarization}_COHE.tif"
+        return (
+            f"SEN4CAP_L2A_PRD_S{site_id}_S_T{self.tile_id}_{self.polarization}_COHE.tif"
+        )
 
     def band_description(self):
         return f"S1_S_{self.polarization}_COHE_STDDEV"
@@ -1100,10 +1098,8 @@ def process_radar(args, pool):
             input_srs = get_projection(product.path)
 
         group_week = (
-            (product.week - 1) // args.radar_compositing_weeks
-            * args.radar_compositing_weeks
-            + 1
-        )
+            product.week - 1
+        ) // args.radar_compositing_weeks * args.radar_compositing_weeks + 1
 
         group = RadarGroup(
             product.year,
@@ -1234,7 +1230,8 @@ def process_radar(args, pool):
         if group.product_type == PRODUCT_TYPE_ID_BCK:
             month = group.month
             backscatter_group_month = (
-                (month - 1) // args.backscatter_compositing_months
+                (month - 1)
+                // args.backscatter_compositing_months
                 * args.backscatter_compositing_months
                 + 1
             )
@@ -1276,7 +1273,7 @@ def process_radar(args, pool):
             )
             coherence_season_groups[coherence_season_group].append(output)
 
-    pool.map(lambda c: c.run(), weekly_composites)
+    pool_map(pool, lambda c: c.run(), weekly_composites)
 
     backscatter_composites = []
     backscatter_groups = sorted(list(backscatter_groups.items()))
@@ -1569,12 +1566,12 @@ def process_radar(args, pool):
             )
             tile_vrt_bands.append(vrt_raster_band)
 
-    pool.map(lambda c: c.run(), backscatter_composites)
-    pool.map(lambda c: c.run(), backscater_ratio_statistics)
+    pool_map(pool, lambda c: c.run(), backscatter_composites)
+    pool_map(pool, lambda c: c.run(), backscater_ratio_statistics)
     if not args.disable_coherence_monthly_composites:
-        pool.map(lambda c: c.run(), coherence_monthly_composites)
+        pool_map(pool, lambda c: c.run(), coherence_monthly_composites)
     if not args.disable_coherence_season_composites:
-        pool.map(lambda c: c.run(), coherence_season_composites)
+        pool_map(pool, lambda c: c.run(), coherence_season_composites)
 
     for tile_id, vrt_bands in vrt_bands.items():
         gt = ref_gt_map[tile_id]
@@ -1586,9 +1583,7 @@ def process_radar(args, pool):
                 "rasterYSize": str(5490),
             },
             E.SRS({"dataAxisToSRSAxisMapping": "1,2"}, srs.ExportToWkt()),
-            E.GeoTransform(
-                f"{gt[0]}, {gt[1]}, {gt[2]}, {gt[3]}, {gt[4]}, {gt[5]}"
-            ),
+            E.GeoTransform(f"{gt[0]}, {gt[1]}, {gt[2]}, {gt[3]}, {gt[4]}, {gt[5]}"),
             E.BlockXSize(str(256)),
             E.BlockYSize(str(256)),
         )
@@ -1725,12 +1720,15 @@ def main():
 
     args = parser.parse_args()
 
-    cpu_count = multiprocessing.cpu_count()
+    gdal.UseExceptions()
+
+    cpu_count = os.cpu_count()
     if args.mode == "optical":
         if not args.optical_products:
             print("--optical-products is required with -m optical")
             sys.exit(1)
-        pool = multiprocessing.dummy.Pool(cpu_count // 2)
+        with ThreadPoolExecutor(cpu_count // 2) as pool:
+            process_optical(args, pool, SATELLITE_ID_SENTINEL2)
     else:
         if not args.tile_footprints:
             print("--tile-footprints is required with -m sar")
@@ -1738,12 +1736,8 @@ def main():
         if not args.radar_products:
             print("--radar-products is required with -m sar")
             sys.exit(1)
-        pool = multiprocessing.dummy.Pool(cpu_count)
-
-    if args.mode == "optical":
-        process_optical(args, pool, SATELLITE_ID_SENTINEL2)
-    else:
-        process_radar(args, pool)
+        with ThreadPoolExecutor(cpu_count) as pool:
+            process_radar(args, pool)
 
 
 if __name__ == "__main__":

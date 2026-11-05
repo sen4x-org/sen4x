@@ -51,6 +51,22 @@ def read_radar_products_tiles(file):
     return tiles
 
 
+def csv_to_ipc(csv_file):
+    ipc_file = os.path.splitext(csv_file)[0] + ".ipc"
+    command = [
+        "python3",
+        "/usr/bin/csv_to_ipc.py",
+        "-i",
+        csv_file,
+        "-o",
+        ipc_file,
+        "--int32-columns",
+        "NewID",
+    ]
+    run_command(command)
+    return ipc_file
+
+
 def main():
     parser = argparse.ArgumentParser(description="Crop type processor wrapper")
     parser.add_argument("-s", "--site-id", type=int, help="site ID to filter by")
@@ -139,23 +155,11 @@ def main():
     current_path = os.getcwd()
     os.chdir(args.working_path)
     if args.mode != "s1-only":
-        try:
-            os.mkdir("optical")
-        except OSError:
-            pass
+        os.makedirs("optical", exist_ok=True)
     if args.mode != "s2-only":
-        try:
-            os.mkdir("sar")
-        except OSError:
-            pass
-        try:
-            os.mkdir("sar-merged")
-        except OSError:
-            pass
-    try:
-        os.mkdir("features")
-    except OSError:
-        pass
+        os.makedirs("sar", exist_ok=True)
+        os.makedirs("sar-merged", exist_ok=True)
+    os.makedirs("features", exist_ok=True)
 
     if args.standalone:
         parcels = os.path.join(args.working_path, "parcels.csv")
@@ -284,61 +288,13 @@ def main():
         sar_temporal = None
 
     if optical_features:
-        ipc_file = os.path.join(args.working_path, "features/optical-features.ipc")
-        command = [
-            "python3",
-            "/usr/bin/csv_to_ipc.py",
-            "-i",
-            optical_features,
-            "-o",
-            ipc_file,
-            "--int32-columns",
-            "NewID",
-        ]
-        run_command(command)
-        optical_features = ipc_file
+        optical_features = csv_to_ipc(optical_features)
     if optical_re_features:
-        ipc_file = os.path.join(args.working_path, "features/optical-features-re.ipc")
-        command = [
-            "python3",
-            "/usr/bin/csv_to_ipc.py",
-            "-i",
-            optical_re_features,
-            "-o",
-            ipc_file,
-            "--int32-columns",
-            "NewID",
-        ]
-        run_command(command)
-        optical_re_features = ipc_file
+        optical_re_features = csv_to_ipc(optical_re_features)
     if sar_features:
-        ipc_file = os.path.join(args.working_path, "features/sar-features.ipc")
-        command = [
-            "python3",
-            "/usr/bin/csv_to_ipc.py",
-            "-i",
-            sar_features,
-            "-o",
-            ipc_file,
-            "--int32-columns",
-            "NewID",
-        ]
-        run_command(command)
-        sar_features = ipc_file
+        sar_features = csv_to_ipc(sar_features)
     if sar_temporal:
-        ipc_file = os.path.join(args.working_path, "features/sar-temporal.ipc")
-        command = [
-            "python3",
-            "/usr/bin/csv_to_ipc.py",
-            "-i",
-            sar_temporal,
-            "-o",
-            ipc_file,
-            "--int32-columns",
-            "NewID",
-        ]
-        run_command(command)
-        sar_temporal = ipc_file
+        sar_temporal = csv_to_ipc(sar_temporal)
 
     if args.mode == "s2-only":
         args.min_s1_pix = 0

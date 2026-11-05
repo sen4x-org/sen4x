@@ -1,30 +1,35 @@
 #!/usr/bin/env python3
 import argparse
-from collections import defaultdict, OrderedDict
 import csv
-from glob import glob
-import multiprocessing
-import multiprocessing.dummy
+import os
 import os.path
-import shlex
 import re
+import shlex
 import subprocess
 import tempfile
+from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from glob import glob
 
 
-def run_command(args, env=None, retry=False):
+def run_command(args, env=None, stdout=None) -> None:
     args = list(map(str, args))
     cmd_line = " ".join(map(shlex.quote, args))
 
-    retries = 5 if retry else 1
-    while retries > 0:
-        retries -= 1
-        print(cmd_line)
-        result = subprocess.call(args, env=env)
-        if result != 0:
-            print("Exit code: {}".format(result))
-        else:
-            break
+    print(cmd_line)
+    result = subprocess.call(args, env=env, stdout=stdout)
+    if result != 0:
+        raise RuntimeError(f"Command `{cmd_line}` failed with exit code {result}")
+
+
+def pool_map(pool, func, items) -> None:
+    futures = [pool.submit(func, item) for item in items]
+    try:
+        for future in as_completed(futures):
+            future.result()
+    except Exception:
+        pool.shutdown(wait=True, cancel_futures=True)
+        raise
 
 
 PERIOD_TYPE_WEEK = 1
@@ -43,7 +48,7 @@ TYPE_BACKSCATTER = 1
 TYPE_COHERENCE = 2
 
 
-class TileGroup(object):
+class TileGroup:
     def __init__(
         self, prefix, period_type, period, orbit_type, polarization, type, name
     ):
@@ -182,33 +187,26 @@ def get_type(s):
         return TYPE_COHERENCE
 
 
-def paste_files(file1, file2, out):
+def split_file(file, pos, out1, out2) -> None:
+    with open(out1, "wb") as output:
+        run_command(["cut", "-d,", f"-f1-{pos + 1}", file], stdout=output)
+
+    with open(out2, "wb") as output:
+        run_command(["cut", "-d,", f"-f1,{pos + 2}-", file], stdout=output)
+
+
+def paste_files(file1, file2, out) -> None:
     fd, temp = tempfile.mkstemp(".csv")
     os.close(fd)
 
-    command = []
-    command += ["sh"]
-    command += ["-c", "cut -d, -f2- {} > {}".format(file2, temp)]
-    run_command(command)
+    try:
+        with open(temp, "wb") as output:
+            run_command(["cut", "-d,", "-f2-", file2], stdout=output)
 
-    command = []
-    command += ["sh"]
-    command += ["-c", "paste -d, {} {} >> {}".format(file1, temp, out)]
-    run_command(command)
-
-    os.remove(temp)
-
-
-def split_file(file, pos, out1, out2):
-    command = []
-    command += ["sh"]
-    command += ["-c", "cut -d, -f1-{} {} > {}".format(pos + 1, file, out1)]
-    run_command(command)
-
-    command = []
-    command += ["sh"]
-    command += ["-c", "cut -d, -f1,{}- {} > {}".format(pos + 2, file, out2)]
-    run_command(command)
+        with open(out, "ab") as output:
+            run_command(["paste", "-d,", file1, temp], stdout=output)
+    finally:
+        os.remove(temp)
 
 
 def main():
@@ -241,7 +239,7 @@ def main():
             tile_groups[tile_id].append(group)
             all_groups.add(group)
         else:
-            print("unknown file: {}".format(file))
+            print(f"unknown file: {file}")
 
     reverse_groups = defaultdict(set)
     for tile_id, groups in tile_groups.items():
@@ -260,7 +258,7 @@ def main():
 
     simple_features_columns = []
     temporal_features_columns = []
-    for group in sorted(list(selected_groups)):
+    for group in sorted(selected_groups):
         name = group.format(None, include_prefix=False)
         if group.period_type == PERIOD_TYPE_MONTH:
             temporal_features_columns.append(name + "_MEAN")
@@ -277,25 +275,23 @@ def main():
 
     all_columns = ["NewID"]
     for col in simple_features_columns:
-        all_columns.append("XX_" + col + "_MEAN")
+        all_columns.append(f"XX_{col}_MEAN")
     for col in simple_features_columns:
-        all_columns.append("XX_" + col + "_DEV")
+        all_columns.append(f"XX_{col}_DEV")
 
-    with open(sar_features, "wt") as out_file:
+    with open(sar_features, "w") as out_file:
         writer = csv.writer(out_file, quoting=csv.QUOTE_MINIMAL)
         writer.writerow(all_columns)
 
     all_columns = ["NewID"]
     for col in temporal_features_columns:
-        all_columns.append("XX_" + col + "_MEAN")
+        all_columns.append(f"XX_{col}_MEAN")
     for col in temporal_features_columns:
-        all_columns.append("XX_" + col + "_DEV")
+        all_columns.append(f"XX_{col}_DEV")
 
-    with open(sar_temporal, "wt") as out_file:
+    with open(sar_temporal, "w") as out_file:
         writer = csv.writer(out_file, quoting=csv.QUOTE_MINIMAL)
         writer.writerow(all_columns)
-
-    pool = multiprocessing.dummy.Pool(multiprocessing.cpu_count())
 
     print(len(selected_groups))
 
@@ -311,34 +307,25 @@ def main():
             selected.sort()
 
             print(tile_id)
-            period_type_groups = OrderedDict()
+            period_type_groups = defaultdict(list)
 
             for group in selected:
-                period_type_groups.setdefault(group.erase_period(), []).append(group)
+                period_type_groups[group.erase_period()].append(group)
 
-            pat = "{}_{}.csv"
             merged = []
             for key, groups in period_type_groups.items():
                 name = key.format(tile_id)
                 print(name)
 
-                out_mean = pat.format(name, "MEAN")
-                out_dev = pat.format(name, "DEV")
-                out_count = pat.format(name, "COUNT")
-
-                out_mean = os.path.join(args.output_path, out_mean)
-                out_dev = os.path.join(args.output_path, out_dev)
-                out_count = os.path.join(args.output_path, out_count)
+                out_mean = os.path.join(args.output_path, f"{name}_MEAN.csv")
+                out_dev = os.path.join(args.output_path, f"{name}_DEV.csv")
+                out_count = os.path.join(args.output_path, f"{name}_COUNT.csv")
 
                 files = []
                 for group in groups:
-                    mean = group.name + "_MEAN.csv"
-                    dev = group.name + "_DEV.csv"
-                    count = group.name + "_COUNT.csv"
-
-                    mean = os.path.join(args.input_path, mean)
-                    dev = os.path.join(args.input_path, dev)
-                    count = os.path.join(args.input_path, count)
+                    mean = os.path.join(args.input_path, f"{group.name}_MEAN.csv")
+                    dev = os.path.join(args.input_path, f"{group.name}_DEV.csv")
+                    count = os.path.join(args.input_path, f"{group.name}_COUNT.csv")
 
                     files += [mean, dev, count]
 
@@ -351,30 +338,21 @@ def main():
 
                 key.name = name
                 merged.append(key)
-            pool.map(run_command, commands)
 
             if len(merged) == 0:
                 continue
 
-            name = "{}_{}".format(merged[0].prefix, tile_id)
-            out_mean = pat.format(name, "MEAN")
-            out_dev = pat.format(name, "DEV")
-            out_count = pat.format(name, "COUNT")
-
-            out_mean = os.path.join(args.output_path, out_mean)
-            out_dev = os.path.join(args.output_path, out_dev)
-            out_count = os.path.join(args.output_path, out_count)
+            name = f"{merged[0].prefix}_{tile_id}"
+            out_mean = os.path.join(args.output_path, f"{name}_MEAN.csv")
+            out_dev = os.path.join(args.output_path, f"{name}_DEV.csv")
+            out_count = os.path.join(args.output_path, f"{name}_COUNT.csv")
             print(name)
 
             files = []
             for group in merged:
-                mean = group.name + "_MEAN.csv"
-                dev = group.name + "_DEV.csv"
-                count = group.name + "_COUNT.csv"
-
-                mean = os.path.join(args.output_path, mean)
-                dev = os.path.join(args.output_path, dev)
-                count = os.path.join(args.output_path, count)
+                mean = os.path.join(args.output_path, f"{group.name}_MEAN.csv")
+                dev = os.path.join(args.output_path, f"{group.name}_DEV.csv")
+                count = os.path.join(args.output_path, f"{group.name}_COUNT.csv")
 
                 files += [mean, dev, count]
 
@@ -386,7 +364,10 @@ def main():
             command += files
 
             merge_commands.append(command)
-    pool.map(run_command, merge_commands)
+
+    with ThreadPoolExecutor(os.cpu_count()) as pool:
+        pool_map(pool, run_command, commands)
+        pool_map(pool, run_command, merge_commands)
 
     mean_sar = os.path.join(args.output_path, "mean-sar.csv")
     dev_sar = os.path.join(args.output_path, "dev-sar.csv")
