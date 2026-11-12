@@ -15,6 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 from configparser import ConfigParser
 from datetime import date
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import psycopg2
 import psycopg2.extensions
@@ -28,6 +29,13 @@ MODE_UPDATE = 0
 MODE_REPLACE = 1
 MODE_INCREMENTAL = 2
 
+INTEGER_TYPES = {
+    "smallint",
+    "integer",
+    "bigint",
+}
+NUMERIC_TYPES = INTEGER_TYPES | {"real", "double precision", "numeric"}
+
 
 def try_rm_file(f):
     try:
@@ -35,6 +43,17 @@ def try_rm_file(f):
         return True
     except OSError:
         return False
+
+
+def get_ogr_path(path):
+    if path.startswith(("http://", "https://")):
+        is_zip = urlsplit(path).path.lower().endswith(".zip")
+        path = f"/vsicurl/{path}"
+    else:
+        is_zip = path.lower().endswith(".zip")
+    if is_zip:
+        path = f"/vsizip/{path}"
+    return path
 
 
 class Config:
@@ -159,44 +178,158 @@ class Tile:
         self.tile_extent = tile_extent
 
 
-def get_column_type(conn, schema, table, column):
+def get_table_column_types(conn, schema, table, columns=None):
     with conn.cursor() as cursor:
         query = SQL(
             """
-select data_type
+select column_name, data_type
 from information_schema.columns
 where table_schema = %s
-  and table_name = %s
-  and column_name = %s;"""
+  and table_name = %s"""
         )
-        cursor.execute(query, (schema, table, column))
-        res = cursor.fetchone()
-        if res:
-            col_type = res[0]
-        else:
-            col_type = None
-        return col_type
+        params = [schema, table]
+        if columns is not None:
+            query += SQL(" and column_name = any(%s)")
+            params.append(columns)
+        cursor.execute(query, params)
+        return dict(cursor.fetchall())
 
 
-def get_table_columns(conn, schema, table):
+def get_integer_type(conn, table, column):
     with conn.cursor() as cursor:
         query = SQL(
-            """
-select column_name
-from information_schema.columns
-where table_schema = %s
-    and table_name = %s;"""
+            """select bool_and({column} = trunc({column})
+                       and {column} >= -9223372036854775808
+                       and {column} < 9223372036854775808),
+       bool_and({column} >= -2147483648 and {column} <= 2147483647)
+from {table}"""
+        ).format(column=Identifier(column), table=Identifier(table))
+        cursor.execute(query)
+        valid, fits_integer = cursor.fetchone()
+    if valid is False:
+        raise ValueError(
+            f"Invalid column `{column}`: expected finite integers within bigint range"
         )
-        cursor.execute(query, (schema, table))
-        cols = []
-        for row in cursor:
-            cols.append(row[0])
-        return cols
+    return "bigint" if fits_integer is False else "integer"
 
 
-def get_column_concat_sql(cols):
-    idents = [Identifier(col) for col in cols]
-    return SQL(" || '-' || ").join(idents)
+def validate_lut(conn, table):
+    integer_columns = ["ctnum", "lc", "ctnuml4a", "ctnumdiv"]
+    flag_columns = ["eaa", "al", "pgrass", "tgrass", "fallow", "cwater"]
+    types = get_table_column_types(conn, "public", table)
+    errors = []
+
+    column_type = types.get("ori_crop")
+    if column_type is None:
+        errors.append("missing column `ori_crop`")
+    elif column_type != "text" and column_type not in NUMERIC_TYPES:
+        errors.append(
+            f"column `ori_crop` has type {column_type}, expected text or numeric"
+        )
+
+    for column in integer_columns:
+        column_type = types.get(column)
+        if column_type is None:
+            errors.append(f"missing column `{column}`")
+        elif column_type not in INTEGER_TYPES:
+            errors.append(f"column `{column}` has type {column_type}, expected integer")
+
+    for column in flag_columns:
+        column_type = types.get(column)
+        if column_type is None:
+            errors.append(f"missing column `{column}`")
+        elif column_type not in INTEGER_TYPES and column_type != "boolean":
+            errors.append(
+                f"column `{column}` has type {column_type}, expected integer or boolean"
+            )
+    if errors:
+        raise ValueError(f"Invalid LUT: {'; '.join(errors)}")
+
+    with conn.cursor() as cursor:
+        for column in flag_columns:
+            if types[column] == "boolean":
+                continue
+            query = SQL(
+                "select {col} from {table} where {col} not in (0, 1) limit 1"
+            ).format(col=Identifier(column), table=Identifier(table))
+            cursor.execute(query)
+            row = cursor.fetchone()
+            if row is not None:
+                raise ValueError(
+                    f"Invalid LUT column `{column}` expected 0 or 1, got {row[0]!r}"
+                )
+    return types
+
+
+def validate_lpis(conn, table, parcel_id_cols, holding_id_cols, crop_code_col):
+    types = get_table_column_types(conn, "public", table)
+    errors = []
+    for column in parcel_id_cols + holding_id_cols + [crop_code_col]:
+        column_type = types.get(column)
+        if column_type is None:
+            errors.append(f"missing column `{column}`")
+        elif column_type != "text" and column_type not in NUMERIC_TYPES:
+            errors.append(
+                f"column `{column}` has type {column_type}, expected text or numeric"
+            )
+    for column in ["ori_id", "ori_hold", "ori_crop"]:
+        if column in types:
+            errors.append(f"`{column}` is not an allowed LPIS column name")
+    if errors:
+        raise ValueError(f"Invalid LPIS: {'; '.join(errors)}")
+    return types
+
+
+def adjust_crop_code_types(conn, tables):
+    types = {
+        table: get_table_column_types(conn, "public", table, ["ori_crop"])["ori_crop"]
+        for table in tables
+    }
+    column_types = set(types.values())
+    if len(column_types) <= 1:
+        return next(iter(column_types), None)
+
+    if "smallint" in column_types or "integer" in column_types:
+        target_type = "integer"
+    else:
+        target_type = "bigint"
+
+    try:
+        with conn.cursor() as cursor:
+            if target_type == "integer":
+                for table, column_type in types.items():
+                    if column_type != "bigint":
+                        continue
+                    cursor.execute(
+                        SQL(
+                            "select exists (select * from {} "
+                            "where ori_crop not between -2147483648 and 2147483647)"
+                        ).format(Identifier(table))
+                    )
+                    if cursor.fetchone()[0]:
+                        target_type = "bigint"
+                        break
+            for table, column_type in types.items():
+                if column_type == target_type:
+                    continue
+                logging.info(
+                    "Converting %s.ori_crop from %s to %s",
+                    table,
+                    column_type,
+                    target_type,
+                )
+                cursor.execute(
+                    SQL(
+                        "alter table {table} alter column ori_crop type {type} "
+                        "using ori_crop::{type}"
+                    ).format(table=Identifier(table), type=SQL(target_type))
+                )
+    except psycopg2.DataError as exc:
+        raise ValueError(
+            "Cannot match crop codes: `ori_crop` contains values that cannot be "
+            f"converted to {target_type}: {exc.diag.message_primary}"
+        ) from exc
+    return target_type
 
 
 def table_exists(conn, schema, name):
@@ -230,19 +363,16 @@ select exists (
         return cursor.fetchone()[0]
 
 
-def column_exists(conn, schema, table, column):
-    return get_column_type(conn, schema, table, column) is not None
-
-
 def add_table_columns(conn, schema, table, columns):
+    existing_columns = get_table_column_types(conn, schema, table)
     with conn.cursor() as cursor:
         query = SQL("alter table {}\n").format(Identifier(table))
         to_add = []
         for column, ty in columns:
-            if get_column_type(conn, schema, table, column) is None:
+            if column not in existing_columns:
                 q = SQL("add column {} {}").format(Identifier(column), SQL(ty))
                 to_add.append(q)
-        if len(to_add) > 0:
+        if to_add:
             query += SQL(",\n").join(to_add)
             query += SQL(";")
             logging.debug(query.as_string(conn))
@@ -250,15 +380,16 @@ def add_table_columns(conn, schema, table, columns):
 
 
 def drop_table_columns(conn, schema, table, columns):
+    existing_columns = get_table_column_types(conn, schema, table)
     with conn.cursor() as cursor:
         query = SQL("alter table {}\n").format(Identifier(table))
-        to_add = []
+        to_drop = []
         for column in columns:
-            if get_column_type(conn, schema, table, column) is not None:
+            if column in existing_columns:
                 q = SQL("drop column if exists {}").format(Identifier(column))
-                to_add.append(q)
-        if len(to_add) > 0:
-            query += SQL(",\n").join(to_add)
+                to_drop.append(q)
+        if to_drop:
+            query += SQL(",\n").join(to_drop)
             query += SQL(";")
             logging.debug(query.as_string(conn))
             cursor.execute(query)
@@ -349,7 +480,7 @@ def get_site_utm_epsg_codes(conn, site_id):
             """
             select distinct
                    shape_tiles_s2.epsg_code
-            from sp_get_site_tiles(%s :: smallint, 1 :: smallint) site_tiles
+            from sp_get_site_tiles(%s::smallint, 1::smallint) site_tiles
             inner join shape_tiles_s2 on shape_tiles_s2.tile_id = site_tiles.tile_id;"""
         )
 
@@ -369,8 +500,8 @@ def get_site_tiles(conn, site_id):
             """
 select shape_tiles_s2.tile_id,
        shape_tiles_s2.epsg_code,
-       ST_AsBinary(ST_SnapToGrid(ST_Transform(shape_tiles_s2.geog :: geometry, shape_tiles_s2.epsg_code), 1)) as tile_extent
-from sp_get_site_tiles(%s :: smallint, 1 :: smallint) site_tiles
+       ST_AsBinary(ST_SnapToGrid(ST_Transform(shape_tiles_s2.geog::geometry, shape_tiles_s2.epsg_code), 1)) as tile_extent
+from sp_get_site_tiles(%s::smallint, 1::smallint) site_tiles
 inner join shape_tiles_s2 on shape_tiles_s2.tile_id = site_tiles.tile_id;"""
         )
         logging.debug(query.as_string(conn))
@@ -392,8 +523,6 @@ inner join shape_tiles_s2 on shape_tiles_s2.tile_id = site_tiles.tile_id;"""
 
 
 class DataPreparation:
-    DB_UPDATE_BATCH_SIZE = 1000
-
     def __init__(self, config, year, working_path):
         self.config = config
         self.year = year
@@ -403,7 +532,6 @@ class DataPreparation:
             print("Retrieving site tiles")
             site_name, self.site_geom = get_site_info(conn, config.site_id)
             self.tiles = get_site_tiles(conn, config.site_id)
-            # self.srid = get_site_srid(conn, lpis_table)
 
         self.lpis_table = f"decl_{site_name}_{year}"
         self.lpis_table_staging = f"decl_{site_name}_{year}_staging"
@@ -422,9 +550,6 @@ class DataPreparation:
         self.lpis_path = lpis_path
         self.working_path = working_path
 
-
-
-
     def get_connection(self):
         return psycopg2.connect(
             host=self.config.host,
@@ -439,7 +564,7 @@ class DataPreparation:
 
     def find_overlaps(self, srid, tile_counts, total):
         if total == 0:
-            return
+            return set()
 
         try:
             q = queue.Queue()
@@ -461,16 +586,17 @@ class DataPreparation:
             sys.stdout.write("\n")
             sys.stdout.flush()
 
-            overlaps = list(set.union(*map(set, [f.result() for f in futures])))
-            logging.info(f"{len(overlaps)} overlapping parcels")
-            self.mark_overlapping_parcels(overlaps)
+            overlaps = {parcel for future in futures for parcel in future.result()}
+            if overlaps:
+                logging.warning(f"{len(overlaps)} overlapping parcels")
+            return overlaps
         except Exception as e:
             logging.error(e)
             sys.exit(1)
 
     def find_duplicates(self, srid, tile_counts, total):
         if total == 0:
-            return
+            return set()
 
         try:
             q = queue.Queue()
@@ -492,9 +618,10 @@ class DataPreparation:
             sys.stdout.write("\n")
             sys.stdout.flush()
 
-            duplicates = list(set.union(*map(set, [f.result() for f in futures])))
-            logging.info(f"{len(duplicates)} duplicate parcels")
-            self.mark_duplicate_parcels(duplicates)
+            duplicates = {parcel for future in futures for parcel in future.result()}
+            if duplicates:
+                logging.warning(f"{len(duplicates)} duplicate parcels")
+            return duplicates
         except Exception as e:
             logging.error(e)
             sys.exit(1)
@@ -502,35 +629,52 @@ class DataPreparation:
     def prepare_lut(self, lut_path):
         with self.get_connection() as conn:
             print("Importing LUT")
+            is_csv = urlsplit(lut_path).path.lower().endswith(".csv")
+            lut_path = get_ogr_path(lut_path)
+            if lut_path.startswith("/vsizip/"):
+                is_csv = any(
+                    name.lower().endswith(".csv")
+                    for name in gdal.ReadDir(lut_path) or []
+                )
+            lut_ds = gdal.OpenEx(
+                lut_path,
+                gdal.OF_VECTOR,
+                # force CSV when a query string is present
+                allowed_drivers=["CSV"] if is_csv else [],
+                open_options=["AUTODETECT_TYPE=YES"] if is_csv else [],
+            )
             options = gdal.VectorTranslateOptions(
+                layerCreationOptions=["FID=ogc_fid", "PRECISION=NO"],
                 layerName=self.lut_table,
                 accessMode="overwrite",
-            )
-            lut_ds = gdal.OpenEx(
-                lut_path, gdal.OF_VECTOR, open_options=["AUTODETECT_TYPE=YES"]
             )
             gdal.VectorTranslate(
                 self.get_ogr_connection_string(), lut_ds, options=options
             )
 
             print("Preparing LUT")
+            column_types = validate_lut(conn, self.lut_table)
+            crop_type = column_types["ori_crop"]
+            if crop_type in NUMERIC_TYPES - INTEGER_TYPES:
+                crop_type = get_integer_type(conn, self.lut_table, "ori_crop")
             with conn.cursor() as cursor:
                 lut_pkey_name = f"{self.lut_table}_pkey"
                 lut_key_name = f"{self.lut_table}_ori_crop_key"
 
                 query = SQL(
-                    """alter table {}
+                    """alter table {table}
 drop column ogc_fid,
-alter column ctnum type int using ctnum :: int,
-alter column lc type int using lc :: int,
-alter column ctnuml4a type int using ctnuml4a :: int,
-alter column ctnumdiv type int using ctnumdiv :: int,
-alter column eaa type bit using eaa :: bit,
-alter column al type bit using al :: bit,
-alter column pgrass type bit using pgrass :: bit,
-alter column tgrass type bit using tgrass :: bit,
-alter column fallow type bit using fallow :: bit,
-alter column cwater type bit using cwater :: bit,
+alter column ori_crop type {crop_type} using ori_crop::{crop_type},
+alter column ctnum type int using ctnum::int,
+alter column lc type int using lc::int,
+alter column ctnuml4a type int using ctnuml4a::int,
+alter column ctnumdiv type int using ctnumdiv::int,
+alter column eaa type bit using eaa::int::bit,
+alter column al type bit using al::int::bit,
+alter column pgrass type bit using pgrass::int::bit,
+alter column tgrass type bit using tgrass::int::bit,
+alter column fallow type bit using fallow::int::bit,
+alter column cwater type bit using cwater::int::bit,
 alter column ctnum set not null,
 alter column lc set not null,
 alter column ctnuml4a set not null,
@@ -541,15 +685,18 @@ alter column pgrass set not null,
 alter column tgrass set not null,
 alter column fallow set not null,
 alter column cwater set not null,
-add constraint {} primary key(ctnum),
-add constraint {} unique(ori_crop);"""
+add constraint {pkey} primary key(ctnum),
+add constraint {key} unique(ori_crop);"""
                 ).format(
-                    Identifier(self.lut_table),
-                    Identifier(lut_pkey_name),
-                    Identifier(lut_key_name),
+                    table=Identifier(self.lut_table),
+                    crop_type=SQL(crop_type),
+                    pkey=Identifier(lut_pkey_name),
+                    key=Identifier(lut_key_name),
                 )
                 logging.debug(query.as_string(conn))
                 cursor.execute(query)
+                if table_exists(conn, "public", self.lpis_table):
+                    adjust_crop_code_types(conn, [self.lpis_table, self.lut_table])
                 conn.commit()
 
     def prepare_lpis_staging(
@@ -562,11 +709,12 @@ add constraint {} unique(ori_crop);"""
         parcel_id_offset,
         holding_id_offset,
     ):
-        if os.path.splitext(lpis)[1].lower() == ".zip":
-            lpis_adj = f"/vsizip/{lpis}"
-        else:
-            lpis_adj = lpis
-        ds = ogr.Open(lpis_adj, 0)
+        if not parcel_id_cols or not holding_id_cols or not crop_code_col:
+            raise ValueError(
+                "LPIS import requires --parcel-id-cols, --holding-id-cols and --crop-code-col"
+            )
+        lpis = get_ogr_path(lpis)
+        ds = ogr.Open(lpis, 0)
         layer = ds.GetLayer()
         srs = layer.GetSpatialRef()
         is_projected = srs.IsProjected()
@@ -578,14 +726,18 @@ add constraint {} unique(ori_crop);"""
 
         print("Importing LPIS")
         options = gdal.VectorTranslateOptions(
-            layerCreationOptions=["UNLOGGED=YES", "SPATIAL_INDEX=NONE"],
+            layerCreationOptions=[
+                "UNLOGGED=YES",
+                "SPATIAL_INDEX=NONE",
+                "FID=ogc_fid",
+                "GEOMETRY_NAME=wkb_geometry",
+                "PRECISION=NO",
+            ],
             geometryType="MULTIPOLYGON",
             layerName=self.lpis_table_staging,
             accessMode="overwrite",
         )
-        gdal.VectorTranslate(
-            self.get_ogr_connection_string(), lpis_adj, options=options
-        )
+        gdal.VectorTranslate(self.get_ogr_connection_string(), lpis, options=options)
 
         print("Preparing LPIS")
         with self.get_connection() as conn:
@@ -593,79 +745,68 @@ add constraint {} unique(ori_crop);"""
                 print("Initializing")
                 lpis_table_id = Identifier(self.lpis_table)
                 lpis_table_staging_id = Identifier(self.lpis_table_staging)
+                lpis_ids_table = f"{self.lpis_table}_ids"
+                lpis_ids_id = Identifier(lpis_ids_table)
 
-                for col in ["ori_id", "ori_hold", "ori_crop"]:
-                    if column_exists(conn, "public", self.lpis_table_staging, col):
-                        logging.error(
-                            f"`{col}` is not an allowed LPIS column name"
-                        )
-                        sys.exit(1)
-
-                ori_crop_type = get_column_type(
-                    conn, "public", self.lpis_table_staging, crop_code_col
+                column_types = validate_lpis(
+                    conn,
+                    self.lpis_table_staging,
+                    parcel_id_cols,
+                    holding_id_cols,
+                    crop_code_col,
                 )
-                if ori_crop_type == "character varying":
-                    ori_crop_type = "text"
-                elif ori_crop_type == "numeric":
-                    ori_crop_type = "int"
-                    query = SQL("alter table {} alter column {} type int;").format(
-                        lpis_table_staging_id, Identifier(crop_code_col)
-                    )
-                    logging.debug(query.as_string(conn))
-                    cursor.execute(query)
-
-                print("Adding computed columns")
-                cols = []
-                cols.append(("ori_id", "text"))
-                cols.append(("ori_hold", "text"))
-                cols.append(("ori_crop", ori_crop_type))
-                cols.append(("NewID", "int"))
-                cols.append(("HoldID", "int"))
-                add_table_columns(conn, "public", self.lpis_table_staging, cols)
-
-                print("Creating indexes")
-                create_index(conn, self.lpis_table_staging, ["ori_id"])
-                create_index(conn, self.lpis_table_staging, ["ori_hold"])
+                id_columns = {
+                    column: Identifier(column)
+                    for column in parcel_id_cols + holding_id_cols + [crop_code_col]
+                }
+                for column in id_columns:
+                    if column_types[column] in NUMERIC_TYPES - INTEGER_TYPES:
+                        column_type = get_integer_type(
+                            conn, self.lpis_table_staging, column
+                        )
+                        id_columns[column] = SQL("{}::{}").format(
+                            Identifier(column), SQL(column_type)
+                        )
+                cursor.execute(SQL("analyze {}").format(lpis_table_staging_id))
 
                 print("Computing parcel identifiers")
-                cols = [Identifier(col) for col in parcel_id_cols]
-                partition_key = SQL(", ").join(cols)
-
-                parcel_id_expr = get_column_concat_sql(parcel_id_cols)
-                holding_id_expr = get_column_concat_sql(holding_id_cols)
-                crop_code_expr = Identifier(crop_code_col)
+                cursor.execute(SQL("drop table if exists {}").format(lpis_ids_id))
                 query = SQL(
-                    """update {} lpis
-set ori_id = {} || d.discriminator,
-    ori_hold = {},
-    ori_crop = {}
-from (
+                    """create unlogged table {ids} as
+with parcels as (
     select ogc_fid,
-            case
-                when count = 1 then ''
-                when rn <= 26 then '-' || chr(64 + rn :: int)
-                else '-' || chr(64 + (rn / 26) :: int) || chr(64 + (rn % 26) :: int)
-            end as discriminator
-        from (
-            select ogc_fid,
-                row_number() over(partition by {} order by ogc_fid) as rn,
-                count(*) over(partition by {}) as count
-            from {}
-        ) t
-) d
-where d.ogc_fid = lpis.ogc_fid;"""
+           {parcel_id} as ori_id,
+           ({holding_id})::text as ori_hold,
+           {crop_code} as ori_crop,
+           row_number() over(partition by {partition} order by ogc_fid) as rn,
+           count(*) over(partition by {partition}) as count
+    from {staging}
+)
+select ogc_fid,
+       ori_id || case
+           when count = 1 then ''
+           when rn <= 26 then '-' || chr(64 + rn::int)
+           else '-' || chr(64 + (rn / 26)::int) || chr(64 + (rn % 26)::int)
+       end as ori_id,
+       ori_hold, ori_crop,
+       null::int as "NewID",
+       null::int as "HoldID",
+       true as is_new
+from parcels;"""
                 ).format(
-                    lpis_table_staging_id,
-                    parcel_id_expr,
-                    holding_id_expr,
-                    crop_code_expr,
-                    partition_key,
-                    partition_key,
-                    lpis_table_staging_id,
+                    ids=lpis_ids_id,
+                    staging=lpis_table_staging_id,
+                    parcel_id=SQL(" || '-' || ").join(
+                        id_columns[column] for column in parcel_id_cols
+                    ),
+                    holding_id=SQL(" || '-' || ").join(
+                        id_columns[column] for column in holding_id_cols
+                    ),
+                    crop_code=id_columns[crop_code_col],
+                    partition=SQL(", ").join(map(Identifier, parcel_id_cols)),
                 )
                 logging.debug(query.as_string(conn))
                 cursor.execute(query)
-                # conn.commit()
 
                 print("Fixing up types")
                 query = SQL(
@@ -673,10 +814,20 @@ where d.ogc_fid = lpis.ogc_fid;"""
 alter column ori_id set not null,
 alter column ori_hold set not null,
 alter column ori_crop set not null;"""
-                ).format(lpis_table_staging_id)
+                ).format(lpis_ids_id)
                 logging.debug(query.as_string(conn))
                 cursor.execute(query)
-                # conn.commit()
+
+                crop_tables = [lpis_ids_table]
+                reuse_lpis = mode != MODE_REPLACE and table_exists(
+                    conn, "public", self.lpis_table
+                )
+                if reuse_lpis:
+                    crop_tables.append(self.lpis_table)
+                if table_exists(conn, "public", self.lut_table):
+                    crop_tables.append(self.lut_table)
+                crop_code_type = adjust_crop_code_types(conn, crop_tables)
+                cursor.execute(SQL("analyze {}").format(lpis_ids_id))
 
                 if mode == MODE_REPLACE:
                     print("Removing old LPIS")
@@ -684,14 +835,17 @@ alter column ori_crop set not null;"""
                     logging.debug(query.as_string(conn))
                     cursor.execute(query)
 
-                    # conn.commit()
-
                 print("Making sure destination table exists")
                 query = SQL(
                     """create table if not exists {} (
     like {},
+    ori_id text not null,
+    ori_hold text not null,
+    ori_crop {} not null,
+    "NewID" int,
+    "HoldID" int,
     "GeomValid" boolean not null,
-    "Duplic" boolean,
+    "Duplic" boolean not null,
     "Overlap" boolean not null,
     "Area_meters" real not null,
     "ShapeInd" real,
@@ -702,247 +856,242 @@ alter column ori_crop set not null;"""
     updated_timestamp timestamp with time zone,
     geom_change_ratio real
 );"""
-                ).format(lpis_table_id, lpis_table_staging_id)
+                ).format(lpis_table_id, lpis_table_staging_id, SQL(crop_code_type))
                 logging.debug(query.as_string(conn))
                 cursor.execute(query)
-                # conn.commit()
 
                 print("Fixing up columns")
                 drop_table_columns(conn, "public", self.lpis_table, ["ogc_fid"])
 
-                cols = []
-                cols.append(("is_deleted", "boolean default false"))
-                cols.append(
-                    (
-                        "inserted_timestamp",
-                        "timestamp with time zone not null default now()",
+                if reuse_lpis:
+                    add_table_columns(
+                        conn,
+                        "public",
+                        self.lpis_table,
+                        [
+                            ("is_deleted", "boolean default false"),
+                            (
+                                "inserted_timestamp",
+                                "timestamp with time zone not null default now()",
+                            ),
+                            ("updated_timestamp", "timestamp with time zone"),
+                            ("geom_change_ratio", "real"),
+                        ],
                     )
-                )
-                cols.append(("updated_timestamp", "timestamp with time zone"))
-                cols.append(("geom_change_ratio", "real"))
-                add_table_columns(conn, "public", self.lpis_table, cols)
+                    create_index(conn, self.lpis_table, ["ori_id"])
+                    create_index(conn, self.lpis_table, ["ori_hold"])
 
-                create_index(conn, self.lpis_table, ["ori_id"])
-                create_index(conn, self.lpis_table, ["ori_hold"])
-                # create_index(conn, self.lpis_table, ["NewID"])
-                # create_index(conn, self.lpis_table, ["HoldID"])
-
-                add_table_columns(
-                    conn, "public", self.lpis_table_staging, [("is_new", "bool")]
-                )
-
-                print("Finding existing parcels")
-                query = SQL(
-                    """update {} new
-set is_new = true
-where not exists (
-    select *
-    from {} old
-    where old.ori_id = new.ori_id
-);"""
-                ).format(lpis_table_staging_id, lpis_table_id)
-                logging.debug(query.as_string(conn))
-                cursor.execute(query)
-                # conn.commit()
-
-                print("Copying old parcel identifiers")
-                query = SQL(
-                    """update {} new
-set "NewID" = old."NewID"
-from {} old
-where old.ori_id = new.ori_id;"""
-                ).format(lpis_table_staging_id, lpis_table_id)
-                logging.debug(query.as_string(conn))
-                cursor.execute(query)
-                #         conn.commit()
-
-                print("Renumbering new parcels")
-                query = SQL(
-                    """update {} new
-set "NewID" = t.rn + %s + (
-    select coalesce(max("NewID"), 0)
-    from {}
-)
-from (
-    select ogc_fid as id, row_number() over (order by ori_id) as rn
-    from {}
-    where "NewID" is null
-) t
-where new.ogc_fid = t.id;"""
-                ).format(lpis_table_staging_id, lpis_table_id, lpis_table_staging_id)
-                logging.debug(query.as_string(conn))
-                cursor.execute(query, (parcel_id_offset,))
-                # conn.commit()
-
-                print("Copying old holding identifiers")
-                query = SQL(
-                    """
-with old as (
-    select distinct on (ori_hold)
-            ori_hold,
-            "HoldID"
+                    print("Copying existing parcel and holding identifiers")
+                    query = SQL(
+                        """with holdings as (
+    select ori_hold, min("HoldID") as "HoldID"
     from {lpis}
-    order by ori_hold, "HoldID"
+    group by ori_hold
+), matches as (
+    select new.ogc_fid, old."NewID", holdings."HoldID",
+           old.ori_id is null as is_new
+    from {ids} new
+    left join {lpis} old on old.ori_id = new.ori_id
+    left join holdings on holdings.ori_hold = new.ori_hold
 )
-update {lpis_staging} new
-set "HoldID" = old."HoldID"
-from old
-where new.ori_hold = old.ori_hold;"""
-                ).format(lpis=lpis_table_id, lpis_staging=lpis_table_staging_id)
-                logging.debug(query.as_string(conn))
-                cursor.execute(query)
-                # conn.commit()
+update {ids} new
+set "NewID" = matches."NewID",
+    "HoldID" = matches."HoldID",
+    is_new = matches.is_new
+from matches
+where new.ogc_fid = matches.ogc_fid;"""
+                    ).format(lpis=lpis_table_id, ids=lpis_ids_id)
+                    logging.debug(query.as_string(conn))
+                    cursor.execute(query)
 
-                print("Renumbering new holdings")
+                    query = SQL(
+                        'select coalesce(max("NewID"), 0), coalesce(max("HoldID"), 0) from {}'
+                    ).format(lpis_table_id)
+                    logging.debug(query.as_string(conn))
+                    cursor.execute(query)
+                    parcel_base, holding_base = cursor.fetchone()
+                else:
+                    parcel_base = holding_base = 0
+
+                print("Renumbering new parcels and holdings")
                 query = SQL(
-                    """
-update {} new
-set "HoldID" = t.rk + %s + (
-    select coalesce(max("HoldID"), 0)
-    from {}
-)
-from (
-    select ogc_fid as id,
-        dense_rank() over (order by ori_hold) as rk
-    from {}
+                    """with parcels as (
+    select ogc_fid, row_number() over (order by ori_id) + %s as "NewID"
+    from {ids}
+    where "NewID" is null
+), holdings as (
+    select ogc_fid, dense_rank() over (order by ori_hold) + %s as "HoldID"
+    from {ids}
     where "HoldID" is null
-) t
-where new.ogc_fid = t.id;"""
-                ).format(lpis_table_staging_id, lpis_table_id, lpis_table_staging_id)
+)
+update {ids} new
+set "NewID" = coalesce(new."NewID", parcels."NewID"),
+    "HoldID" = coalesce(new."HoldID", holdings."HoldID")
+from parcels
+full join holdings using (ogc_fid)
+where new.ogc_fid = coalesce(parcels.ogc_fid, holdings.ogc_fid);"""
+                ).format(ids=lpis_ids_id)
                 logging.debug(query.as_string(conn))
-                cursor.execute(query, (holding_id_offset,))
-                # conn.commit()
+                cursor.execute(
+                    query,
+                    (parcel_id_offset + parcel_base, holding_id_offset + holding_base),
+                )
+
+                print("Creating identifier indexes")
+                create_primary_key(conn, lpis_ids_table, ["ogc_fid"])
+                create_index(conn, lpis_ids_table, ["ori_id"])
+                cursor.execute(SQL("analyze {}").format(lpis_ids_id))
 
                 conn.commit()
-                if mode != MODE_INCREMENTAL:
+                if reuse_lpis and mode != MODE_INCREMENTAL:
                     print("Marking deleted parcels")
                     query = SQL(
                         """
 update {} old
 set is_deleted = true,
     updated_timestamp = now()
-where not exists (
+where old.is_deleted is not true
+and not exists (
     select *
     from {} new
     where new.ori_id = old.ori_id
 );"""
-                    ).format(lpis_table_id, lpis_table_staging_id)
+                    ).format(lpis_table_id, lpis_ids_id)
                     logging.debug(query.as_string(conn))
                     cursor.execute(query)
                     conn.commit()
 
-                drop_index(conn, self.lpis_table, ["ori_id"])
-                drop_index(conn, self.lpis_table, ["ori_hold"])
-                drop_spatial_index(conn, self.lpis_table, "wkb_geometry")
-
-                print("Updating existing parcels")
-                cols = get_table_columns(conn, "public", self.lpis_table_staging)
-                p_old_cols = SQL("(")
-                old_cols = SQL("(")
-                new_cols = SQL("(")
-                for col in cols:
-                    if col in ("ogc_fid", "is_new", "NewID", "ori_id", "wkb_geometry"):
-                        continue
-
-                    col_id = Identifier(col)
-                    old_cols += SQL("{}, ").format(col_id)
-                    p_old_cols += SQL("old.{}, ").format(col_id)
-                    new_cols += SQL("new.{}, ").format(col_id)
-                old_cols += SQL("wkb_geometry)")
-                p_old_cols += SQL("old.wkb_geometry)")
-                new_cols += SQL("new.wkb_geometry)")
-                if is_projected:
-                    area_expr = SQL(
-                        "coalesce(ST_Area(ST_MakeValid(new.wkb_geometry)), 0)"
-                    )
-                    perimeter_expr = SQL("ST_Perimeter(ST_MakeValid(new.wkb_geometry))")
-                else:
-                    area_expr = SQL(
-                        "coalesce(ST_Area(ST_MakeValid(new.wkb_geometry) :: geography), 0)"
-                    )
-                    perimeter_expr = SQL(
-                        "ST_Perimeter(ST_MakeValid(new.wkb_geometry) :: geography)"
-                    )
-                query = SQL(
-                    """
-update {} old
-set {} = {},
-    "GeomValid" = coalesce(ST_IsValid(new.wkb_geometry), false),
-    "Overlap" = false,
-    "Duplic" = false,
-    "Area_meters" = {},
-    "ShapeInd" = {} / (2 * sqrt(pi() * nullif({}, 0))),
-    "S1Pix" = 0,
-    "S2Pix" = 0,
-    is_deleted = false,
-    updated_timestamp = now(),
-    geom_change_ratio = ST_Area(ST_SymDifference(ST_MakeValid(old.wkb_geometry), ST_MakeValid(new.wkb_geometry))) / ST_Area(ST_Union(ST_MakeValid(old.wkb_geometry), ST_MakeValid(new.wkb_geometry)))
-from {} new
-where new.ori_id = old.ori_id
-and {} is distinct from {};"""
+                raw_cols = [col for col in column_types if col != "is_new"]
+                id_cols = [
+                    "ori_id",
+                    "ori_hold",
+                    "ori_crop",
+                    "NewID",
+                    "HoldID",
+                    "is_new",
+                ]
+                cols = raw_cols + id_cols
+                parcel_source = SQL(
+                    """select {columns}, {id_columns}
+from {staging} staging
+join {ids} ids using (ogc_fid)"""
                 ).format(
-                    lpis_table_id,
-                    old_cols,
-                    new_cols,
-                    area_expr,
-                    perimeter_expr,
-                    area_expr,
-                    lpis_table_staging_id,
-                    new_cols,
-                    p_old_cols,
+                    columns=SQL(", ").join(
+                        SQL("staging.{}").format(Identifier(col)) for col in raw_cols
+                    ),
+                    id_columns=SQL(", ").join(
+                        SQL("ids.{}").format(Identifier(col)) for col in id_cols
+                    ),
+                    staging=lpis_table_staging_id,
+                    ids=lpis_ids_id,
                 )
-                logging.debug(query.as_string(conn))
-                cursor.execute(query)
-                conn.commit()
+                if is_projected:
+                    area_expr = SQL("coalesce(ST_Area(new_geom), 0)")
+                    perimeter_expr = SQL("ST_Perimeter(new_geom)")
+                else:
+                    area_expr = SQL("coalesce(ST_Area(new_geom::geography), 0)")
+                    perimeter_expr = SQL("ST_Perimeter(new_geom::geography)")
+                if reuse_lpis:
+                    drop_index(conn, self.lpis_table, ["ori_hold"])
+                    drop_spatial_index(conn, self.lpis_table, "wkb_geometry")
 
-                query = SQL(
-                    """
-update {}
-set "Overlap" = false,
-    "Duplic" = false
-where "Overlap" or "Duplic";"""
-                ).format(lpis_table_id)
-                logging.debug(query.as_string(conn))
-                cursor.execute(query)
-                conn.commit()
-
-                print("Inserting new parcels")
-                insert_cols = SQL(", ").join(
-                    [
+                    print("Updating existing parcels")
+                    attribute_cols = [
                         Identifier(col)
                         for col in cols
-                        if col not in ("ogc_fid", "is_new")
+                        if col
+                        not in ("ogc_fid", "is_new", "NewID", "ori_id", "wkb_geometry")
                     ]
-                )
-                if is_projected:
-                    area_expr = SQL("coalesce(ST_Area(ST_MakeValid(wkb_geometry)), 0)")
-                    perimeter_expr = SQL("ST_Perimeter(ST_MakeValid(wkb_geometry))")
-                else:
-                    area_expr = SQL(
-                        "coalesce(ST_Area(ST_MakeValid(wkb_geometry) :: geography), 0)"
+                    old_cols = SQL(", ").join(attribute_cols)
+                    p_old_cols = SQL(", ").join(
+                        SQL("old.{}").format(col) for col in attribute_cols
                     )
-                    perimeter_expr = SQL(
-                        "ST_Perimeter(ST_MakeValid(wkb_geometry) :: geography)"
+                    new_cols = SQL(", ").join(
+                        SQL("new.{}").format(col) for col in attribute_cols
                     )
+                    query = SQL(
+                        """
+with parcels as not materialized (
+    {source}
+), geometries as materialized (
+    select new.ogc_fid,
+           coalesce(ST_IsValid(new.wkb_geometry), false) as geom_valid,
+           ST_MakeValid(new.wkb_geometry) as new_geom,
+           ST_MakeValid(old.wkb_geometry) as old_geom
+    from parcels new
+    join {lpis} old on old.ori_id = new.ori_id
+    where new.wkb_geometry is distinct from old.wkb_geometry
+), measurements as materialized (
+    select ogc_fid, geom_valid,
+           {area} as area,
+           {perimeter} as perimeter,
+           ST_Area(ST_SymDifference(old_geom, new_geom)) / ST_Area(ST_Union(old_geom, new_geom)) as change_ratio
+    from geometries
+)
+update {lpis} old
+set ({columns}) = ({new_columns}),
+    wkb_geometry = case when m.ogc_fid is null then old.wkb_geometry else new.wkb_geometry end,
+    "GeomValid" = case when m.ogc_fid is null then old."GeomValid" else m.geom_valid end,
+    "Area_meters" = case when m.ogc_fid is null then old."Area_meters" else m.area end,
+    "ShapeInd" = case when m.ogc_fid is null then old."ShapeInd" else m.perimeter / (2 * sqrt(pi() * nullif(m.area, 0))) end,
+    "S1Pix" = case when m.ogc_fid is null then old."S1Pix" else 0 end,
+    "S2Pix" = case when m.ogc_fid is null then old."S2Pix" else 0 end,
+    is_deleted = false,
+    updated_timestamp = now(),
+    geom_change_ratio = case when m.ogc_fid is null then old.geom_change_ratio else m.change_ratio end
+from parcels new
+left join measurements m on m.ogc_fid = new.ogc_fid
+where new.ori_id = old.ori_id
+and (old.is_deleted or m.ogc_fid is not null or ({new_columns}) is distinct from ({old_columns}));"""
+                    ).format(
+                        lpis=lpis_table_id,
+                        source=parcel_source,
+                        columns=old_cols,
+                        new_columns=new_cols,
+                        old_columns=p_old_cols,
+                        area=area_expr,
+                        perimeter=perimeter_expr,
+                    )
+                    logging.debug(query.as_string(conn))
+                    cursor.execute(query)
+                    conn.commit()
+
+                print("Inserting new parcels")
+                insert_cols = [
+                    Identifier(col) for col in cols if col not in ("ogc_fid", "is_new")
+                ]
                 query = SQL(
                     """
-insert into {}({}, "GeomValid", "Duplic", "Overlap", "Area_meters", "ShapeInd")
-select {},
-    coalesce(ST_IsValid(wkb_geometry), false) as "GeomValid",
+with parcels as not materialized (
+    {source}
+), geometries as materialized (
+    select ogc_fid,
+           coalesce(ST_IsValid(wkb_geometry), false) as geom_valid,
+           ST_MakeValid(wkb_geometry) as new_geom
+    from parcels
+    where is_new
+), measurements as materialized (
+    select ogc_fid, geom_valid, {area} as area, {perimeter} as perimeter
+    from geometries
+)
+insert into {lpis}({columns}, "GeomValid", "Duplic", "Overlap", "Area_meters", "ShapeInd")
+select {new_columns},
+    m.geom_valid,
     false as "Duplic",
     false as "Overlap",
-    {} as "Area_meters",
-    {} / (2 * sqrt(pi() * nullif({}, 0))) as "ShapeInd"
-from {}
-where is_new;"""
+    m.area as "Area_meters",
+    m.perimeter / (2 * sqrt(pi() * nullif(m.area, 0))) as "ShapeInd"
+from parcels new
+join measurements m on m.ogc_fid = new.ogc_fid;"""
                 ).format(
-                    lpis_table_id,
-                    insert_cols,
-                    insert_cols,
-                    area_expr,
-                    perimeter_expr,
-                    area_expr,
-                    lpis_table_staging_id,
+                    lpis=lpis_table_id,
+                    source=parcel_source,
+                    columns=SQL(", ").join(insert_cols),
+                    new_columns=SQL(", ").join(
+                        SQL("new.{}").format(col) for col in insert_cols
+                    ),
+                    area=area_expr,
+                    perimeter=perimeter_expr,
                 )
                 logging.debug(query.as_string(conn))
                 cursor.execute(query)
@@ -950,13 +1099,17 @@ where is_new;"""
                 conn.commit()
 
                 print("Cleaning up")
-                query = SQL("drop table {};").format(lpis_table_staging_id)
+                query = SQL("drop table {}, {};").format(
+                    lpis_table_staging_id, lpis_ids_id
+                )
                 logging.debug(query.as_string(conn))
                 cursor.execute(query)
 
                 print("Creating indexes")
                 create_spatial_index(conn, self.lpis_table, "wkb_geometry")
                 create_primary_key(conn, self.lpis_table, ["NewID"])
+                create_index(conn, self.lpis_table, ["ori_id"])
+                cursor.execute(SQL("analyze {}").format(lpis_table_id))
 
     def prepare_lpis(self):
         with self.get_connection() as conn:
@@ -967,10 +1120,11 @@ where is_new;"""
         total = 0
         for c in tile_counts.values():
             total += c
-        self.find_overlaps(srid, tile_counts, total)
-        self.find_duplicates(srid, tile_counts, total)
+        overlaps = self.find_overlaps(srid, tile_counts, total)
+        duplicates = self.find_duplicates(srid, tile_counts, total)
+        self.update_parcel_flags(overlaps, duplicates)
 
-    def export_lpis(self):
+    def export_lpis(self, full_vacuum=False):
         with self.get_connection() as conn:
             if not table_exists(conn, "public", self.lpis_table):
                 logging.info("LPIS table does not exist, skipping export")
@@ -980,8 +1134,6 @@ where is_new;"""
                 return
 
         commands = []
-        class_counts = []
-        class_counts_20m = []
         base = self.lpis_table
 
         with self.get_connection() as conn:
@@ -1008,7 +1160,7 @@ where is_new;"""
                     sql = SQL(
                         """
 with transformed as (
-    select epsg_code, ST_Transform(shape_tiles_s2.geog :: geometry, Find_SRID('public', {}, 'wkb_geometry')) as geom
+    select epsg_code, ST_Transform(shape_tiles_s2.geog::geometry, Find_SRID('public', {}, 'wkb_geometry')) as geom
     from shape_tiles_s2
     where tile_id = {}
 )
@@ -1064,9 +1216,7 @@ where "GeomValid"
         sys.stdout.flush()
         for i in range(len(commands)):
             progress += q.get()
-            sys.stdout.write(
-                f"\rRasterizing LPIS: {100.0 * progress / total:.2f}%"
-            )
+            sys.stdout.write(f"\rRasterizing LPIS: {100.0 * progress / total:.2f}%")
             sys.stdout.flush()
         sys.stdout.write("\n")
         sys.stdout.flush()
@@ -1168,7 +1318,10 @@ when not matched by source and (
             with conn.cursor() as cursor:
                 print("Cleaning up")
                 conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
-                sql = SQL("vacuum full {};").format(Identifier(self.lpis_table))
+                sql = SQL("vacuum ({}) {};").format(
+                    SQL("full, analyze" if full_vacuum else "analyze"),
+                    Identifier(self.lpis_table),
+                )
                 logging.debug(sql.as_string(conn))
                 cursor.execute(sql)
                 conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_DEFAULT)
@@ -1188,7 +1341,7 @@ where site_id = %s
                 cursor.execute(sql, (self.config.site_id, PRODUCT_TYPE_LPIS, dt))
 
                 sql = SQL(
-                    "select sp_insert_product(%s :: smallint, %s :: smallint, null, %s :: smallint, null, %s, %s, %s, null, null, null, %s);"
+                    "select sp_insert_product(%s::smallint, %s::smallint, null, %s::smallint, null, %s, %s, %s, null, null, null, %s);"
                 )
                 logging.debug(sql.as_string(conn))
                 cursor.execute(
@@ -1294,9 +1447,7 @@ where "GeomValid"
         sys.stdout.flush()
         for i in range(len(commands)):
             progress += q.get()
-            sys.stdout.write(
-                f"\rExporting data: {100.0 * progress / total:.2f}%"
-            )
+            sys.stdout.write(f"\rExporting data: {100.0 * progress / total:.2f}%")
             sys.stdout.flush()
         sys.stdout.write("\n")
         sys.stdout.flush()
@@ -1307,13 +1458,37 @@ where "GeomValid"
             print("Moving exported table")
             shutil.copy2(gpkg_working, gpkg)
 
+        with self.get_connection() as conn, conn.cursor() as cursor:
+            query = SQL(
+                """
+with site_geometry as materialized (
+    select ST_Transform(geog::geometry, Find_SRID('public', %s, 'wkb_geometry')) as geom
+    from site
+    where id = %s
+)
+select count(*) filter (where "S1Pix" = 0),
+       count(*) filter (where "S2Pix" = 0),
+       count(*) filter (where not ST_Intersects(wkb_geometry, site_geometry.geom))
+from {}, site_geometry
+where not is_deleted;"""
+            ).format(Identifier(self.lpis_table))
+            logging.debug(query.as_string(conn))
+            cursor.execute(query, (self.lpis_table, self.config.site_id))
+            s1_zero_pixels, s2_zero_pixels, outside_site = cursor.fetchone()
+            if s1_zero_pixels:
+                logging.warning(f"{s1_zero_pixels} parcels have 0 S1 pixels")
+            if s2_zero_pixels:
+                logging.warning(f"{s2_zero_pixels} parcels have 0 S2 pixels")
+            if outside_site:
+                logging.warning(f"{outside_site} parcels are outside the site")
+
     def get_tile_parcel_counts(self, srid):
         print("Counting parcels")
         with self.get_connection() as conn, conn.cursor() as cursor:
             query = SQL(
                 """
 with tiles as (
-    select tile_id, ST_Transform(geog :: geometry, %s) as geom
+    select tile_id, ST_Transform(geog::geometry, %s) as geom
     from shape_tiles_s2
     where tile_id = any(%s)
 )
@@ -1344,7 +1519,7 @@ from tiles;"""
                     query = SQL(
                         """
 with tile as (
-    select ST_Transform(geog :: geometry, %s) as geom
+    select ST_Transform(geog::geometry, %s) as geom
     from shape_tiles_s2
     where tile_id = %s
 )
@@ -1384,7 +1559,7 @@ and ST_Intersects(lpis.wkb_geometry, tile.geom);"""
                 query = SQL(
                     """
     with tile as (
-        select ST_Transform(geog :: geometry, %s) as geom
+        select ST_Transform(geog::geometry, %s) as geom
         from shape_tiles_s2
         where tile_id = %s
     )
@@ -1408,63 +1583,39 @@ and ST_Intersects(lpis.wkb_geometry, tile.geom);"""
             logging.error(e)
             sys.exit(1)
 
-    def mark_overlapping_parcels(self, parcels):
-        try:
-            total = len(parcels)
-            if not total:
-                return
-            progress = 0
-            sys.stdout.write("Marking overlapping parcels: 0.00%")
-            sys.stdout.flush()
-            with self.get_connection() as conn, conn.cursor() as cursor:
-                for b in batch(parcels, self.DB_UPDATE_BATCH_SIZE):
-                    sql = SQL(
-                        'update {} set "Overlap" = true where "NewID" = any(%s)'
-                    )
-                    sql = sql.format(Identifier(self.lpis_table))
-                    logging.debug(sql.as_string(conn))
-                    cursor.execute(sql, (b,))
-                    conn.commit()
+    def update_parcel_flags(self, overlaps, duplicates):
+        print("Updating parcel flags")
+        with (
+            tempfile.TemporaryFile(mode="w+") as flags,
+            self.get_connection() as conn,
+            conn.cursor() as cursor,
+        ):
+            for parcel in overlaps | duplicates:
+                flags.write(f"{parcel}\t{parcel in overlaps}\t{parcel in duplicates}\n")
+            flags.seek(0)
 
-                    progress += len(b)
-                    sys.stdout.write(
-                        f"\rMarking overlapping parcels: {100.0 * progress / total:.2f}%"
-                    )
-                    sys.stdout.flush()
-                sys.stdout.write("\n")
-                sys.stdout.flush()
-        except Exception as e:
-            logging.error(e)
-            sys.exit(1)
-
-    def mark_duplicate_parcels(self, parcels):
-        try:
-            total = len(parcels)
-            if not total:
-                return
-            progress = 0
-            sys.stdout.write("Marking duplicate parcels: 0.00%")
-            sys.stdout.flush()
-            with self.get_connection() as conn, conn.cursor() as cursor:
-                for b in batch(parcels, self.DB_UPDATE_BATCH_SIZE):
-                    sql = SQL(
-                        'update {} set "Duplic" = true where "NewID" = any(%s)'
-                    )
-                    sql = sql.format(Identifier(self.lpis_table))
-                    logging.debug(sql.as_string(conn))
-                    cursor.execute(sql, (b,))
-                    conn.commit()
-
-                    progress += len(b)
-                    sys.stdout.write(
-                        f"\rMarking duplicate parcels: {100.0 * progress / total:.2f}%"
-                    )
-                    sys.stdout.flush()
-                sys.stdout.write("\n")
-                sys.stdout.flush()
-        except Exception as e:
-            logging.error(e)
-            sys.exit(1)
+            cursor.execute(
+                "create temp table parcel_flags "
+                "(id int primary key, overlap boolean not null, duplic boolean not null) on commit drop"
+            )
+            cursor.copy_expert("copy parcel_flags from stdin", flags)
+            cursor.execute("analyze parcel_flags")
+            query = SQL(
+                """
+merge into {} as lpis
+using parcel_flags as flags
+on lpis."NewID" = flags.id
+when matched and (lpis."Overlap", lpis."Duplic") <> (flags.overlap, flags.duplic) then
+    update set "Overlap" = flags.overlap,
+               "Duplic" = flags.duplic
+when not matched by source and (
+    lpis."Overlap" or lpis."Duplic"
+) then
+    update set "Overlap" = false,
+               "Duplic" = false;"""
+            ).format(Identifier(self.lpis_table))
+            logging.debug(query.as_string(conn))
+            cursor.execute(query)
 
     def compute_tile_bounds(self):
         print("Computing tile bounds")
@@ -1494,12 +1645,6 @@ and ST_Intersects(lpis.wkb_geometry, tile.geom);"""
             )
 
 
-def batch(iterable, n=1):
-    count = len(iterable)
-    for first in range(0, count, n):
-        yield iterable[first : min(first + n, count)]
-
-
 def get_lpis_path(conn, site_id):
     with conn.cursor() as cursor:
         query = SQL(
@@ -1519,6 +1664,7 @@ order by site_id;"""
 
 def main():
     gdal.UseExceptions()
+    gdal.SetConfigOption("OGR_PG_STRING_TYPE", "TEXT")
 
     parser = argparse.ArgumentParser(description="Imports an LPIS or LUT")
     parser.add_argument(
@@ -1572,17 +1718,15 @@ def main():
     else:
         mode = MODE_UPDATE
 
-    logging.basicConfig(level=level)
+    logging.basicConfig(level=level, format="%(levelname)s: %(message)s")
 
     config = Config(args)
     data_preparation = DataPreparation(config, args.year, args.working_path)
 
     if args.lut is not None:
-        args.lut = os.path.realpath(args.lut)
         data_preparation.prepare_lut(args.lut)
 
     if args.lpis is not None:
-        args.lpis = os.path.realpath(args.lpis)
         data_preparation.prepare_lpis_staging(
             mode,
             args.parcel_id_cols,
@@ -1596,7 +1740,9 @@ def main():
         data_preparation.compute_tile_bounds()
 
     if args.lpis or args.lut or args.export:
-        data_preparation.export_lpis()
+        data_preparation.export_lpis(
+            full_vacuum=args.lpis is not None and mode == MODE_REPLACE
+        )
 
 
 if __name__ == "__main__":
