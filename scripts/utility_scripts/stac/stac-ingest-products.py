@@ -375,7 +375,7 @@ def build_item(row):
         "id": row["name"],
         "collection": product_type.name,
         "geometry": row["geom"],
-        "bbox": row["geom"]["bbox"] if row["geom"] else None,
+        "bbox": row["geom"].get("bbox") if row["geom"] else None,
         "properties": {
             "datetime": row["created_timestamp"].isoformat(),
         },
